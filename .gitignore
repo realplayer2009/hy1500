@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Build artifacts (qmake / make)
+RS485Control
+controlalgorithm_test
+controlalgorithm.o
+moc_predefs.h
+controlalgorithm_test.moc
+controlalgorithm_test.o
+target_wrapper.sh
+build/
+
+# Runtime data / logs
+data/logs/
+tests/simulator/run/
+sim.log
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE / tooling
+.omo/
+.vscode/
