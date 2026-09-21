@@ -672,12 +672,25 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
         spareStates.append(QString("OT%1 %2").arg(output).arg(
             values.contains(field) ? QString::number(values.value(field).toInt()) : "--"));
     }
+    QStringList expInStates;
+    for (int i = 1; i <= 5; ++i) {
+        const QString field = QString("exp_in%1").arg(i);
+        expInStates.append(values.contains(field)
+            ? QString::number(values.value(field).toInt()) : "--");
+    }
+    QStringList expOutStates;
+    for (int i = 1; i <= 7; ++i) {
+        const QString field = QString("exp_out%1").arg(i);
+        expOutStates.append(values.contains(field)
+            ? QString::number(values.value(field).toInt()) : "--");
+    }
     card->content()->setText(QString::fromUtf8(
         "<b>串口 %1  ·  子板 ID %2</b>　%3<br/>"
         "%4　<b style=\"font-size:17px;\">当前 %5</b><br/>"
         "%6<br/>"
         "温湿度  %7  /  %8　　PT100  %9<br/>"
-        "高压  %10 V　备用输入  %11　%12")
+        "高压  %10 V　备用输入  %11　%12<br/>"
+        "外扩输入 %13　外扩输出 %14")
         .arg(state.key.portIndex + 1).arg(state.key.slaveId).arg(stateText)
         .arg(modeText, stageText)
         .arg(mainOutputHtml)
@@ -688,7 +701,9 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
                  : "--.-")
         .arg(values.contains("reserved")
                  ? QString::number(values.value("reserved").toInt()) : "--")
-        .arg(spareStates.join("  ")));
+        .arg(spareStates.join("  "))
+        .arg(expInStates.join(""))
+        .arg(expOutStates.join("")));
     card->setProperty("online", state.online);
     card->setProperty("alarm", hasDeviceAlarm(values));
     refreshDynamicStyle(card);
@@ -968,6 +983,37 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
     }
     controls->addLayout(spareGrid);
 
+    auto *expInTitle = new QLabel(QString::fromUtf8("外扩输入"), controlCard);
+    expInTitle->setObjectName("metricTitle");
+    controls->addWidget(expInTitle);
+    auto *expInRow = new QHBoxLayout;
+    m_expInLabels.resize(5);
+    for (int i = 0; i < 5; ++i) {
+        auto *label = new QLabel(QString::fromUtf8("IN%1 --").arg(i + 1), controlCard);
+        label->setObjectName("metricValueSmall");
+        label->setAlignment(Qt::AlignCenter);
+        m_expInLabels[i] = label;
+        expInRow->addWidget(label);
+    }
+    controls->addLayout(expInRow);
+
+    auto *expOutTitle = new QLabel(QString::fromUtf8("外扩输出"), controlCard);
+    expOutTitle->setObjectName("metricTitle");
+    controls->addWidget(expOutTitle);
+    auto *expOutGrid = new QGridLayout;
+    for (int i = 0; i < 7; ++i) {
+        const QString field = QString("exp_out%1").arg(i + 1);
+        auto *button = new QPushButton(controlCard);
+        button->setObjectName("outputButton");
+        button->setCheckable(true);
+        button->setMinimumHeight(42);
+        button->setProperty("outputField", field);
+        m_expOutButtons[field] = button;
+        expOutGrid->addWidget(button, i / 2, i % 2);
+        connect(button, &QPushButton::clicked, this, &ManualPanel::toggleOutput);
+    }
+    controls->addLayout(expOutGrid);
+
     controls->addStretch();
     controlScroll->setWidget(controlCard);
     layout->addWidget(controlScroll, 3);
@@ -1125,6 +1171,35 @@ void ManualPanel::refreshControls()
         button->blockSignals(false);
         refreshDynamicStyle(button);
     }
+
+    for (auto it = m_expOutButtons.begin(); it != m_expOutButtons.end(); ++it) {
+        const QString field = it.key();
+        const int value = state.values.value(field).toInt();
+        QPushButton *button = it.value();
+        button->blockSignals(true);
+        button->setChecked(value != 0);
+        button->setEnabled(state.online);
+        button->setProperty("outputOn", value != 0);
+        QString outputName;
+        if (field == "exp_out6")
+            outputName = QString::fromUtf8("OUT6 闪烁灯");
+        else if (field == "exp_out7")
+            outputName = QString::fromUtf8("OUT7 蜂鸣器");
+        else
+            outputName = QString::fromUtf8("OUT%1").arg(field.mid(7).toInt());
+        button->setText(QString::fromUtf8("%1\n%2")
+                            .arg(outputName)
+                            .arg(value ? QString::fromUtf8("已打开")
+                                       : QString::fromUtf8("已关闭")));
+        button->blockSignals(false);
+        refreshDynamicStyle(button);
+    }
+
+    for (int i = 0; i < m_expInLabels.size(); ++i) {
+        const QString field = QString("exp_in%1").arg(i + 1);
+        const int value = state.values.contains(field) ? state.values.value(field).toInt() : 0;
+        m_expInLabels[i]->setText(QString::fromUtf8("IN%1 %2").arg(i + 1).arg(value));
+    }
 }
 
 void ManualPanel::toggleOutput()
@@ -1146,7 +1221,7 @@ void ManualPanel::toggleOutput()
         refreshControls();
         return;
     }
-    if (!controlledOutput) {
+    if (!controlledOutput && !field.startsWith("exp_out")) {
         const int output = field.mid(2).toInt();
         if (spareOutputMode(config, output) != "manual") {
             refreshControls();
@@ -3225,7 +3300,11 @@ void MainWindow::setupUi()
     topLayout->addWidget(m_systemState);
     m_clock = new QLabel(topBar);
     m_clock->setObjectName("clock");
-    topLayout->addSpacing(16);
+    topLayout->addSpacing(8);
+    m_versionLabel = new QLabel(topBar);
+    m_versionLabel->setObjectName("clock");
+    topLayout->addWidget(m_versionLabel);
+    topLayout->addSpacing(8);
     topLayout->addWidget(m_clock);
     workspace->addWidget(topBar);
 
@@ -3948,6 +4027,16 @@ void MainWindow::refreshSystemState()
             allSensorDataHealthy = false;
         }
     }
+
+    QString versionText = QString::fromUtf8("v--");
+    for (const DeviceState &state : devices) {
+        if (state.online && state.values.contains("software_version")) {
+            versionText = QString::fromUtf8("v%1")
+                              .arg(state.values.value("software_version").toInt());
+            break;
+        }
+    }
+    m_versionLabel->setText(versionText);
 
     bool selfCheckAlarm = false;
     bool selfCheckHealthy = false;

@@ -138,6 +138,8 @@ private:
     QPushButton *m_ot3 = nullptr;
     QPushButton *m_ot4 = nullptr;
     QMap<QString, QPushButton *> m_spareOutputs;
+    QVector<QLabel *> m_expInLabels;
+    QMap<QString, QPushButton *> m_expOutButtons;
     QSet<int> m_autoDevices;
 };
 
@@ -380,6 +382,7 @@ private:
     HistoryWidget *m_historyWidget = nullptr;
     QLabel *m_pageTitle = nullptr;
     QLabel *m_clock = nullptr;
+    QLabel *m_versionLabel = nullptr;
     QLabel *m_systemState = nullptr;
     QLabel *m_selfCheckNotice = nullptr;
     QLabel *m_statusBar = nullptr;
