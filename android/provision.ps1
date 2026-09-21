@@ -6,11 +6,18 @@ param(
     [string]$DeviceAddr
 )
 
-# TODO: 实现设备预装流程
-# 1. adb connect $DeviceAddr
-# 2. 安装 RS485Launcher.apk
-# 3. 注册为 HOME/桌面
-# 4. 设置屏幕常亮
-# 5. 配置 Termux 环境
+$ErrorActionPreference='SilentlyContinue'
 
-Write-Host "Provisioning script placeholder. Implement device setup here."
+Write-Host "Connecting to $DeviceAddr ..."
+adb connect $DeviceAddr | Out-Null
+
+Write-Host "Installing RS485Launcher APK ..."
+adb -s $DeviceAddr install -r android/dist/RS485Launcher-debug.apk
+
+Write-Host "Configuring Termux environment ..."
+adb -s $DeviceAddr shell 'export PREFIX=/data/data/com.termux/files/usr; export PATH=$PREFIX/bin:$PATH; termux-wake-lock'
+
+Write-Host "Starting launcher ..."
+adb -s $DeviceAddr shell am start -n com.rs485.launcher/.MainActivity
+
+Write-Host "Provisioning complete."

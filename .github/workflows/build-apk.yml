@@ -1,0 +1,45 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Qt 5.15 for Android
+        uses: actions/setup-qt@v4
+        with:
+          qt-version: 5.15.2
+          target: android
+          modules: qtandroidextras
+
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          echo "Qt versions:"
+          qmake --version || true
+          echo "Building RS485Launcher APK..."
+          cd android
+          chmod +x build_apk.sh
+          bash build_apk.sh
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RS485Launcher-arm64-v8a
+          path: android/dist/*.apk

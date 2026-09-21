@@ -643,22 +643,22 @@ void SerialPortWorker::processQueue()
         const PollTask &t = item.poll;
 
         // 协议寄存器分散在多个区, 逐段 0x03 读取后合并
+        // 旧 firmware 可能不支持新地址段，允许部分段失败，只要有任何一段成功即认为在线
         QMap<QString, QVariant> values;
-        bool ok = true;
+        bool anySuccess = false;
         for (const DeviceProfile::ReadSegment &seg : t.regMap.readSegments) {
             ModbusRtu::Result r = ModbusRtu::readHoldingRegisters(
                 [this](const QByteArray &req, quint8 fc) { return transact(req, fc); },
                 static_cast<quint8>(t.deviceKey.slaveId),
                 seg.startAddr,
                 seg.count);
-            if (!r.success) {
-                ok = false;
-                break;
+            if (r.success) {
+                anySuccess = true;
+                DeviceProfile::parseSegment(seg.startAddr, r.registers, values);
             }
-            DeviceProfile::parseSegment(seg.startAddr, r.registers, values);
         }
 
-        if (ok)
+        if (anySuccess)
             emit deviceDataReady(t.deviceKey, values, true);
         else
             emit deviceDataReady(t.deviceKey, {}, false);
