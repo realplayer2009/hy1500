@@ -56,9 +56,16 @@ DeviceProfile::RegisterMap DeviceProfile::defaultRegisterMap(DeviceType t)
     Q_UNUSED(t)
     RegisterMap m;
 
-    // 0x0001~0x000B 为连续的输入采集区; 0x0011~0x001A 为 OT 输出回读区
-    m.readSegments.append(makeSegment(RegHvInput, 11)); // 高压/电压/温湿度/PT100
-    m.readSegments.append(makeSegment(RegOtBase,  10)); // OT01~OT10
+    // 0x0000 软件版本号 (1 寄存器)
+    m.readSegments.append(makeSegment(RegVersion, 1));
+    // 0x0001~0x000B 为连续的输入采集区
+    m.readSegments.append(makeSegment(RegHvInput, 11));
+    // 0x000E 外扩 5 路输入状态 (1 寄存器)
+    m.readSegments.append(makeSegment(RegExpInput, 1));
+    // 0x0031 OT01~OT10 位掩码 (1 寄存器)
+    m.readSegments.append(makeSegment(RegOtMask, 1));
+    // 0x0033 外扩 OUT1~OUT7 位掩码 (1 寄存器)
+    m.readSegments.append(makeSegment(RegExpOutput, 1));
     return m;
 }
 
@@ -66,6 +73,10 @@ void DeviceProfile::parseSegment(quint16 startAddr, const QVector<quint16> &regs
                                  QMap<QString, QVariant> &out)
 {
     switch (startAddr) {
+    case RegVersion:
+        if (!regs.isEmpty())
+            out["software_version"] = regs.at(0);
+        break;
     case RegHvInput:
         if (regs.size() >= 11) {
             out["hv_input"]         = regs.at(0);
@@ -79,9 +90,26 @@ void DeviceProfile::parseSegment(quint16 startAddr, const QVector<quint16> &regs
             out["pt2_temp"] = toInt16(regs.at(10));
         }
         break;
-    case RegOtBase:
-        for (int i = 0; i < 10 && i < regs.size(); ++i)
-            out[QString("ot%1").arg(i + 1, 2, 10, QChar('0'))] = regs.at(i);
+    case RegExpInput:
+        if (!regs.isEmpty()) {
+            const quint16 mask = regs.at(0);
+            for (int i = 0; i < 5; ++i)
+                out[QString("exp_in%1").arg(i + 1)] = (mask >> i) & 1;
+        }
+        break;
+    case RegOtMask:
+        if (!regs.isEmpty()) {
+            const quint16 mask = regs.at(0);
+            for (int i = 0; i < 10; ++i)
+                out[QString("ot%1").arg(i + 1, 2, 10, QChar('0'))] = (mask >> i) & 1;
+        }
+        break;
+    case RegExpOutput:
+        if (!regs.isEmpty()) {
+            const quint16 mask = regs.at(0);
+            for (int i = 0; i < 7; ++i)
+                out[QString("exp_out%1").arg(i + 1)] = (mask >> i) & 1;
+        }
         break;
     default:
         // 未知段兑底: 按原始寄存器展示
@@ -96,46 +124,53 @@ QVector<DeviceProfile::WriteItem> DeviceProfile::encodeWriteValues(
 {
     Q_UNUSED(t)
 
-    // 可写字段 -> 寄存器地址
-    QMap<QString, quint16> addrMap;
-    for (int i = 0; i < 10; ++i)
-        addrMap.insert(QString("ot%1").arg(i + 1, 2, 10, QChar('0')),
-                       static_cast<quint16>(RegOtBase + i));
-
-    // QMap 按地址升序排列, 便于合并相邻寄存器
-    QMap<quint16, quint16> regValues;
-    for (auto it = fields.constBegin(); it != fields.constEnd(); ++it) {
-        if (!addrMap.contains(it.key()))
-            continue;
-        // OT 寄存器只允许 0/1, 异常 UI 输入也在此收敛
-        regValues.insert(addrMap.value(it.key()), it.value().toBool() ? 1 : 0);
+    // OT01~OT10 -> 0x0031 位掩码
+    quint16 otMask = 0;
+    for (int i = 0; i < 10; ++i) {
+        const QString key = QString("ot%1").arg(i + 1, 2, 10, QChar('0'));
+        if (fields.value(key).toBool())
+            otMask |= (1u << i);
     }
 
-    // 相邻地址合并为一次 0x10 写入, 减少总线交互次数
     QVector<WriteItem> items;
-    for (auto it = regValues.constBegin(); it != regValues.constEnd(); ++it) {
-        if (!items.isEmpty()
-            && items.last().startAddr + items.last().values.size() == int(it.key())) {
-            items.last().values.append(it.value());
-        } else {
-            WriteItem item;
-            item.startAddr = it.key();
-            item.values.append(it.value());
-            items.append(item);
-        }
+    if (otMask != 0) {
+        WriteItem item;
+        item.startAddr = RegOtMask;
+        item.values.append(otMask);
+        items.append(item);
     }
+
+    // 外扩 OUT1~OUT7 -> 0x0033 位掩码
+    quint16 expMask = 0;
+    for (int i = 0; i < 7; ++i) {
+        const QString key = QString("exp_out%1").arg(i + 1);
+        if (fields.value(key).toBool())
+            expMask |= (1u << i);
+    }
+
+    if (expMask != 0) {
+        WriteItem item;
+        item.startAddr = RegExpOutput;
+        item.values.append(expMask);
+        items.append(item);
+    }
+
     return items;
 }
 
 QStringList DeviceProfile::orderedFields()
 {
     static const QStringList order = {
+        "software_version",
         "hv_input", "reserved", "external_voltage",
         "th1_temp", "th1_humi", "th2_temp", "th2_humi",
         "th3_temp", "th3_humi",
         "pt1_temp", "pt2_temp",
+        "exp_in1", "exp_in2", "exp_in3", "exp_in4", "exp_in5",
         "ot01", "ot02", "ot03", "ot04", "ot05",
-        "ot06", "ot07", "ot08", "ot09", "ot10"
+        "ot06", "ot07", "ot08", "ot09", "ot10",
+        "exp_out1", "exp_out2", "exp_out3", "exp_out4", "exp_out5",
+        "exp_out6", "exp_out7"
     };
     return order;
 }
@@ -143,6 +178,7 @@ QStringList DeviceProfile::orderedFields()
 QString DeviceProfile::fieldDisplayName(const QString &field)
 {
     static const QMap<QString, QString> names = {
+        { "software_version", QString::fromUtf8("软件版本号") },
         { "hv_input",      QString::fromUtf8("高压通电输入状态") },
         { "reserved",      QString::fromUtf8("备用输入") },
         { "external_voltage", QString::fromUtf8("外部电压采样输入值") },
@@ -156,17 +192,32 @@ QString DeviceProfile::fieldDisplayName(const QString &field)
         return QString::fromUtf8("温湿度%1-温度").arg(field.mid(2, 1));
     if (field.size() == 8 && field.startsWith("th") && field.endsWith("_humi"))
         return QString::fromUtf8("温湿度%1-湿度").arg(field.mid(2, 1));
+    // exp_in1 ~ exp_in5
+    if (field.startsWith("exp_in") && field.length() == 6)
+        return QString::fromUtf8("外扩输入%1").arg(field.mid(6));
+    // ot01 ~ ot10
     if (field.size() == 4 && field.startsWith("ot"))
         return field.toUpper() + QString::fromUtf8("输出");
+    // exp_out1 ~ exp_out7
+    if (field.startsWith("exp_out") && field.length() == 7) {
+        const int n = field.mid(7).toInt();
+        if (n == 6)
+            return QString::fromUtf8("外扩输出6(闪烁显示灯)");
+        if (n == 7)
+            return QString::fromUtf8("外扩输出7(蜂鸣器提示)");
+        return QString::fromUtf8("外扩输出%1").arg(n);
+    }
     return field;
 }
 
 QString DeviceProfile::fieldDisplayValue(const QString &field, const QVariant &value)
 {
     const int v = value.toInt();
+    if (field == "software_version")
+        return QString::fromUtf8("V%1").arg(v);
     if (field == "hv_input")
         return v == 0 ? QString::fromUtf8("无") : QString::fromUtf8("有");
-    if (field.startsWith("ot"))
+    if (field.startsWith("ot") || field.startsWith("exp_out") || field.startsWith("exp_in"))
         return v == 0 ? QString::fromUtf8("关闭") : QString::fromUtf8("打开");
     if (field == "external_voltage")
         return QString::fromUtf8("%1 V").arg(QString::number(v / 10.0, 'f', 1));
