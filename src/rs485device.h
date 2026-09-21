@@ -92,6 +92,11 @@ public:
     static QVector<WriteItem> encodeWriteValues(DeviceType t,
                                                 const QMap<QString, QVariant> &fields);
 
+    /** 对位掩码寄存器做 read-modify-write：未显式出现的位保留当前值。 */
+    static QVector<quint16> applyBitmaskFields(quint16 startAddr,
+                                               const QVector<quint16> &currentRegs,
+                                               const QMap<QString, QVariant> &fields);
+
     /** UI 展示辅助: 字段显示顺序 / 中文名 / 值格式化 */
     static QStringList orderedFields();
     static QString fieldDisplayName(const QString &field);

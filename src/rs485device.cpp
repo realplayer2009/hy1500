@@ -126,36 +126,75 @@ QVector<DeviceProfile::WriteItem> DeviceProfile::encodeWriteValues(
 
     // OT01~OT10 -> 0x0031 位掩码
     quint16 otMask = 0;
+    bool otExplicit = false;
     for (int i = 0; i < 10; ++i) {
         const QString key = QString("ot%1").arg(i + 1, 2, 10, QChar('0'));
-        if (fields.value(key).toBool())
-            otMask |= (1u << i);
+        if (fields.contains(key)) {
+            otExplicit = true;
+            if (fields.value(key).toBool())
+                otMask |= (1u << i);
+        }
+    }
+
+    // 外扩 OUT1~OUT7 -> 0x0033 位掩码
+    quint16 expMask = 0;
+    bool expExplicit = false;
+    for (int i = 0; i < 7; ++i) {
+        const QString key = QString("exp_out%1").arg(i + 1);
+        if (fields.contains(key)) {
+            expExplicit = true;
+            if (fields.value(key).toBool())
+                expMask |= (1u << i);
+        }
     }
 
     QVector<WriteItem> items;
-    if (otMask != 0) {
+    if (otExplicit) {
         WriteItem item;
         item.startAddr = RegOtMask;
         item.values.append(otMask);
         items.append(item);
     }
-
-    // 外扩 OUT1~OUT7 -> 0x0033 位掩码
-    quint16 expMask = 0;
-    for (int i = 0; i < 7; ++i) {
-        const QString key = QString("exp_out%1").arg(i + 1);
-        if (fields.value(key).toBool())
-            expMask |= (1u << i);
-    }
-
-    if (expMask != 0) {
+    if (expExplicit) {
         WriteItem item;
         item.startAddr = RegExpOutput;
         item.values.append(expMask);
         items.append(item);
     }
-
     return items;
+}
+
+QVector<quint16> DeviceProfile::applyBitmaskFields(quint16 startAddr,
+                                                    const QVector<quint16> &currentRegs,
+                                                    const QMap<QString, QVariant> &fields)
+{
+    if (startAddr == RegOtMask && !currentRegs.isEmpty()) {
+        quint16 mask = currentRegs.at(0);
+        for (int i = 0; i < 10; ++i) {
+            const QString key = QString("ot%1").arg(i + 1, 2, 10, QChar('0'));
+            if (fields.contains(key)) {
+                if (fields.value(key).toBool())
+                    mask |= (1u << i);
+                else
+                    mask &= ~(1u << i);
+            }
+        }
+        return { mask };
+    }
+    if (startAddr == RegExpOutput && !currentRegs.isEmpty()) {
+        quint16 mask = currentRegs.at(0);
+        for (int i = 0; i < 7; ++i) {
+            const QString key = QString("exp_out%1").arg(i + 1);
+            if (fields.contains(key)) {
+                if (fields.value(key).toBool())
+                    mask |= (1u << i);
+                else
+                    mask &= ~(1u << i);
+            }
+        }
+        return { mask };
+    }
+    return currentRegs;
 }
 
 QStringList DeviceProfile::orderedFields()
@@ -671,6 +710,9 @@ void SerialPortWorker::processQueue()
                 // 从其他地址超时切回目标从站时，某些现场转换器/下位机
                 // 可能丢失第一个写回复。OT 写入是“设置值”语义，重复写同值
                 // 是幂等的，因此失败后允许一次延时重试。
+                const QVector<quint16> valuesToWrite =
+                    DeviceProfile::applyBitmaskFields(w.startAddr, r.registers, t.fields);
+
                 for (int attempt = 0; attempt < 2; ++attempt) {
                     r = ModbusRtu::writeMultipleRegisters(
                         [this](const QByteArray &req, quint8 fc) {
@@ -678,7 +720,7 @@ void SerialPortWorker::processQueue()
                         },
                         static_cast<quint8>(t.deviceKey.slaveId),
                         w.startAddr,
-                        w.values);
+                        valuesToWrite);
                     if (r.success)
                         break;
                     if (attempt == 0) {
