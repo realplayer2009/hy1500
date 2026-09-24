@@ -917,7 +917,7 @@ def write_run_config(port0: str, port1: str):
 [General]
 dataPath=data/logs
 brightnessPercent=100
-displayTheme=low_light
+displayTheme=graphite
 idleDimMinutes=10
 idleDimPercent=0
 recordIntervalMs=1000

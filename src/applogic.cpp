@@ -39,11 +39,12 @@ bool AppConfig::load(const QString &iniPath)
     // QSettings maps the INI section [General] to root-level keys.
     m_general.dataPath = ini.value("dataPath").toString();
     m_general.displayTheme =
-        ini.value("displayTheme", "low_light").toString().toLower();
+        ini.value("displayTheme", "graphite").toString().toLower();
     if (m_general.displayTheme != "low_light"
         && m_general.displayTheme != "high_contrast"
+        && m_general.displayTheme != "graphite"
         && m_general.displayTheme != "harmony")
-        m_general.displayTheme = "low_light";
+        m_general.displayTheme = "graphite";
     m_general.maxStorageMB = ini.value("maxStorageMB", 12288).toInt();
     m_general.pollIntervalMs = qMax(10, ini.value("pollIntervalMs", 100).toInt());
     m_general.recordIntervalMs =
@@ -593,6 +594,13 @@ QVector<HistoryQuery::DeviceInfo> HistoryQuery::availableDevices() const
 QVector<HistoryQuery::Record> HistoryQuery::parseFile(const QString &filePath,
                                                        const Filter &filter) const
 {
+    return parseFileMode(filePath, filter, 1, 0);
+}
+
+QVector<HistoryQuery::Record> HistoryQuery::parseFileMode(
+        const QString &filePath, const Filter &filter,
+        int stride, int tailLimit) const
+{
     QVector<Record> results;
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -601,6 +609,8 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFile(const QString &filePath,
     QTextStream in(&file);
     if (in.atEnd())
         return results;
+
+    int matchIndex = 0;
 
     const QString header = in.readLine();
     const QStringList headerFields = header.split(',');
@@ -649,6 +659,18 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFile(const QString &filePath,
                 rec.deviceType =
                     DeviceProfile::deviceTypeFromString(fixed.at(typeColumn));
 
+            if (filter.portIndex >= 0 && rec.portIndex != filter.portIndex)
+                continue;
+            if (filter.slaveId >= 0 && rec.slaveId != filter.slaveId)
+                continue;
+            if (!filter.deviceType.isEmpty()
+                && DeviceProfile::deviceTypeToString(rec.deviceType)
+                       != filter.deviceType)
+                continue;
+            // 抽样判断放在 JSON 解析之前, 避免为丢弃的行付出解析代价
+            if (stride > 1 && (matchIndex++ % stride) != 0)
+                continue;
+
             const QString jsonStr = line.mid(fieldStart);
             const QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
             if (doc.isObject()) {
@@ -668,6 +690,18 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFile(const QString &filePath,
             rec.portIndex = columns.at(portColumn).toInt();
             rec.slaveId = columns.at(slaveColumn).toInt();
             rec.deviceName = columns.at(nameColumn);
+
+            if (filter.portIndex >= 0 && rec.portIndex != filter.portIndex)
+                continue;
+            if (filter.slaveId >= 0 && rec.slaveId != filter.slaveId)
+                continue;
+            if (!filter.deviceType.isEmpty()
+                && DeviceProfile::deviceTypeToString(rec.deviceType)
+                       != filter.deviceType)
+                continue;
+            // 抽样判断放在测量列解析之前, 压缩查询时跳过大部分行
+            if (stride > 1 && (matchIndex++ % stride) != 0)
+                continue;
 
             const QMap<QString, QString> engineeringFields = {
                 { "th1_temp_c", "th1_temp" }, { "th1_humi_pct", "th1_humi" },
@@ -698,17 +732,95 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFile(const QString &filePath,
             }
         }
 
-        if (filter.portIndex >= 0 && rec.portIndex != filter.portIndex)
-            continue;
-        if (filter.slaveId >= 0 && rec.slaveId != filter.slaveId)
-            continue;
-        if (!filter.deviceType.isEmpty()
-            && DeviceProfile::deviceTypeToString(rec.deviceType) != filter.deviceType)
-            continue;
-
         results.append(rec);
+        if (tailLimit > 0 && results.size() > tailLimit)
+            results.remove(0, results.size() - tailLimit);
     }
     return results;
+}
+
+HistoryQuery::DisplayResult HistoryQuery::queryForDisplay(
+        const Filter &filter, int maxPoints, int tailRows) const
+{
+    DisplayResult result;
+    if (m_dataPath.isEmpty() || !filter.dateFrom.isValid())
+        return result;
+
+    QStringList files;
+    QDate d = filter.dateFrom;
+    const QDate end = filter.dateTo.isValid() ? filter.dateTo : filter.dateFrom;
+    while (d <= end) {
+        files << (m_dataPath + QDir::separator()
+                  + d.toString("yyyy-MM-dd") + ".csv");
+        d = d.addDays(1);
+    }
+
+    // 第一遍: 只数行, 得到精确总数并推算抽样步长 (读整文件按字节计数, 不解析列)
+    qint64 total = 0;
+    for (const QString &filePath : files)
+        total += countFile(filePath, filter);
+    result.rawCount = total;
+
+    // 第二遍: 按 stride 抽样解析, 内存中最多保留 maxPoints 个曲线点
+    const int stride =
+        qMax(1, int((total + qMax(1, maxPoints) - 1) / qMax(1, maxPoints)));
+    for (const QString &filePath : files)
+        result.sampled += parseFileMode(filePath, filter, stride, 0);
+
+    // 第三遍: 从最新文件倒序取表格要的原始明细, 取满即停
+    int remaining = qMax(1, tailRows);
+    QVector<QVector<Record>> tailBlocks;
+    for (int i = files.size() - 1; i >= 0 && remaining > 0; --i) {
+        const QVector<Record> block =
+            parseFileMode(files.at(i), filter, 1, remaining);
+        remaining -= block.size();
+        tailBlocks.prepend(block);
+    }
+    for (const QVector<Record> &block : tailBlocks)
+        result.tail += block;
+    return result;
+}
+
+qint64 HistoryQuery::countFile(const QString &filePath, const Filter &filter) const
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return 0;
+
+    const bool deviceFiltered = filter.portIndex >= 0 && filter.slaveId >= 0;
+    if (!deviceFiltered && filter.deviceType.isEmpty()) {
+        // 无筛选时只数字节里的换行符, 不解析任何列
+        const QByteArray content = file.readAll();
+        if (content.isEmpty())
+            return 0;
+        qint64 lines = content.count('\n');
+        if (!content.endsWith('\n'))
+            ++lines;
+        return qMax<qint64>(0, lines - 1);   // 减去表头
+    }
+
+    QTextStream in(&file);
+    const QString header = in.readLine();
+    const QStringList headerFields = header.split(',');
+    const int portColumn = headerFields.indexOf("port");
+    const int slaveColumn = headerFields.indexOf("slave_id");
+    if (portColumn < 0 || slaveColumn < 0)
+        return 0;
+    qint64 count = 0;
+    while (!in.atEnd()) {
+        const QString line = in.readLine();
+        if (line.isEmpty())
+            continue;
+        const QStringList columns = line.split(',');
+        if (columns.size() <= qMax(portColumn, slaveColumn))
+            continue;
+        if (deviceFiltered
+            && (columns.at(portColumn).toInt() != filter.portIndex
+                || columns.at(slaveColumn).toInt() != filter.slaveId))
+            continue;
+        ++count;
+    }
+    return count;
 }
 
 // ============================================================

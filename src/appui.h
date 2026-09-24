@@ -233,11 +233,15 @@ public slots:
                           const QString &deviceName,
                           DeviceProfile::DeviceType type,
                           const QMap<QString, QVariant> &values);
+    void onQueryPoll();
 
 private:
     void loadRecords(bool resetToLatest);
     void updateTimeScroll();
     void setTableRow(int row, const HistoryQuery::Record &record);
+    QString deviceIndexPath() const;
+    bool loadDeviceIndex();
+    void saveDeviceIndex();
 
     HistoryQuery *m_query = nullptr;
     DeviceManager *m_manager = nullptr;
@@ -258,6 +262,16 @@ private:
     QDate m_loadedDateTo;
     QString m_loadedDevice;
     bool m_liveAppendPaused = false;
+    bool m_pendingResetToLatest = false;
+    // 后台查询共享状态: 工作线程写入, UI 线程轮询取走, 部件销毁后
+    // 共享状态仍被线程安全持有, 无生命周期风险
+    struct QueryState {
+        QMutex mutex;
+        bool done = false;
+        HistoryQuery::DisplayResult result;
+    };
+    QSharedPointer<QueryState> m_queryState;
+    QTimer *m_queryPollTimer = nullptr;
 };
 
 /** 参数设置：温控参数，其他运维项收纳在高级设置。 */

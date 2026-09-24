@@ -27,6 +27,11 @@
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
+#include <QThreadPool>
+#include <QSaveFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDir>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QStyle>
@@ -835,10 +840,65 @@ QString applicationStyleSheet(const QString &themeName)
         }
     )");
 
+    const QString graphite = QString::fromUtf8(R"(
+        QMainWindow, QWidget#appRoot { background: #1f1f21; color: #f5f5f7; }
+        QLabel { color: #f5f5f7; }
+        QFrame#sideBar { background: #151516; }
+        QLabel#brandTitle { color: #ffffff; }
+        QPushButton#navButton { color: #b5b5ba; }
+        QPushButton#navButton:hover { background: #2e2e30; color: white; }
+        QPushButton#navButton:checked { background: #3a3a3c; color: white;
+            border-left-color: #a1a1a6; }
+        QFrame#topBar, QFrame#card { background: #2a2a2c; border-color: #48484a; }
+        QLabel#pageTitle, QLabel#sectionTitle, QLabel#metricValue,
+        QLabel#metricValueSmall, QLabel#heroValue { color: #ffffff; }
+        QLabel#clock, QLabel#metricTitle, QLabel#mutedText,
+        QLabel#formulaText, QLabel#metricSubValue { color: #a1a1a6; }
+        QLabel#noticeText, QLabel#ruleText, QLabel#formulaBox,
+        QLabel#crosshairInfo { color: #e8e8ed; background: #38383a;
+            border-color: #545456; }
+        QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox {
+            color: #f5f5f7; background: #1f1f21; border-color: #636366; }
+        QComboBox:focus { border-color: #a1a1a6; }
+        QComboBox QAbstractItemView { color: #f5f5f7; background: #1f1f21;
+            border-color: #6e6e70; selection-background-color: #48484a; }
+        QScrollArea, QScrollArea > QWidget > QWidget { background: #1f1f21; }
+        QPushButton#primaryButton { color: white; background: #5a5a5e;
+            border-color: #7c7c80; }
+        QPushButton#primaryButton:hover { background: #6e6e73; }
+        QPushButton#secondaryButton { color: #f5f5f7; background: #2a2a2c;
+            border-color: #636366; }
+        QPushButton#secondaryButton:hover { background: #38383a; }
+        QPushButton#secondaryButton:checked { color: white; background: #5a5a5e;
+            border-color: #7c7c80; }
+        QPushButton#outputButton, QPushButton#adjustButton {
+            color: #f5f5f7; background: #38383a; border-color: #636366; }
+        QPushButton#outputButton:disabled { color: #7c7c80; background: #262628;
+            border-color: #454547; }
+        QFrame#deviceCard { background: #2a2a2c; color: #f5f5f7; border-color: #48484a; }
+        QFrame#deviceCard:hover { background: #38383a; border-color: #8e8e93; }
+        QFrame#deviceCard[online="false"] { color: #8e8e93; border-left-color: #6e6e70; }
+        QFrame#deviceCard[alarm="true"] { color: #ff8a85; background: #3a1f1e;
+            border-color: #7a4440; border-left-color: #c93632; }
+        QPushButton#adjustButton:pressed { background: #5a5a5e; }
+        QScrollBar:vertical, QScrollBar:horizontal {
+            background: #2a2a2c; border-color: #48484a; }
+        QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #636366; }
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: #2a2a2c; }
+        QTableWidget { color: #f2f2f7; background: #1f1f21;
+            alternate-background-color: #2a2a2c; border-color: #48484a;
+            gridline-color: #3a3a3c; }
+        QHeaderView::section { color: #ffffff; background: #38383a; }
+        QLabel#bottomStatus { color: #a1a1a6; background: #1a1a1c;
+            border-top-color: #48484a; }
+    )");
+
     if (themeName == "low_light")
         return base + lowLight;
     if (themeName == "high_contrast")
         return base + highContrast;
+    if (themeName == "graphite")
+        return base + graphite;
     if (themeName == "harmony")
         return base + harmony;
     return base + standard;
@@ -1975,15 +2035,20 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     const QString displayTheme = AppConfig::instance().general().displayTheme;
-    const bool lowLight = displayTheme == "low_light";
+    const bool darkTheme = displayTheme == "low_light"
+        || displayTheme == "graphite";
     const bool highContrast = displayTheme == "high_contrast";
-    const QColor chartBackground(lowLight ? "#17232b"
+    const QColor chartBackground(darkTheme ? (displayTheme == "graphite"
+            ? "#262628" : "#17232b")
         : highContrast ? "#ffffff" : "#ffffff");
-    const QColor chartText(lowLight ? "#dce5e9"
+    const QColor chartText(darkTheme ? (displayTheme == "graphite"
+            ? "#e8e8ed" : "#dce5e9")
         : highContrast ? "#000000" : "#555555");
-    const QColor chartGrid(lowLight ? "#40515b"
+    const QColor chartGrid(darkTheme ? (displayTheme == "graphite"
+            ? "#3a3a3c" : "#40515b")
         : highContrast ? "#777777" : "#dddddd");
-    const QColor chartTick(lowLight ? "#60717b"
+    const QColor chartTick(darkTheme ? (displayTheme == "graphite"
+            ? "#636366" : "#60717b")
         : highContrast ? "#333333" : "#aaaaaa");
     painter.fillRect(rect(), chartBackground);
 
@@ -2242,6 +2307,11 @@ HistoryWidget::HistoryWidget(HistoryQuery *query,
     , m_query(query)
     , m_manager(manager)
 {
+    m_queryPollTimer = new QTimer(this);
+    m_queryPollTimer->setInterval(100);
+    connect(m_queryPollTimer, &QTimer::timeout,
+            this, &HistoryWidget::onQueryPoll);
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(10);
@@ -2366,10 +2436,55 @@ void HistoryWidget::refreshDevices()
 void HistoryWidget::reloadDevices()
 {
     m_historicalDevices.clear();
-    for (const HistoryQuery::DeviceInfo &info : m_query->availableDevices())
-        m_historicalDevices.insert(
-            QPair<int, int>(info.portIndex, info.slaveId), info.name);
+    // 优先读边车索引: 避免每次进入页面都全量扫描历史 CSV 的身份列;
+    // 索引缺失或损坏时才退回全量扫描, 并重建索引
+    if (!loadDeviceIndex()) {
+        for (const HistoryQuery::DeviceInfo &info : m_query->availableDevices())
+            m_historicalDevices.insert(
+                QPair<int, int>(info.portIndex, info.slaveId), info.name);
+        saveDeviceIndex();
+    }
     refreshDevices();
+}
+
+QString HistoryWidget::deviceIndexPath() const
+{
+    return m_query->dataPath() + QDir::separator() + ".device_index";
+}
+
+bool HistoryWidget::loadDeviceIndex()
+{
+    QFile file(deviceIndexPath());
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
+    if (root.isEmpty())
+        return false;
+    for (auto it = root.constBegin(); it != root.constEnd(); ++it) {
+        const QStringList parts = it.key().split(':');
+        if (parts.size() == 2)
+            m_historicalDevices.insert(
+                QPair<int, int>(parts.at(0).toInt(), parts.at(1).toInt()),
+                it.value().toString());
+    }
+    return true;
+}
+
+void HistoryWidget::saveDeviceIndex()
+{
+    if (m_query->dataPath().isEmpty())
+        return;
+    QJsonObject root;
+    for (auto it = m_historicalDevices.constBegin();
+         it != m_historicalDevices.constEnd(); ++it) {
+        root[QString("%1:%2").arg(it.key().first).arg(it.key().second)] =
+            it.value();
+    }
+    QSaveFile file(deviceIndexPath());
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    file.write(QJsonDocument(root).toJson());
+    file.commit();
 }
 
 void HistoryWidget::onDataFilesChanged()
@@ -2414,6 +2529,7 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
     const QPair<int, int> historyKey(key.portIndex, key.slaveId);
     if (!m_historicalDevices.contains(historyKey)) {
         m_historicalDevices.insert(historyKey, deviceName);
+        saveDeviceIndex();
         refreshDevices();
     }
     if (!m_loaded || timestamp.date() < m_loadedDateFrom
@@ -2480,20 +2596,52 @@ void HistoryWidget::loadRecords(bool resetToLatest)
         }
     }
 
-    const QVector<HistoryQuery::Record> records = m_query->query(filter);
+    // 查询放到线程池: 大数据量下界面不冻结, 期间显示“查询中…”
+    // (QtConcurrent 需要额外模块, Termux 构建不装; QThreadPool 是 QtCore 自带)
+    m_resultSummary->setText(QString::fromUtf8("查询中…"));
+    m_pendingResetToLatest = resetToLatest;
+    QSharedPointer<QueryState> state(new QueryState);
+    m_queryState = state;
+    HistoryQuery *query = m_query;
+    QThreadPool::globalInstance()->start(
+        [query, filter, state]() {
+            const HistoryQuery::DisplayResult result =
+                query->queryForDisplay(filter);
+            QMutexLocker lock(&state->mutex);
+            state->result = result;
+            state->done = true;
+        });
+    m_queryPollTimer->start();
+}
+
+void HistoryWidget::onQueryPoll()
+{
+    if (!m_queryState)
+        return;
+    HistoryQuery::DisplayResult result;
+    {
+        QMutexLocker lock(&m_queryState->mutex);
+        if (!m_queryState->done)
+            return;
+        result = m_queryState->result;
+    }
+    m_queryPollTimer->stop();
+    m_queryState.clear();
+
+    const QString device = m_deviceBox->currentData().toString();
     m_loaded = true;
     m_loadedDateFrom = m_dateFrom->date();
     m_loadedDateTo = m_dateTo->date();
     m_loadedDevice = device;
-    m_rawRecordCount = records.size();
+    m_rawRecordCount = result.rawCount;
     m_chartRecords.clear();
     if (device.isEmpty()) {
-        for (const HistoryQuery::Record &record : records)
+        for (const HistoryQuery::Record &record : result.sampled)
             mergeFleetRecord(m_chartRecords, record);
     } else {
-        m_chartRecords = records;
+        m_chartRecords = result.sampled;
     }
-    if (resetToLatest)
+    if (m_pendingResetToLatest)
         m_chart->followLatest();
     {
         const QSignalBlocker blocker(m_timeScroll);
@@ -2501,14 +2649,14 @@ void HistoryWidget::loadRecords(bool resetToLatest)
         updateTimeScroll();
     }
     m_resultSummary->setText(device.isEmpty()
-        ? QString::fromUtf8("共 %1 条明细 / %2 个时间点")
-              .arg(records.size()).arg(m_chartRecords.size())
-        : QString::fromUtf8("共 %1 条记录").arg(records.size()));
+        ? QString::fromUtf8("共 %1 条明细 / %2 个时间点（曲线已压缩）")
+              .arg(result.rawCount).arg(m_chartRecords.size())
+        : QString::fromUtf8("共 %1 条记录（曲线已压缩显示）").arg(result.rawCount));
 
-    const int visibleRows = qMin(records.size(), 500);
+    const int visibleRows = qMin(result.tail.size(), 500);
     m_table->setRowCount(visibleRows);
     for (int row = 0; row < visibleRows; ++row)
-        setTableRow(row, records.at(records.size() - 1 - row));
+        setTableRow(row, result.tail.at(result.tail.size() - 1 - row));
 }
 
 void HistoryWidget::updateTimeScroll()
@@ -2895,6 +3043,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     m_displayTheme->addItem(QString::fromUtf8("标准"), "standard");
     m_displayTheme->addItem(QString::fromUtf8("低光"), "low_light");
     m_displayTheme->addItem(QString::fromUtf8("强光"), "high_contrast");
+    m_displayTheme->addItem(QString::fromUtf8("石墨灰"), "graphite");
     m_displayTheme->addItem(QString::fromUtf8("鸿蒙"), "harmony");
     const int displayThemeIndex = m_displayTheme->findData(config.displayTheme);
     m_displayTheme->setCurrentIndex(displayThemeIndex >= 0 ? displayThemeIndex : 0);

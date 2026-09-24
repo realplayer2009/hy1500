@@ -48,7 +48,7 @@ public:
 
     struct GeneralConfig {
         QString dataPath;
-        QString displayTheme = "low_light";
+        QString displayTheme = "graphite";
         int maxStorageMB = 12288;
         int pollIntervalMs = 100;
         int modbusTimeoutMs = 500;
@@ -174,7 +174,6 @@ public:
 
     /** 状态文件中记录的最后一条 CSV 时间, 用于启动时检测系统时间异常 */
     QDateTime lastRecordedTime() const;
-
     void appendRecord(const DeviceProfile::DeviceKey &key,
                       const QString &deviceName,
                       DeviceProfile::DeviceType type,
@@ -236,16 +235,37 @@ public:
         QString deviceType;     // 空表示不限
     };
 
+    /**
+     * @brief 界面显示用的一次性查询结果
+     *
+     * 大数据量下避免界面冻结: 曲线只保留抽样压缩后的点,
+     * 表格只要最新的原始明细, 总数用轻量计数获得。
+     */
+    struct DisplayResult {
+        QVector<Record> sampled;   // 曲线: 抽样后不超过 maxPoints 个点
+        QVector<Record> tail;      // 表格: 时间顺序的最新原始明细
+        qint64 rawCount = 0;       // 范围内精确记录数
+    };
+
     explicit HistoryQuery(QObject *parent = nullptr);
 
     void setDataPath(const QString &path);
+    QString dataPath() const { return m_dataPath; }
 
     /** 同步查询，数据量受 30 天范围限制，适合触摸屏本地使用 */
     QVector<Record> query(const Filter &filter) const;
     QVector<DeviceInfo> availableDevices() const;
 
+    /** 压缩查询: 先数行得到精确总数, 再按 stride 抽样解析曲线数据,
+     *  表格从最新文件倒序取原始明细; 全程不把全量记录放进内存 */
+    DisplayResult queryForDisplay(const Filter &filter, int maxPoints = 2400,
+                                  int tailRows = 500) const;
+
 private:
     QVector<Record> parseFile(const QString &filePath, const Filter &filter) const;
+    QVector<Record> parseFileMode(const QString &filePath, const Filter &filter,
+                                  int stride, int tailLimit) const;
+    qint64 countFile(const QString &filePath, const Filter &filter) const;
 
     QString m_dataPath;
 };
