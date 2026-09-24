@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ADB="adb -s 192.168.0.116:43041"
+ADB="adb -s 192.168.0.69:43111"
 TERMUX_PKG="com.termux"
 APP_USER="u0_a90"
 APP_HOME="/data/data/${TERMUX_PKG}/files/home"
@@ -17,15 +17,19 @@ echo "=== Step 2: push changed source files ==="
 FILES=(
   "src/rs485device.cpp"
   "src/rs485device.h"
+  "src/applogic.cpp"
+  "src/applogic.h"
   "src/appui.cpp"
   "src/appui.h"
+  "src/main.cpp"
   "RS485Control.pro"
   "config/app.ini"
 )
 
+$ADB shell "mkdir -p /data/local/tmp/rs485_push_tmp"
 for f in "${FILES[@]}"; do
   echo " pushing $f"
-  adb -s 192.168.0.116:43041 push "$f" "/data/local/tmp/rs485_push_tmp/" 2>/dev/null || true
+  adb -s 192.168.0.69:43111 push "$f" "/data/local/tmp/rs485_push_tmp/" 2>/dev/null || true
   $ADB shell "run-as ${TERMUX_PKG} cp /data/local/tmp/rs485_push_tmp/$(basename "$f") ${APP_RS485}/$f"
 done
 

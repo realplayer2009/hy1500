@@ -9,6 +9,8 @@ moc_predefs.h
 controlalgorithm_test.moc
 controlalgorithm_test.o
 target_wrapper.sh
+.qmake.stash
+RS485Control.app/
 build/
 
 # Runtime data / logs
