@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
@@ -37,12 +39,21 @@ bool AppConfig::load(const QString &iniPath)
     // QSettings maps the INI section [General] to root-level keys.
     m_general.dataPath = ini.value("dataPath").toString();
     m_general.displayTheme =
-        ini.value("displayTheme", "standard").toString().toLower();
+        ini.value("displayTheme", "low_light").toString().toLower();
     if (m_general.displayTheme != "low_light"
-        && m_general.displayTheme != "high_contrast")
-        m_general.displayTheme = "standard";
+        && m_general.displayTheme != "high_contrast"
+        && m_general.displayTheme != "harmony")
+        m_general.displayTheme = "low_light";
     m_general.maxStorageMB = ini.value("maxStorageMB", 12288).toInt();
-    m_general.pollIntervalMs = ini.value("pollIntervalMs", 1000).toInt();
+    m_general.pollIntervalMs = qMax(10, ini.value("pollIntervalMs", 100).toInt());
+    m_general.recordIntervalMs =
+        qMax(10, ini.value("recordIntervalMs", 1000).toInt());
+    m_general.brightnessPercent =
+        qBound(5, ini.value("brightnessPercent", 100).toInt(), 100);
+    m_general.idleDimMinutes =
+        qBound(0, ini.value("idleDimMinutes", 10).toInt(), 1440);
+    m_general.idleDimPercent =
+        qBound(0, ini.value("idleDimPercent", 0).toInt(), 100);
     m_general.modbusTimeoutMs = ini.value("modbusTimeoutMs", 500).toInt();
     m_general.interSlaveDelayMs = ini.value("interSlaveDelayMs", 50).toInt();
     m_general.temperatureTarget = ini.value("temperatureTarget", 25.0).toDouble();
@@ -188,6 +199,10 @@ bool AppConfig::save(const QString &iniPath) const
     ini.setValue("displayTheme", m_general.displayTheme);
     ini.setValue("maxStorageMB", m_general.maxStorageMB);
     ini.setValue("pollIntervalMs", m_general.pollIntervalMs);
+    ini.setValue("recordIntervalMs", m_general.recordIntervalMs);
+    ini.setValue("brightnessPercent", m_general.brightnessPercent);
+    ini.setValue("idleDimMinutes", m_general.idleDimMinutes);
+    ini.setValue("idleDimPercent", m_general.idleDimPercent);
     ini.setValue("modbusTimeoutMs", m_general.modbusTimeoutMs);
     ini.setValue("interSlaveDelayMs", m_general.interSlaveDelayMs);
     ini.setValue("temperatureTarget", m_general.temperatureTarget);
@@ -334,9 +349,9 @@ void DeviceManager::updateDeviceData(const DeviceProfile::DeviceKey &key,
     DeviceState &s = m_devices[key];
     s.online = online;
     s.lastUpdate = QDateTime::currentDateTime();
-    if (online && !values.isEmpty())
-        s.values = values;
-    else
+    if (online && !values.isEmpty()) {
+        s.values.insert(values);
+    } else
         s.lastError = QString::fromUtf8("通信超时/离线");
 
     emit deviceUpdated(key);
@@ -354,6 +369,7 @@ DataLogger::DataLogger(QObject *parent)
 void DataLogger::setDataPath(const QString &path)
 {
     QMutexLocker lock(&m_mutex);
+    closeCurrentFile();
     m_dataPath = path;
     QDir().mkpath(path);
 }
@@ -386,24 +402,15 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
     if (m_dataPath.isEmpty())
         return;
 
-    const QString filePath = csvFilePathForDate(QDate::currentDate());
-    bool legacySchema = false;
-    if (QFileInfo(filePath).size() > 0) {
-        QFile existing(filePath);
-        if (existing.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            const QString header = QString::fromUtf8(existing.readLine()).trimmed();
-            legacySchema =
-                header == "timestamp,port,slave_id,device_name,device_type,data";
-        }
+    const QDate today = QDate::currentDate();
+    // 持久句柄按日期打开一次并保持 append; 日期翻转或文件被外部清理
+    // 删除时自愈重开。每条记录多一次 stat, 100 ms 轮询下也可忽略。
+    if (!m_file.isOpen() || m_fileDate != today
+        || !QFileInfo::exists(m_file.fileName())) {
+        closeCurrentFile();
+        if (!openFileForDate(today))
+            return;
     }
-    QFile file(filePath);
-    if (!file.open(QIODevice::Append | QIODevice::Text)) {
-        emit logError(QString::fromUtf8("无法写入日志: %1").arg(filePath));
-        return;
-    }
-
-    QTextStream out(&file);
-    ensureHeader(out, filePath);
 
     QJsonObject json;
     for (auto it = values.constBegin(); it != values.constEnd(); ++it)
@@ -433,7 +440,7 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
     QString line;
     const QString jsonText =
         QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact));
-    if (legacySchema) {
+    if (m_fileLegacySchema) {
         line = QString("%1,%2,%3,%4,%5,%6\n")
             .arg(timestamp.toString("yyyy-MM-dd hh:mm:ss"))
             .arg(key.portIndex)
@@ -445,10 +452,79 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
         line = columns.join(',') + '\n';
     }
 
+    QTextStream out(&m_file);
     out << line;
-    file.close();
+    out.flush();
+
+    // 节流持久化最后记录时间 (断电重启后检测系统时间异常用)
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (m_lastRecordTimePersistedMs == 0
+        || m_lastRecordTimePersistedDate != timestamp.date()
+        || nowMs - m_lastRecordTimePersistedMs > 60000) {
+        persistLastRecordTime(timestamp);
+        m_lastRecordTimePersistedMs = nowMs;
+        m_lastRecordTimePersistedDate = timestamp.date();
+    }
+
     lock.unlock();
     emit recordAppended(timestamp, key, deviceName, type, values);
+}
+
+void DataLogger::closeCurrentFile()
+{
+    if (m_file.isOpen())
+        m_file.close();
+    m_fileDate = QDate();
+    m_fileLegacySchema = false;
+}
+
+bool DataLogger::openFileForDate(const QDate &date)
+{
+    const QString filePath = csvFilePathForDate(date);
+    const qint64 existingSize = QFileInfo(filePath).size();
+
+    m_file.setFileName(filePath);
+    if (!m_file.open(QIODevice::Append | QIODevice::Text)) {
+        emit logError(QString::fromUtf8("无法写入日志: %1").arg(filePath));
+        return false;
+    }
+
+    m_fileDate = date;
+    m_fileLegacySchema = false;
+    if (existingSize > 0) {
+        // 当天已有旧版 CSV 时继续按旧表头写, 避免混合表头
+        QFile existing(filePath);
+        if (existing.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QString header = QString::fromUtf8(existing.readLine()).trimmed();
+            m_fileLegacySchema =
+                header == "timestamp,port,slave_id,device_name,device_type,data";
+        }
+    } else {
+        QTextStream out(&m_file);
+        ensureHeader(out, filePath);
+    }
+    return true;
+}
+
+void DataLogger::persistLastRecordTime(const QDateTime &timestamp)
+{
+    if (m_dataPath.isEmpty())
+        return;
+    QSaveFile file(m_dataPath + QDir::separator() + ".last_record_time");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream out(&file);
+    out << timestamp.toString(Qt::ISODate) << "\n";
+    file.commit();
+}
+
+QDateTime DataLogger::lastRecordedTime() const
+{
+    QFile file(m_dataPath + QDir::separator() + ".last_record_time");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QDateTime();
+    const QString line = QString::fromUtf8(file.readLine()).trimmed();
+    return QDateTime::fromString(line, Qt::ISODate);
 }
 
 // ============================================================
@@ -827,8 +903,9 @@ void PollScheduler::stop()
 {
     for (auto it = m_ports.begin(); it != m_ports.end(); ++it) {
         PortHandle &h = it.value();
-        if (h.worker)
+        if (h.worker) {
             QMetaObject::invokeMethod(h.worker, "stopWork", Qt::QueuedConnection);
+        }
         if (h.thread) {
             h.thread->quit();
             h.thread->wait(3000);
@@ -952,14 +1029,139 @@ void PollScheduler::onDeviceDataReady(DeviceProfile::DeviceKey key,
     if (discovered && m_deviceMgr->hasDevice(key))
         refreshPollTasks();
 
-    if (online && !values.isEmpty() && m_logger) {
-        const DeviceState ds = m_deviceMgr->device(key);
-        m_logger->appendRecord(key, ds.name, ds.type, values);
+    // 仅主轮询的完整读数落盘: 判据取 th1_temp 而非 values 非空,
+    // 防止只含个别字段的局部数据写成空壳 CSV 行。落盘再按独立的
+    // 记录周期节流: 轮询可以 100 ms, 记录仍按 1 s, 兼顾控制响应与存储。
+    if (online && values.contains("th1_temp") && m_logger) {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const int recordIntervalMs =
+            qMax(1, AppConfig::instance().general().recordIntervalMs);
+        if (nowMs - m_lastRecordMs.value(key, 0) >= recordIntervalMs) {
+            m_lastRecordMs[key] = nowMs;
+            const DeviceState ds = m_deviceMgr->device(key);
+            m_logger->appendRecord(key, ds.name, ds.type, values);
+        }
     }
 }
 
 void PollScheduler::onWriteFinished(DeviceProfile::DeviceKey key, bool success,
-                                     const QString &error)
+                                    const QString &error)
 {
     emit writeCompleted(key, success, error);
+}
+
+// ============================================================
+// BrightnessController: 屏幕亮度与空闲自动降亮
+// ============================================================
+
+BrightnessController::BrightnessController(QObject *parent)
+    : QObject(parent)
+{
+    m_lastActivity.start();
+    m_idleTimer = new QTimer(this);
+    m_idleTimer->setInterval(5000);
+    connect(m_idleTimer, &QTimer::timeout, this, [this] {
+        if (m_idleDimMinutes <= 0 || m_dimmed)
+            return;
+        if (m_lastActivity.elapsed()
+            >= static_cast<qint64>(m_idleDimMinutes) * 60000) {
+            m_dimmed = true;
+            writeBrightness(m_idleDimPercent);
+            emit dimmedChanged(true);
+        }
+    });
+    m_idleTimer->start();
+}
+
+void BrightnessController::applySettings(int brightnessPercent,
+                                         int idleDimMinutes,
+                                         int idleDimPercent)
+{
+    m_brightnessPercent = qBound(5, brightnessPercent, 100);
+    m_idleDimMinutes = qBound(0, idleDimMinutes, 1440);
+    m_idleDimPercent = qBound(0, idleDimPercent, 100);
+    if (!m_dimmed)
+        writeBrightness(m_brightnessPercent);
+}
+
+void BrightnessController::setBrightnessPercent(int percent)
+{
+    m_brightnessPercent = qBound(5, percent, 100);
+    m_dimmed = false;
+    writeBrightness(m_brightnessPercent);
+    emit dimmedChanged(false);
+}
+
+void BrightnessController::noteActivity()
+{
+    m_lastActivity.restart();
+    if (m_dimmed) {
+        m_dimmed = false;
+        writeBrightness(m_brightnessPercent);
+        emit dimmedChanged(false);
+    }
+}
+
+void BrightnessController::detectBackend()
+{
+    if (m_backendDetected)
+        return;
+    m_backendDetected = true;
+
+    const QString base = QStringLiteral("/sys/class/backlight");
+    for (const QString &name :
+         QDir(base).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        const QString dir = base + QDir::separator() + name;
+        if (!QFileInfo(dir + "/brightness").isWritable())
+            continue;
+        QFile maxFile(dir + "/max_brightness");
+        if (!maxFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        m_backlightMax =
+            QString::fromUtf8(maxFile.readAll()).trimmed().toInt();
+        maxFile.close();
+        if (m_backlightMax > 0) {
+            m_backlightDir = dir;
+            m_backend = Sysfs;
+            return;
+        }
+    }
+    if (!QStandardPaths::findExecutable("settings").isEmpty())
+        m_backend = AndroidSettings;
+    else if (!QStandardPaths::findExecutable("termux-brightness").isEmpty())
+        m_backend = TermuxApi;
+    else
+        m_backend = None;
+}
+
+void BrightnessController::writeBrightness(int percent)
+{
+    const int clamped = qBound(0, percent, 100);
+    if (m_currentPercent == clamped)
+        return;
+    detectBackend();
+
+    bool applied = false;
+    if (m_backend == Sysfs) {
+        const int value = qRound(m_backlightMax * clamped / 100.0);
+        QFile file(m_backlightDir + "/brightness");
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            file.write(QString::number(value).toUtf8());
+            applied = true;
+        }
+    } else if (m_backend == AndroidSettings) {
+        applied = QProcess::execute(
+                      "settings",
+                      {"put", "system", "screen_brightness",
+                       QString::number(qRound(255 * clamped / 100.0))}) == 0;
+    } else if (m_backend == TermuxApi) {
+        applied = QProcess::execute(
+                      "termux-brightness",
+                      {QString::number(qRound(255 * clamped / 100.0))}) == 0;
+    } else {
+        applied = true; // 无可用后端 (如开发机): 视为已应用, 避免反复尝试
+    }
+
+    if (applied)
+        m_currentPercent = clamped;
 }

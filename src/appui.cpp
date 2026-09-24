@@ -8,6 +8,7 @@
 #include <QDoubleSpinBox>
 #include <QEvent>
 #include <QFrame>
+#include <QDebug>
 #include <QFontMetrics>
 #include <QGridLayout>
 #include <QHeaderView>
@@ -24,6 +25,7 @@
 #include <QSettings>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QSlider>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
@@ -40,6 +42,9 @@ namespace {
 
 constexpr int kSelfCheckSeconds = 60;
 constexpr int kSensorRecoverySamples = 3;
+// 历史页实时追加上限: 停放在数据浏览页时新记录会持续进内存,
+// 达到上限后暂停实时追加, 重新查询后恢复, 防止长时间运行内存无限增长。
+constexpr int kMaxLiveAppendRecords = 50000;
 
 class TouchComboDelegate : public QStyledItemDelegate
 {
@@ -442,10 +447,400 @@ QString applicationStyleSheet(const QString &themeName)
         QLabel#bottomStatus { color: black; background: white; border-top: 2px solid black; }
     )");
 
+    const QString harmony = QString::fromUtf8(R"(
+        QMainWindow, QWidget#appRoot {
+            background: #F5F7FA;
+            color: #1D1D1F;
+        }
+        QFrame#sideBar {
+            background: #FFFFFF;
+            border: none;
+            border-right: 1px solid #E0E0E0;
+        }
+        QPushButton#navButton {
+            color: #3A3A3C;
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            text-align: left;
+            padding-left: 18px;
+            font-size: 16px;
+        }
+        QPushButton#navButton:hover {
+            background: #F2F3F5;
+            color: #007DFF;
+        }
+        QPushButton#navButton:checked {
+            background: #E8F3FF;
+            color: #007DFF;
+            border-left: 4px solid #007DFF;
+            padding-left: 14px;
+            font-weight: 700;
+        }
+        QFrame#topBar {
+            background: #F7F8FA;
+            border-bottom: 1px solid #E0E0E0;
+        }
+        QLabel#pageTitle {
+            color: #1D1D1F;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        QLabel#brandTitle {
+            color: #007DFF;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        QLabel#clock {
+            color: #6B6B6B;
+            font-size: 13px;
+        }
+        QLabel#systemPill {
+            background: #E8F3FF;
+            color: #007DFF;
+            border: 1px solid #B3D4FF;
+            border-radius: 12px;
+            padding: 5px 12px;
+            font-weight: 700;
+        }
+        QLabel#systemPill[alarm="true"] {
+            background: #FFECEC;
+            color: #D93636;
+            border-color: #FFB3B3;
+        }
+        QLabel#systemPill[neutral="true"] {
+            background: #F2F3F5;
+            color: #6B6B6B;
+            border-color: #D9D9D9;
+        }
+        QLabel#selfCheckPill {
+            background: #F2F3F5;
+            color: #6B6B6B;
+            border: 1px solid #D9D9D9;
+            border-radius: 12px;
+            padding: 5px 12px;
+            font-weight: 700;
+        }
+        QLabel#selfCheckPill[healthy="true"] {
+            background: #E6F7ED;
+            color: #1A7F4A;
+            border-color: #A3D9B1;
+        }
+        QLabel#selfCheckPill[alarm="true"] {
+            background: #D93636;
+            color: white;
+            border-color: #B32424;
+        }
+        QFrame#card {
+            background: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-radius: 14px;
+        }
+        QLabel#sectionTitle {
+            color: #1D1D1F;
+            font-size: 17px;
+            font-weight: 700;
+        }
+        QLabel#metricTitle {
+            color: #6B6B6B;
+            font-size: 12px;
+        }
+        QLabel#metricValue {
+            color: #1D1D1F;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        QLabel#metricSubValue {
+            color: #6B6B6B;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        QLabel#metricValueSmall {
+            color: #1D1D1F;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        QLabel#heroValue {
+            color: #1D1D1F;
+            font-size: 34px;
+            font-weight: 700;
+        }
+        QLabel#mutedText {
+            color: #8C8C8C;
+            font-size: 12px;
+        }
+        QLabel#noticeText {
+            color: #3A3A3C;
+            background: #F7F8FA;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            padding: 9px;
+        }
+        QLabel#ruleText {
+            color: #3A3A3C;
+            background: #F7F8FA;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            padding: 10px;
+            line-height: 1.5;
+        }
+        QLabel#formulaBox {
+            color: #3A3A3C;
+            background: #F7F8FA;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            padding: 11px;
+        }
+        QLabel#formulaText {
+            color: #6B6B6B;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        QLabel#actionFeedback {
+            color: #D93636;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 3px 8px;
+        }
+        QLabel#actionFeedback[success="true"] {
+            color: #1A7F4A;
+        }
+        QLabel#crosshairInfo {
+            color: #3A3A3C;
+            background: #F7F8FA;
+            border: 1px solid #E0E0E0;
+            padding: 6px 10px;
+            font-size: 13px;
+            border-radius: 10px;
+        }
+        QLabel#safeBanner {
+            color: #1A7F4A;
+            background: #E6F7ED;
+            border: 1px solid #A3D9B1;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        QLabel#safeBanner[alarm="true"] {
+            color: white;
+            background: #D93636;
+            border-color: #B32424;
+        }
+        QLabel#statusPill {
+            color: #D93636;
+            background: #FFECEC;
+            border: 1px solid #FFB3B3;
+            border-radius: 12px;
+            padding: 4px 11px;
+        }
+        QLabel#statusPill[online="true"] {
+            color: #1A7F4A;
+            background: #E6F7ED;
+            border-color: #A3D9B1;
+        }
+        QLabel#runState {
+            color: #6B6B6B;
+            background: #F2F3F5;
+            border: 1px solid #D9D9D9;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+        QLabel#runState[running="true"] {
+            color: white;
+            background: #007DFF;
+            border-color: #0059B3;
+        }
+        QLabel#fleetSummary {
+            color: #6B6B6B;
+            font-size: 14px;
+        }
+        QFrame#deviceCard {
+            background: #FFFFFF;
+            color: #1D1D1F;
+            border: 1px solid #E0E0E0;
+            border-left: 5px solid #007DFF;
+            border-radius: 14px;
+        }
+        QFrame#deviceCard:hover {
+            background: #F8FBFF;
+            border-color: #B3D4FF;
+        }
+        QFrame#deviceCard[online="false"] {
+            color: #8C8C8C;
+            border-left-color: #A6A6A6;
+        }
+        QFrame#deviceCard[alarm="true"] {
+            color: #D93636;
+            background: #FFECEC;
+            border-color: #FFB3B3;
+            border-left-color: #D93636;
+        }
+        QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox {
+            background: #FFFFFF;
+            border: 1px solid #D9D9D9;
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 14px;
+        }
+        QComboBox:focus {
+            border: 2px solid #007DFF;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 28px;
+        }
+        QComboBox QAbstractItemView {
+            background: #FFFFFF;
+            color: #1D1D1F;
+            border: 1px solid #E0E0E0;
+            outline: 0;
+            selection-background-color: #E8F3FF;
+            selection-color: #007DFF;
+        }
+        QComboBox QAbstractItemView::item {
+            min-height: 44px;
+            padding-left: 10px;
+        }
+        QPushButton {
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        QPushButton#primaryButton {
+            color: white;
+            background: #007DFF;
+            border: 1px solid #0059B3;
+            font-weight: 700;
+        }
+        QPushButton#primaryButton:hover {
+            background: #339CFF;
+        }
+        QPushButton#primaryButton:disabled {
+            color: #BFBFBF;
+            background: #F2F3F5;
+            border-color: #D9D9D9;
+        }
+        QPushButton#secondaryButton {
+            color: #3A3A3C;
+            background: #FFFFFF;
+            border: 1px solid #D9D9D9;
+            font-weight: 700;
+        }
+        QPushButton#secondaryButton:hover {
+            background: #F2F3F5;
+        }
+        QPushButton#secondaryButton:checked {
+            color: white;
+            background: #007DFF;
+            border-color: #0059B3;
+        }
+        QPushButton#startButton {
+            color: white;
+            background: #007DFF;
+            border: 1px solid #0059B3;
+            font-weight: 700;
+        }
+        QPushButton#startButton:hover {
+            background: #339CFF;
+        }
+        QPushButton#startButton:disabled {
+            color: #BFBFBF;
+            background: #F2F3F5;
+            border-color: #D9D9D9;
+        }
+        QPushButton#dangerButton {
+            color: white;
+            background: #D93636;
+            border: 1px solid #B32424;
+            font-weight: 700;
+        }
+        QPushButton#dangerButton:disabled {
+            color: #BFBFBF;
+            background: #F2F3F5;
+            border-color: #D9D9D9;
+        }
+        QPushButton#outputButton {
+            color: #3A3A3C;
+            background: #F2F3F5;
+            border: 1px solid #D9D9D9;
+            font-weight: 700;
+        }
+        QPushButton#outputButton:disabled {
+            color: #BFBFBF;
+            background: #F2F3F5;
+            border-color: #D9D9D9;
+        }
+        QPushButton#outputButton[outputOn="true"] {
+            color: white;
+            background: #007DFF;
+            border-color: #0059B3;
+        }
+        QPushButton#outputButton[locked="true"] {
+            color: #D93636;
+            background: #FFECEC;
+            border-color: #FFB3B3;
+        }
+        QPushButton#adjustButton {
+            color: #1D1D1F;
+            background: #F2F3F5;
+            border: 1px solid #D9D9D9;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        QPushButton#adjustButton:pressed {
+            color: white;
+            background: #007DFF;
+        }
+        QScrollBar:horizontal {
+            height: 36px;
+            background: #F2F3F5;
+            border: 1px solid #E0E0E0;
+            margin: 0;
+        }
+        QScrollBar::handle:horizontal {
+            background: #A6A6A6;
+            min-width: 100px;
+            margin: 4px 2px;
+            border-radius: 6px;
+        }
+        QScrollBar::handle:horizontal:hover {
+            background: #007DFF;
+        }
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+            width: 0;
+            border: none;
+        }
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+            background: #F2F3F5;
+        }
+        QTableWidget {
+            background: #FFFFFF;
+            alternate-background-color: #F7F8FA;
+            border: 1px solid #E0E0E0;
+            border-radius: 12px;
+            gridline-color: #E0E0E0;
+            font-size: 12px;
+        }
+        QHeaderView::section {
+            color: #3A3A3C;
+            background: #F2F3F5;
+            border: none;
+            padding: 6px;
+            font-weight: 700;
+        }
+        QLabel#bottomStatus {
+            color: #6B6B6B;
+            background: #FFFFFF;
+            border-top: 1px solid #E0E0E0;
+            padding-left: 12px;
+        }
+    )");
+
     if (themeName == "low_light")
         return base + lowLight;
     if (themeName == "high_contrast")
         return base + highContrast;
+    if (themeName == "harmony")
+        return base + harmony;
     return base + standard;
 }
 
@@ -672,17 +1067,27 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
         spareStates.append(QString("OT%1 %2").arg(output).arg(
             values.contains(field) ? QString::number(values.value(field).toInt()) : "--"));
     }
-    QStringList expInStates;
-    for (int i = 1; i <= 5; ++i) {
-        const QString field = QString("exp_in%1").arg(i);
-        expInStates.append(values.contains(field)
-            ? QString::number(values.value(field).toInt()) : "--");
+    QStringList expInLines;
+    for (int i = 1; i <= 5; i += 3) {
+        QStringList row;
+        for (int j = i; j < i + 3 && j <= 5; ++j) {
+            const QString field = QString("exp_in%1").arg(j);
+            const QString value = values.contains(field)
+                ? QString::number(values.value(field).toInt()) : "--";
+            row.append(QString("IN%1:%2").arg(j).arg(value));
+        }
+        expInLines.append(row.join("  "));
     }
-    QStringList expOutStates;
-    for (int i = 1; i <= 7; ++i) {
-        const QString field = QString("exp_out%1").arg(i);
-        expOutStates.append(values.contains(field)
-            ? QString::number(values.value(field).toInt()) : "--");
+    QStringList expOutLines;
+    for (int i = 1; i <= 7; i += 3) {
+        QStringList row;
+        for (int j = i; j < i + 3 && j <= 7; ++j) {
+            const QString field = QString("exp_out%1").arg(j);
+            const QString value = values.contains(field)
+                ? QString::number(values.value(field).toInt()) : "--";
+            row.append(QString("OUT%1:%2").arg(j).arg(value));
+        }
+        expOutLines.append(row.join("  "));
     }
     card->content()->setText(QString::fromUtf8(
         "<b>串口 %1  ·  子板 ID %2</b>　%3<br/>"
@@ -690,7 +1095,8 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
         "%6<br/>"
         "温湿度  %7  /  %8　　PT100  %9<br/>"
         "高压  %10 V　备用输入  %11　%12<br/>"
-        "外扩输入 %13　外扩输出 %14")
+        "外扩输入<br/>%13<br/>"
+        "外扩输出<br/>%14")
         .arg(state.key.portIndex + 1).arg(state.key.slaveId).arg(stateText)
         .arg(modeText, stageText)
         .arg(mainOutputHtml)
@@ -702,8 +1108,8 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
         .arg(values.contains("reserved")
                  ? QString::number(values.value("reserved").toInt()) : "--")
         .arg(spareStates.join("  "))
-        .arg(expInStates.join(""))
-        .arg(expOutStates.join("")));
+        .arg(expInLines.join("<br/>"))
+        .arg(expOutLines.join("<br/>")));
     card->setProperty("online", state.online);
     card->setProperty("alarm", hasDeviceAlarm(values));
     refreshDynamicStyle(card);
@@ -986,16 +1392,18 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
     auto *expInTitle = new QLabel(QString::fromUtf8("外扩输入"), controlCard);
     expInTitle->setObjectName("metricTitle");
     controls->addWidget(expInTitle);
-    auto *expInRow = new QHBoxLayout;
+    auto *expInGrid = new QGridLayout;
+    expInGrid->setSpacing(12);
     m_expInLabels.resize(5);
     for (int i = 0; i < 5; ++i) {
         auto *label = new QLabel(QString::fromUtf8("IN%1 --").arg(i + 1), controlCard);
         label->setObjectName("metricValueSmall");
         label->setAlignment(Qt::AlignCenter);
+        label->setMinimumWidth(72);
         m_expInLabels[i] = label;
-        expInRow->addWidget(label);
+        expInGrid->addWidget(label, i / 2, i % 2);
     }
-    controls->addLayout(expInRow);
+    controls->addLayout(expInGrid);
 
     auto *expOutTitle = new QLabel(QString::fromUtf8("外扩输出"), controlCard);
     expOutTitle->setObjectName("metricTitle");
@@ -1569,13 +1977,14 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     const QString displayTheme = AppConfig::instance().general().displayTheme;
     const bool lowLight = displayTheme == "low_light";
     const bool highContrast = displayTheme == "high_contrast";
-    const QColor chartBackground(lowLight ? "#17232b" : "#ffffff");
+    const QColor chartBackground(lowLight ? "#17232b"
+        : highContrast ? "#ffffff" : "#ffffff");
     const QColor chartText(lowLight ? "#dce5e9"
-                                   : highContrast ? "#000000" : "#555555");
+        : highContrast ? "#000000" : "#555555");
     const QColor chartGrid(lowLight ? "#40515b"
-                                   : highContrast ? "#777777" : "#dddddd");
+        : highContrast ? "#777777" : "#dddddd");
     const QColor chartTick(lowLight ? "#60717b"
-                                   : highContrast ? "#333333" : "#aaaaaa");
+        : highContrast ? "#333333" : "#aaaaaa");
     painter.fillRect(rect(), chartBackground);
 
     if (m_records.isEmpty()) {
@@ -2019,6 +2428,16 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
             return;
     }
 
+    if (m_chartRecords.size() >= kMaxLiveAppendRecords) {
+        if (!m_liveAppendPaused) {
+            m_liveAppendPaused = true;
+            m_resultSummary->setText(QString::fromUtf8(
+                "实时追加已达 %1 条上限，请重新查询以加载最新数据")
+                .arg(kMaxLiveAppendRecords));
+        }
+        return;
+    }
+
     HistoryQuery::Record record;
     record.timestamp = timestamp;
     record.portIndex = key.portIndex;
@@ -2048,6 +2467,7 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
 
 void HistoryWidget::loadRecords(bool resetToLatest)
 {
+    m_liveAppendPaused = false;
     HistoryQuery::Filter filter;
     filter.dateFrom = m_dateFrom->date();
     filter.dateTo = m_dateTo->date();
@@ -2118,6 +2538,44 @@ void HistoryWidget::setTableRow(int row, const HistoryQuery::Record &record)
     highVoltageItem->setData(Qt::ForegroundRole,
                              highVoltage ? QColor("#c93632") : QColor("#168f4f"));
     m_table->setItem(row, 4, highVoltageItem);
+}
+
+// ============================================================
+// AboutWidget
+// ============================================================
+
+AboutWidget::AboutWidget(QWidget *parent)
+    : QWidget(parent)
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(40, 40, 40, 40);
+    layout->setSpacing(18);
+    layout->setAlignment(Qt::AlignTop);
+
+    auto *title = new QLabel(QString::fromUtf8("裕泰通加热器"), this);
+    title->setObjectName("sectionTitle");
+    layout->addWidget(title);
+
+    auto *version = new QLabel(QString::fromUtf8("版本：RS485Control 1.0.0"), this);
+    version->setObjectName("metricTitle");
+    layout->addWidget(version);
+
+    auto *desc = new QLabel(QString::fromUtf8(
+        "本机用于域控子板温湿度采集、自动温控与历史数据浏览。"
+        ), this);
+    desc->setObjectName("mutedText");
+    desc->setWordWrap(true);
+    layout->addWidget(desc);
+
+    auto *chip = new QLabel(QString::fromUtf8("芯片：RK3568"), this);
+    chip->setObjectName("metricTitle");
+    layout->addWidget(chip);
+
+    auto *os = new QLabel(QString::fromUtf8("操作系统：鸿蒙操作系统"), this);
+    os->setObjectName("metricTitle");
+    layout->addWidget(os);
+
+    layout->addStretch();
 }
 
 // ============================================================
@@ -2437,6 +2895,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     m_displayTheme->addItem(QString::fromUtf8("标准"), "standard");
     m_displayTheme->addItem(QString::fromUtf8("低光"), "low_light");
     m_displayTheme->addItem(QString::fromUtf8("强光"), "high_contrast");
+    m_displayTheme->addItem(QString::fromUtf8("鸿蒙"), "harmony");
     const int displayThemeIndex = m_displayTheme->findData(config.displayTheme);
     m_displayTheme->setCurrentIndex(displayThemeIndex >= 0 ? displayThemeIndex : 0);
     m_displayTheme->setMinimumSize(180, 44);
@@ -2583,6 +3042,30 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         return adjustment;
     };
 
+    auto makeDecimalAdjustment = [](QDoubleSpinBox *input, QWidget *parent,
+                                    int inputWidth = 120) {
+        input->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        input->setAlignment(Qt::AlignCenter);
+        input->setMinimumSize(inputWidth, 44);
+        auto *decrease = new QPushButton(QString::fromUtf8("−"), parent);
+        auto *increase = new QPushButton("+", parent);
+        for (QPushButton *button : { decrease, increase }) {
+            button->setObjectName("adjustButton");
+            button->setMinimumSize(48, 44);
+            button->setAutoRepeat(true);
+            button->setAutoRepeatDelay(400);
+            button->setAutoRepeatInterval(120);
+        }
+        connect(decrease, &QPushButton::clicked, input, &QDoubleSpinBox::stepDown);
+        connect(increase, &QPushButton::clicked, input, &QDoubleSpinBox::stepUp);
+        auto *adjustment = new QHBoxLayout;
+        adjustment->setSpacing(0);
+        adjustment->addWidget(decrease);
+        adjustment->addWidget(input);
+        adjustment->addWidget(increase);
+        return adjustment;
+    };
+
     auto *storageCard = makeCard(advancedPanel);
     auto *storageLayout = new QVBoxLayout(storageCard);
     storageLayout->setContentsMargins(16, 10, 16, 10);
@@ -2593,17 +3076,31 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     storageTitle->setObjectName("sectionTitle");
     storageText->addWidget(storageTitle);
     auto *storageHint = new QLabel(
-        QString::fromUtf8("每次有效轮询写入一条 CSV，也可按时间长度手动清理"), storageCard);
+        QString::fromUtf8("按记录周期写入 CSV（独立于轮询周期），也可按时间长度手动清理"), storageCard);
     storageHint->setObjectName("mutedText");
     storageText->addWidget(storageHint);
     storageTop->addLayout(storageText, 1);
     storageTop->addWidget(new QLabel(QString::fromUtf8("轮询周期"), storageCard));
-    m_pollInterval = new QSpinBox(storageCard);
-    m_pollInterval->setRange(1, 3600);
+    m_pollInterval = new QDoubleSpinBox(storageCard);
+    m_pollInterval->setDecimals(1);
+    m_pollInterval->setRange(0.1, 3600.0);
+    m_pollInterval->setSingleStep(0.1);
     m_pollInterval->setSuffix(QString::fromUtf8(" 秒"));
-    m_pollInterval->setValue(qBound(1, config.pollIntervalMs / 1000, 3600));
-    storageTop->addLayout(makeIntegerAdjustment(m_pollInterval, storageCard));
+    m_pollInterval->setValue(qBound(0.1, config.pollIntervalMs / 1000.0, 3600.0));
+    storageTop->addLayout(makeDecimalAdjustment(m_pollInterval, storageCard));
     storageLayout->addLayout(storageTop);
+
+    auto *recordTop = new QHBoxLayout;
+    recordTop->addWidget(new QLabel(QString::fromUtf8("记录周期"), storageCard));
+    m_recordInterval = new QDoubleSpinBox(storageCard);
+    m_recordInterval->setDecimals(1);
+    m_recordInterval->setRange(0.1, 3600.0);
+    m_recordInterval->setSingleStep(0.1);
+    m_recordInterval->setSuffix(QString::fromUtf8(" 秒"));
+    m_recordInterval->setValue(qBound(0.1, config.recordIntervalMs / 1000.0, 3600.0));
+    recordTop->addLayout(makeDecimalAdjustment(m_recordInterval, storageCard));
+    recordTop->addStretch();
+    storageLayout->addLayout(recordTop);
 
     auto *storagePolicy = new QHBoxLayout;
     storagePolicy->addWidget(new QLabel(QString::fromUtf8("保留策略：全部保留"), storageCard));
@@ -2712,6 +3209,64 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     m_relaySwitchInterval->setValue(config.relaySwitchIntervalSec);
     relayLayout->addLayout(makeIntegerAdjustment(m_relaySwitchInterval, relayCard));
     advancedLayout->addWidget(relayCard);
+
+    auto *screenCard = makeCard(advancedPanel);
+    auto *screenLayout = new QHBoxLayout(screenCard);
+    screenLayout->setContentsMargins(16, 10, 16, 10);
+    auto *screenText = new QVBoxLayout;
+    auto *screenTitle = new QLabel(QString::fromUtf8("屏幕亮度"), screenCard);
+    screenTitle->setObjectName("sectionTitle");
+    screenText->addWidget(screenTitle);
+    auto *screenHint = new QLabel(
+        QString::fromUtf8("亮度越高背光衰减越快，无人值守建议配合下方自动降亮"), screenCard);
+    screenHint->setObjectName("mutedText");
+    screenText->addWidget(screenHint);
+    screenLayout->addLayout(screenText, 1);
+    m_brightnessSlider = new QSlider(Qt::Horizontal, screenCard);
+    m_brightnessSlider->setRange(5, 100);
+    m_brightnessSlider->setValue(qBound(5, config.brightnessPercent, 100));
+    m_brightnessSlider->setMinimumWidth(180);
+    m_brightnessSlider->setMinimumHeight(44);
+    m_brightnessValue = new QLabel(
+        QString::number(m_brightnessSlider->value()) + "%", screenCard);
+    m_brightnessValue->setObjectName("metricValue");
+    m_brightnessValue->setMinimumWidth(52);
+    connect(m_brightnessSlider, &QSlider::valueChanged, this, [this](int value) {
+        m_brightnessValue->setText(QString::number(value) + "%");
+        emit brightnessPreview(value);
+    });
+    screenLayout->addWidget(m_brightnessSlider);
+    screenLayout->addWidget(m_brightnessValue);
+    advancedLayout->addWidget(screenCard);
+
+    auto *idleCard = makeCard(advancedPanel);
+    auto *idleLayout = new QGridLayout(idleCard);
+    idleLayout->setContentsMargins(16, 10, 16, 10);
+    auto *idleTitle = new QLabel(QString::fromUtf8("无人值守自动降亮"), idleCard);
+    idleTitle->setObjectName("sectionTitle");
+    idleLayout->addWidget(idleTitle, 0, 0, 1, 4);
+    auto *idleHint = new QLabel(
+        QString::fromUtf8("无操作达到设定时间后降低亮度（0% 即关闭背光），任意触摸立即恢复"), idleCard);
+    idleHint->setObjectName("mutedText");
+    idleLayout->addWidget(idleHint, 1, 0, 1, 4);
+    auto *idleMinutesLabel = new QLabel(QString::fromUtf8("降亮等待"), idleCard);
+    idleMinutesLabel->setObjectName("metricTitle");
+    idleLayout->addWidget(idleMinutesLabel, 2, 0);
+    m_idleDimMinutes = new QSpinBox(idleCard);
+    m_idleDimMinutes->setRange(0, 1440);
+    m_idleDimMinutes->setSuffix(QString::fromUtf8(" 分钟"));
+    m_idleDimMinutes->setValue(qBound(0, config.idleDimMinutes, 1440));
+    idleLayout->addLayout(makeIntegerAdjustment(m_idleDimMinutes, idleCard), 2, 1);
+    auto *idlePercentLabel = new QLabel(QString::fromUtf8("降亮后亮度"), idleCard);
+    idlePercentLabel->setObjectName("metricTitle");
+    idleLayout->addWidget(idlePercentLabel, 2, 2);
+    m_idleDimPercent = new QSpinBox(idleCard);
+    m_idleDimPercent->setRange(0, 100);
+    m_idleDimPercent->setSuffix(" %");
+    m_idleDimPercent->setValue(qBound(0, config.idleDimPercent, 100));
+    idleLayout->addLayout(makeIntegerAdjustment(m_idleDimPercent, idleCard), 2, 3);
+    advancedLayout->addWidget(idleCard);
+
     layout->addWidget(advancedPanel);
     advancedPanel->setVisible(false);
 
@@ -2727,7 +3282,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         m_highVoltageDetectionMode, m_highVoltageDigitalTrigger,
         m_highVoltageThreshold, m_displayTheme, m_pollInterval, m_maxStorageGB,
         m_deleteAge, m_deleteAgeUnit, m_reservedInputMode,
-        m_relaySwitchInterval
+        m_relaySwitchInterval, m_recordInterval, m_brightnessSlider,
+        m_idleDimMinutes, m_idleDimPercent
     };
     for (QWidget *control : parameterControls)
         control->installEventFilter(this);
@@ -3011,12 +3567,13 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
              m_pidKp, m_pidKi, m_pidKd, m_pidSingleStage,
              m_pidSecondStage, m_pidDualStage, m_dewPointSingleStage,
              m_dewPointSecondStage, m_dewPointDualStage,
-             m_dewPointHysteresis, m_humidityTemperatureLimit }) {
+             m_dewPointHysteresis, m_humidityTemperatureLimit, m_pollInterval,
+             m_recordInterval }) {
         connect(input, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
                 this, [clearFeedback](double) { clearFeedback(); });
     }
-    for (QSpinBox *input : { m_pollInterval, m_relaySwitchInterval,
-                             m_maxStorageGB }) {
+    for (QSpinBox *input : { m_relaySwitchInterval, m_maxStorageGB,
+                             m_idleDimMinutes, m_idleDimPercent }) {
         connect(input, QOverload<int>::of(&QSpinBox::valueChanged),
                 this, [clearFeedback](int) { clearFeedback(); });
     }
@@ -3124,7 +3681,13 @@ void SettingsWidget::saveSettings()
         m_highVoltageDigitalTrigger->currentData().toInt();
     config.general().highVoltageThreshold = m_highVoltageThreshold->value();
     config.general().relaySwitchIntervalSec = m_relaySwitchInterval->value();
-    config.general().pollIntervalMs = m_pollInterval->value() * 1000;
+    config.general().pollIntervalMs =
+        qRound(m_pollInterval->value() * 1000.0);
+    config.general().recordIntervalMs =
+        qRound(m_recordInterval->value() * 1000.0);
+    config.general().brightnessPercent = m_brightnessSlider->value();
+    config.general().idleDimMinutes = m_idleDimMinutes->value();
+    config.general().idleDimPercent = m_idleDimPercent->value();
     config.general().maxStorageMB = m_maxStorageGB->value() * 1024;
     config.general().spareOt01Mode = m_spareOutputModes.value(1)->currentData().toString();
     config.general().spareOt02Mode = m_spareOutputModes.value(2)->currentData().toString();
@@ -3226,11 +3789,20 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     m_startedAt = QDateTime::currentDateTime();
-    setWindowTitle(QString::fromUtf8("智能环境控制系统"));
+    setWindowTitle(QString::fromUtf8("裕泰通加热器"));
     resize(1024, 600);
     setMinimumSize(800, 480);
     setupUi();
     startServices();
+
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    m_brightness = new BrightnessController(this);
+    m_brightness->applySettings(config.brightnessPercent,
+                                config.idleDimMinutes,
+                                config.idleDimPercent);
+    qApp->installEventFilter(this);
+    checkSystemTimeAnomaly();
+
     switchPage(0);
 }
 
@@ -3257,14 +3829,15 @@ void MainWindow::setupUi()
     auto *sideLayout = new QVBoxLayout(sideBar);
     sideLayout->setContentsMargins(14, 22, 14, 18);
     sideLayout->setSpacing(9);
-    auto *brandTitle = new QLabel(QString::fromUtf8("环境控制系统"), sideBar);
+    auto *brandTitle = new QLabel(QString::fromUtf8("裕泰通加热器"), sideBar);
     brandTitle->setObjectName("brandTitle");
     sideLayout->addWidget(brandTitle);
     sideLayout->addSpacing(28);
 
     const QStringList navTexts = {
-        QString::fromUtf8("子板总览"), QString::fromUtf8("子板控制"),
-        QString::fromUtf8("参数设置"), QString::fromUtf8("数据浏览")
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
+        QString::fromUtf8("加热参数设置"), QString::fromUtf8("数据浏览"),
+        QString::fromUtf8("关于本机")
     };
     for (int i = 0; i < navTexts.size(); ++i) {
         auto *button = new QPushButton(navTexts.at(i), sideBar);
@@ -3313,10 +3886,12 @@ void MainWindow::setupUi()
     m_manualPanel = new ManualPanel(&m_deviceManager, m_pages);
     m_settingsWidget = new SettingsWidget(&m_rotator, m_pages);
     m_historyWidget = new HistoryWidget(&m_historyQuery, &m_deviceManager, m_pages);
+    m_aboutWidget = new AboutWidget(m_pages);
     m_pages->addWidget(m_fleetOverview);
     m_pages->addWidget(m_manualPanel);
     m_pages->addWidget(m_settingsWidget);
     m_pages->addWidget(m_historyWidget);
+    m_pages->addWidget(m_aboutWidget);
 
     auto *pageMargin = new QWidget(root);
     auto *pageLayout = new QVBoxLayout(pageMargin);
@@ -3346,6 +3921,11 @@ void MainWindow::setupUi()
             this, &MainWindow::rescanDevices);
     connect(m_settingsWidget, &SettingsWidget::dataFilesChanged,
             m_historyWidget, &HistoryWidget::onDataFilesChanged);
+    connect(m_settingsWidget, &SettingsWidget::brightnessPreview,
+            this, [this](int percent) {
+        if (m_brightness)
+            m_brightness->setBrightnessPercent(percent);
+    });
 
     auto *clockTimer = new QTimer(this);
     connect(clockTimer, &QTimer::timeout, this, &MainWindow::updateClock);
@@ -3393,8 +3973,9 @@ void MainWindow::switchPage(int index)
     if (index < 0 || index >= m_pages->count())
         return;
     const QStringList titles = {
-        QString::fromUtf8("子板状态总览"), QString::fromUtf8("子板控制"),
-        QString::fromUtf8("参数设置"), QString::fromUtf8("历史数据浏览")
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
+        QString::fromUtf8("加热参数设置"), QString::fromUtf8("历史数据浏览"),
+        QString::fromUtf8("关于本机")
     };
     m_pages->setCurrentIndex(index);
     m_pageTitle->setText(titles.at(index));
@@ -3566,6 +4147,10 @@ void MainWindow::onSettingsSaved()
     m_settingsWidget->refreshStorageInfo();
     if (m_scheduler)
         m_scheduler->applyPollInterval(config.pollIntervalMs);
+    if (m_brightness)
+        m_brightness->applySettings(config.brightnessPercent,
+                                    config.idleDimMinutes,
+                                    config.idleDimPercent);
     m_manualPanel->refreshSettings();
     m_statusBar->setText(QString::fromUtf8("参数已保存并应用"));
     m_lastAutoCommands.clear();
@@ -4005,6 +4590,42 @@ void MainWindow::leaveHighVoltageAlarm()
     m_statusBar->setText(QString::fromUtf8("高压告警已解除，请确认现场安全后继续操作"));
 }
 
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    Q_UNUSED(watched)
+    switch (event->type()) {
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonDblClick:
+    case QEvent::TouchBegin:
+    case QEvent::Wheel:
+    case QEvent::KeyPress:
+        if (m_brightness)
+            m_brightness->noteActivity();
+        break;
+    default:
+        break;
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::checkSystemTimeAnomaly()
+{
+    const QDateTime last = m_logger.lastRecordedTime();
+    if (!last.isValid())
+        return;
+    // 系统时间比最后记录时间还早 1 分钟以上: 断电丢时钟的典型表现
+    if (last.secsTo(QDateTime::currentDateTime()) >= -60)
+        return;
+    m_timeAnomaly = true;
+    m_selfCheckNotice->setText(QString::fromUtf8("⚠ 系统时间异常"));
+    m_selfCheckNotice->setProperty("alarm", true);
+    m_selfCheckNotice->setProperty("healthy", false);
+    refreshDynamicStyle(m_selfCheckNotice);
+    m_statusBar->setText(QString::fromUtf8(
+        "系统时间早于最后记录时间 %1，请校正系统时间，否则历史数据时间将错乱")
+        .arg(last.toString("yyyy-MM-dd hh:mm")));
+}
+
 void MainWindow::refreshSystemState()
 {
     const QList<DeviceState> devices = m_deviceManager.allDevices();
@@ -4042,7 +4663,11 @@ void MainWindow::refreshSystemState()
     bool selfCheckHealthy = false;
     const int elapsed = m_startedAt.isValid()
         ? m_startedAt.secsTo(QDateTime::currentDateTime()) : 0;
-    if (!m_sensorFaults.isEmpty()) {
+    if (m_timeAnomaly) {
+        // 系统时间异常 (断电丢时钟) 常驻提示, 优先于自检文案
+        m_selfCheckNotice->setText(QString::fromUtf8("⚠ 系统时间异常"));
+        selfCheckAlarm = true;
+    } else if (!m_sensorFaults.isEmpty()) {
         int recoveryProgress = 0;
         for (int count : m_sensorRecoveryCounts)
             recoveryProgress = qMax(recoveryProgress, count);

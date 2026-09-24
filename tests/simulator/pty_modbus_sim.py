@@ -37,6 +37,7 @@
     pt100 P:S 温度               单独固定两路 PT100 温度 ℃
     trend P:S ℃/分钟              持续升温或降温, 0 停止变化
     set P:S 字段 值               固定字段 (见 status), 偏离物理模型
+    expin P:S 掩码                设置外扩 IN1~IN5 (bit0~4, 0~31)
     auto P:S                      清除固定, 恢复自动模拟
     ambient P:S 温度              设环境温度 ℃
     normal P:S                    恢复正常温度和无高压状态
@@ -84,6 +85,10 @@ SET_FIELDS = {
     "reserved": "reserved",
     "volt": "voltage", "voltage": "voltage",
     "pt1": "pt1_temp", "pt2": "pt2_temp",
+    "in1": "exp_in1", "in2": "exp_in2", "in3": "exp_in3",
+    "in4": "exp_in4", "in5": "exp_in5",
+    "exp_in1": "exp_in1", "exp_in2": "exp_in2", "exp_in3": "exp_in3",
+    "exp_in4": "exp_in4", "exp_in5": "exp_in5",
 }
 for _i in range(1, 4):
     SET_FIELDS[f"th{_i}t"] = f"th{_i}_temp"
@@ -123,6 +128,7 @@ class Device:
             self.regs[f"th{i + 1}_humi"] = 550    # 55.0 %RH
         self.regs["pt1_temp"] = 0
         self.regs["pt2_temp"] = 0
+        self.exp_in = [0] * 5   # IN1~IN5 外扩输入 bit0~4
         self.pinned = set()      # set 命令固定、不再被物理模型覆盖的字段
         self.trend_c_per_min = 0.0
         self.tick()
@@ -175,6 +181,12 @@ class Device:
                     "th1_temp", "th1_humi", "th2_temp", "th2_humi",
                     "th3_temp", "th3_humi", "pt1_temp", "pt2_temp"]
             return self.regs[keys[idx]] & 0xFFFF
+        if addr == 0x000E:
+            mask = 0
+            for i, v in enumerate(self.exp_in):
+                if v:
+                    mask |= 1 << i
+            return mask
         if 0x0011 <= addr <= 0x001A:
             return self.ot[addr - 0x0011] & 0xFFFF
         return None
@@ -205,7 +217,8 @@ class Device:
             f"th=[{r['th1_temp'] / 10:.1f},{r['th2_temp'] / 10:.1f},{r['th3_temp'] / 10:.1f}] "
             f"rh=[{r['th1_humi'] / 10:.0f},{r['th2_humi'] / 10:.0f},{r['th3_humi'] / 10:.0f}] "
             f"pt=[{r['pt1_temp'] / 10:.1f},{r['pt2_temp'] / 10:.1f}] "
-            f"OT1-10={''.join(str(x) for x in self.ot)}"
+            f"OT1-10={''.join(str(x) for x in self.ot)} "
+            f"IN1-5={''.join(str(x) for x in self.exp_in)}"
             + ("  状态: " + " ".join(states) if states else "")
         )
 
@@ -531,12 +544,29 @@ class Simulator:
             if not -32768 <= raw <= 32767:
                 raise ValueError("温度放大 10 倍后必须在 INT16 可表示范围内")
             dev.regs[field] = raw
+        elif field.startswith("exp_in"):
+            idx = int(field.split("exp_in")[1]) - 1
+            if not 0 <= idx < 5:
+                raise ValueError("外扩输入编号为 1~5")
+            dev.exp_in[idx] = int(value) & 1
+            dev.pinned.add(field)
+            self.log(f"{args[0]} {field} = {int(value) & 1} (已固定)")
+            return
         else:
             if not 0 <= value <= 6553.5:
                 raise ValueError("湿度原始值必须在 UINT16 可表示范围内")
             dev.regs[field] = int(round(value * 10))
         dev.pinned.add(field)
         self.log(f"{args[0]} {field} = {value} (已固定, auto 恢复)")
+
+    def cmd_expin(self, args):
+        """expin P:S mask  设置外扩输入 bit0~4 = IN1~IN5 (mask 为 0~31 的十进制数)"""
+        dev = self._dev(args[0])
+        mask = int(args[1])
+        if not 0 <= mask <= 31:
+            raise ValueError("外扩输入掩码必须为 0~31")
+        dev.exp_in = [(mask >> i) & 1 for i in range(5)]
+        self.log(f"{args[0]} 外扩输入 = {mask:05b} (IN1~IN5)")
 
     def cmd_auto(self, args):
         dev = self._dev(args[0])
@@ -886,14 +916,18 @@ def write_run_config(port0: str, port1: str):
     template = f"""; 模拟器自动生成: 端口指向 PTY 符号链接, 数据目录隔离在 run/ 下
 [General]
 dataPath=data/logs
-displayTheme=standard
+brightnessPercent=100
+displayTheme=low_light
+idleDimMinutes=10
+idleDimPercent=0
+recordIntervalMs=1000
 highVoltageDetectionMode=analog
 highVoltageDigitalTrigger=0
 highVoltageThreshold=5
-interSlaveDelayMs=50
+interSlaveDelayMs=10
 maxStorageMB=12288
 modbusTimeoutMs=500
-pollIntervalMs=1000
+pollIntervalMs=100
 relaySwitchIntervalSec=10
 reservedInputMode=monitor
 temperatureControlMode=threshold
@@ -905,7 +939,7 @@ baudRate=19200
 dataBits=8
 device={port0}
 enabled=true
-frameDelayMs=5
+frameDelayMs=2
 name=RS485-A
 parity=N
 stopBits=1
@@ -915,7 +949,7 @@ baudRate=19200
 dataBits=8
 device={port1}
 enabled=true
-frameDelayMs=5
+frameDelayMs=2
 name=RS485-B
 parity=N
 stopBits=1

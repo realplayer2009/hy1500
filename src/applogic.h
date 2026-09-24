@@ -20,6 +20,9 @@
 #include <QVariant>
 #include <QMutex>
 #include <QDate>
+#include <QElapsedTimer>
+#include <QFile>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QTimer>
 #include "rs485device.h"
@@ -40,16 +43,16 @@ public:
         int dataBits = 8;
         char parity = 'N';    // N/E/O
         int stopBits = 1;
-        int frameDelayMs = 5;
+        int frameDelayMs = 2;
     };
 
     struct GeneralConfig {
         QString dataPath;
-        QString displayTheme = "standard";
+        QString displayTheme = "low_light";
         int maxStorageMB = 12288;
-        int pollIntervalMs = 1000;
+        int pollIntervalMs = 100;
         int modbusTimeoutMs = 500;
-        int interSlaveDelayMs = 50;
+        int interSlaveDelayMs = 10;
         double temperatureTarget = 25.0;
         QString temperatureTargetSource = "pt100";
         QString temperatureControlMode = "threshold";
@@ -78,6 +81,10 @@ public:
         int highVoltageDigitalTrigger = 1;
         double highVoltageThreshold = 1.0;
         int relaySwitchIntervalSec = 10;
+        int recordIntervalMs = 1000;   // CSV 记录周期, 与轮询周期独立
+        int brightnessPercent = 100;   // 屏幕亮度 5~100
+        int idleDimMinutes = 10;       // 无操作自动降亮分钟数, 0=关闭
+        int idleDimPercent = 0;        // 自动降亮目标亮度 0=熄灭背光
     };
 
     static AppConfig &instance();
@@ -165,6 +172,9 @@ public:
     void setDataPath(const QString &path);
     QString dataPath() const { return m_dataPath; }
 
+    /** 状态文件中记录的最后一条 CSV 时间, 用于启动时检测系统时间异常 */
+    QDateTime lastRecordedTime() const;
+
     void appendRecord(const DeviceProfile::DeviceKey &key,
                       const QString &deviceName,
                       DeviceProfile::DeviceType type,
@@ -181,9 +191,19 @@ signals:
 private:
     QString csvFilePathForDate(const QDate &date) const;
     void ensureHeader(QTextStream &out, const QString &filePath);
+    void closeCurrentFile();
+    bool openFileForDate(const QDate &date);
+    void persistLastRecordTime(const QDateTime &timestamp);
 
     QString m_dataPath;
     QMutex m_mutex;
+    // 按日期保持一个 append 句柄, 避免每条记录反复开闭文件;
+    // 日期翻转/路径变更/文件被外部清理时关闭重开。
+    QFile m_file;
+    QDate m_fileDate;
+    bool m_fileLegacySchema = false;
+    qint64 m_lastRecordTimePersistedMs = 0;
+    QDate m_lastRecordTimePersistedDate;
 };
 
 /**
@@ -282,6 +302,48 @@ private:
 };
 
 /**
+ * @brief 屏幕亮度与空闲自动降亮
+ *
+ * 无人值守场景下长时间高亮度会加速背光衰减和图像残留。控制器按
+ * 配置的亮度工作, 空闲超过设定时间无触摸时降到目标亮度 (可为 0,
+ * 即关闭背光), 任意输入立即恢复。亮度写入依次尝试 sysfs 背光
+ * (Linux RK3568)、Android settings、termux-brightness, 均不可用
+ * 时静默降级 (如开发机 macOS)。
+ */
+class BrightnessController : public QObject
+{
+    Q_OBJECT
+public:
+    explicit BrightnessController(QObject *parent = nullptr);
+
+    void applySettings(int brightnessPercent, int idleDimMinutes,
+                       int idleDimPercent);
+    void setBrightnessPercent(int percent);
+    void noteActivity();
+    bool dimmed() const { return m_dimmed; }
+
+signals:
+    void dimmedChanged(bool dimmed);
+
+private:
+    void detectBackend();
+    void writeBrightness(int percent);
+
+    int m_brightnessPercent = 100;
+    int m_idleDimMinutes = 10;
+    int m_idleDimPercent = 0;
+    int m_currentPercent = -1;
+    bool m_dimmed = false;
+    bool m_backendDetected = false;
+    QString m_backlightDir;
+    int m_backlightMax = 0;
+    enum Backend { None, Sysfs, AndroidSettings, TermuxApi };
+    Backend m_backend = None;
+    QElapsedTimer m_lastActivity;
+    QTimer *m_idleTimer = nullptr;
+};
+
+/**
  * @brief 轮询调度器
  *
  * - 每个启用的物理口创建一个独立 QThread + SerialPortWorker (并发)
@@ -332,6 +394,7 @@ private:
     DeviceManager *m_deviceMgr = nullptr;
     DataLogger *m_logger = nullptr;
     QHash<int, PortHandle> m_ports;
+    QHash<DeviceProfile::DeviceKey, qint64> m_lastRecordMs;
 };
 
 #endif // APPLOGIC_H

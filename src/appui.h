@@ -21,6 +21,7 @@ class QMouseEvent;
 class QPushButton;
 class QScrollBar;
 class QGridLayout;
+class QSlider;
 class QSpinBox;
 class QStackedWidget;
 class QTableWidget;
@@ -256,6 +257,7 @@ private:
     QDate m_loadedDateFrom;
     QDate m_loadedDateTo;
     QString m_loadedDevice;
+    bool m_liveAppendPaused = false;
 };
 
 /** 参数设置：温控参数，其他运维项收纳在高级设置。 */
@@ -271,6 +273,7 @@ signals:
     void settingsSaved();
     void rescanRequested();
     void dataFilesChanged();
+    void brightnessPreview(int percent);
 
 private slots:
     void saveSettings();
@@ -305,7 +308,12 @@ private:
     QComboBox *m_highVoltageDigitalTrigger = nullptr;
     QDoubleSpinBox *m_highVoltageThreshold = nullptr;
     QSpinBox *m_relaySwitchInterval = nullptr;
-    QSpinBox *m_pollInterval = nullptr;
+    QDoubleSpinBox *m_pollInterval = nullptr;
+    QDoubleSpinBox *m_recordInterval = nullptr;
+    QSlider *m_brightnessSlider = nullptr;
+    QLabel *m_brightnessValue = nullptr;
+    QSpinBox *m_idleDimMinutes = nullptr;
+    QSpinBox *m_idleDimPercent = nullptr;
     QSpinBox *m_maxStorageGB = nullptr;
     QSpinBox *m_deleteAge = nullptr;
     QComboBox *m_deleteAgeUnit = nullptr;
@@ -318,6 +326,14 @@ private:
     QTimer *m_feedbackTimer = nullptr;
 
     QDate deleteCutoffDate() const;
+};
+
+/** 关于本机信息页。 */
+class AboutWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit AboutWidget(QWidget *parent = nullptr);
 };
 
 /** 1024x600 触摸屏主窗口。 */
@@ -340,6 +356,9 @@ private slots:
     void onSettingsSaved();
     void rescanDevices();
     void updateClock();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void setupUi();
@@ -367,6 +386,7 @@ private:
                                      int value);
     void leaveReservedInputInterlock(const DeviceProfile::DeviceKey &key);
     void refreshSystemState();
+    void checkSystemTimeAnomaly();
 
     DeviceManager m_deviceManager;
     DataLogger m_logger;
@@ -380,6 +400,7 @@ private:
     ManualPanel *m_manualPanel = nullptr;
     SettingsWidget *m_settingsWidget = nullptr;
     HistoryWidget *m_historyWidget = nullptr;
+    AboutWidget *m_aboutWidget = nullptr;
     QLabel *m_pageTitle = nullptr;
     QLabel *m_clock = nullptr;
     QLabel *m_versionLabel = nullptr;
@@ -389,6 +410,8 @@ private:
     QSet<int> m_autoDevices;
     bool m_highVoltageAlarm = false;
     bool m_schedulerFault = false;
+    bool m_timeAnomaly = false;
+    BrightnessController *m_brightness = nullptr;
     QString m_configError;
     QDateTime m_startedAt;
     QMap<int, QPair<int, int>> m_lastAutoCommands;

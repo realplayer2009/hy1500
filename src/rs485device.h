@@ -180,6 +180,11 @@ public:
                                        quint16 startAddr,
                                        quint16 count);
 
+    static Result readInputRegisters(TransactFunc transact,
+                                     quint8 slaveId,
+                                     quint16 startAddr,
+                                     quint16 count);
+
     static Result writeSingleRegister(TransactFunc transact,
                                       quint8 slaveId,
                                       quint16 addr,
@@ -279,6 +284,11 @@ private:
     bool m_busy = false;
     bool m_reopenPending = false;   // 底层失效, 待 closePort+openPort 恢复
     bool m_portAnnounced = false;   // 串口不可用提示只报状态变化, 不重复刷屏
+    // 单板固定现场不做持续发现: 启动后扫到第一块子板即停, 手动重扫跑完
+    // 一轮完整扫描 (m_discoveryProbesRemaining 计数) 后同样停止。
+    bool m_discoveryActive = true;
+    bool m_discoveryUntilFirstFound = true;
+    int m_discoveryProbesRemaining = 0;
     int m_nextDiscoverySlaveId = 1;
     QByteArray m_rxBuffer;
 };

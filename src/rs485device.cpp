@@ -440,6 +440,16 @@ ModbusRtu::Result ModbusRtu::readHoldingRegisters(TransactFunc transact,
     return r;
 }
 
+ModbusRtu::Result ModbusRtu::readInputRegisters(TransactFunc transact,
+                                                quint8 slaveId,
+                                                quint16 startAddr,
+                                                quint16 count)
+{
+    const QByteArray req = ModbusFrame::buildReadRequest(
+        slaveId, ModbusFrame::ReadInputRegisters, startAddr, count);
+    return transact(req, ModbusFrame::ReadInputRegisters);
+}
+
 ModbusRtu::Result ModbusRtu::writeSingleRegister(TransactFunc transact,
                                                   quint8 slaveId,
                                                   quint16 addr,
@@ -531,6 +541,10 @@ void SerialPortWorker::restartDiscovery()
             m_queue.removeAt(i);
     }
     m_nextDiscoverySlaveId = 1;
+    // 手动重扫: 执行一轮完整扫描后自动停止, 不做持续发现
+    m_discoveryActive = true;
+    m_discoveryUntilFirstFound = false;
+    m_discoveryProbesRemaining = 247;
 }
 
 void SerialPortWorker::enqueueWrite(const WriteTask &task)
@@ -572,17 +586,22 @@ void SerialPortWorker::onPollTimer()
         m_queue.enqueue(item);
     }
 
-    // 空总线启动时快速扫描；发现子板后每轮只探测两个未知地址，
-    // 在可动态发现新子板的同时优先保证已知子板的正常采样。
-    if (m_pollTasks.size() < 16) {
-        const int discoveryBudget = m_pollTasks.isEmpty() ? 8 : 2;
+    // 单板固定现场: 不做持续发现。m_discoveryActive 只在两种情况为真:
+    // 1) 尚未发现任何子板 (启动后等待, 含串口迟到打开);
+    // 2) 手动重扫触发的一轮完整扫描 (按 m_discoveryProbesRemaining 计数)。
+    // 外扩输入 0x000E 已在主轮询读段内, 不再需要独立快速轮询。
+    if (m_discoveryActive) {
+        const int discoveryBudget = 8;
         int queuedDiscoveries = 0;
         int checkedAddresses = 0;
-        while (queuedDiscoveries < discoveryBudget && checkedAddresses < 247) {
+        while (queuedDiscoveries < discoveryBudget && checkedAddresses < 247
+               && (m_discoveryUntilFirstFound || m_discoveryProbesRemaining > 0)) {
             const int slaveId = m_nextDiscoverySlaveId;
             m_nextDiscoverySlaveId = m_nextDiscoverySlaveId == 247
                 ? 1 : m_nextDiscoverySlaveId + 1;
             ++checkedAddresses;
+            if (!m_discoveryUntilFirstFound)
+                --m_discoveryProbesRemaining;
 
             bool known = false;
             for (const PollTask &task : m_pollTasks) {
@@ -600,6 +619,8 @@ void SerialPortWorker::onPollTimer()
             m_queue.enqueue(item);
             ++queuedDiscoveries;
         }
+        if (!m_discoveryUntilFirstFound && m_discoveryProbesRemaining <= 0)
+            m_discoveryActive = false;
     }
 
     if (!m_busy)
@@ -678,6 +699,8 @@ void SerialPortWorker::processQueue()
             key.portIndex = m_settings.portIndex;
             key.slaveId = item.discoverySlaveId;
             emit deviceDataReady(key, {}, true);
+            if (m_discoveryUntilFirstFound)
+                m_discoveryActive = false;
         }
         m_queueTimer->start(m_settings.interSlaveDelayMs);
     } else {
