@@ -46,7 +46,7 @@ public:
         RegThBase   = 0x0004, // 只读: 温湿度传感器1~3, 温度在前湿度在后, 放大10倍
         RegPtBase   = 0x000A, // 只读: PT100 1~2 温度, 放大10倍
         RegExpInput = 0x000E, // 只读: 外扩5路输入状态, bit0~4 (协议文档地址, 现场 firmware 实测恒为0)
-        RegExpInputC = 0x000C, // 只读: 外扩5路输入实际地址 (现场实测), IN1~IN5=bit1~5, bit0常置
+        RegExpInputC = 0x000C, // 只读: 外扩5路输入实际地址 (现场实测), IN1~IN5=bit0~4
         RegOtMask   = 0x0031, // 读写: OT01~OT10 位掩码, bit0~9
         RegExpOutput= 0x0033  // 读写: 外扩 OUT1~OUT7 位掩码, bit0~6
     };

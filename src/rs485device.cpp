@@ -94,10 +94,10 @@ void DeviceProfile::parseSegment(quint16 startAddr, const QVector<quint16> &regs
         break;
     case RegExpInputC:
         if (!regs.isEmpty()) {
-            // 现场 firmware 实测: IN1~IN5 对应 bit1~bit5, bit0 为常置状态位
+            // 现场 firmware 实测: 外扩输入在 0x000C, IN1~IN5 = bit0~bit4
             const quint16 mask = regs.at(0);
             for (int i = 0; i < 5; ++i)
-                out[QString("exp_in%1").arg(i + 1)] = (mask >> (i + 1)) & 1;
+                out[QString("exp_in%1").arg(i + 1)] = (mask >> i) & 1;
         }
         break;
     case RegExpInput:
