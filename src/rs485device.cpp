@@ -60,7 +60,9 @@ DeviceProfile::RegisterMap DeviceProfile::defaultRegisterMap(DeviceType t)
     m.readSegments.append(makeSegment(RegVersion, 1));
     // 0x0001~0x000B 为连续的输入采集区
     m.readSegments.append(makeSegment(RegHvInput, 11));
-    // 0x000E 外扩 5 路输入状态 (1 寄存器)
+    // 0x000C 外扩 5 路输入状态 (1 寄存器, 现场 firmware 实测地址)
+    m.readSegments.append(makeSegment(RegExpInputC, 1));
+    // 0x000E 协议文档地址, 现场实测恒为 0; 保留作为旧 firmware 回退
     m.readSegments.append(makeSegment(RegExpInput, 1));
     // 0x0031 OT01~OT10 位掩码 (1 寄存器)
     m.readSegments.append(makeSegment(RegOtMask, 1));
@@ -90,8 +92,17 @@ void DeviceProfile::parseSegment(quint16 startAddr, const QVector<quint16> &regs
             out["pt2_temp"] = toInt16(regs.at(10));
         }
         break;
-    case RegExpInput:
+    case RegExpInputC:
         if (!regs.isEmpty()) {
+            // 现场 firmware 实测: IN1~IN5 对应 bit1~bit5, bit0 为常置状态位
+            const quint16 mask = regs.at(0);
+            for (int i = 0; i < 5; ++i)
+                out[QString("exp_in%1").arg(i + 1)] = (mask >> (i + 1)) & 1;
+        }
+        break;
+    case RegExpInput:
+        // 旧 firmware 回退: 仅当该地址非零才写入, 避免覆盖 0x000C 的结果
+        if (!regs.isEmpty() && regs.at(0) != 0) {
             const quint16 mask = regs.at(0);
             for (int i = 0; i < 5; ++i)
                 out[QString("exp_in%1").arg(i + 1)] = (mask >> i) & 1;
