@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # 无线调试端口每次启用可能变化: 临时覆盖用
-#   ADB_DEVICE=192.168.0.69:新端口 bash android/deploy_device.sh
-ADB_DEVICE="${ADB_DEVICE:-192.168.0.69:38675}"
+#   ADB_DEVICE=192.168.0.77:新端口 bash android/deploy_device.sh
+ADB_DEVICE="${ADB_DEVICE:-192.168.0.77:46761}"
 ADB="adb -s ${ADB_DEVICE}"
 TERMUX_PKG="com.termux"
 APP_USER="u0_a90"
