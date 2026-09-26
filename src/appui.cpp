@@ -51,6 +51,35 @@ constexpr int kSensorRecoverySamples = 3;
 // 达到上限后暂停实时追加, 重新查询后恢复, 防止长时间运行内存无限增长。
 constexpr int kMaxLiveAppendRecords = 50000;
 
+// 外扩输入功能映射的显示名与可选值 (防错线排查用)
+QString expInModeName(const QString &mode)
+{
+    if (mode == "manual_auto")
+        return QString::fromUtf8("手动自动");
+    if (mode == "heater_a")
+        return QString::fromUtf8("加热A");
+    if (mode == "heater_b")
+        return QString::fromUtf8("加热B");
+    if (mode == "heater_c")
+        return QString::fromUtf8("加热C");
+    if (mode == "hv_lockout")
+        return QString::fromUtf8("高压闭锁");
+    return QString::fromUtf8("未使用");
+}
+
+const QVector<QPair<QString, QString>> &expInModeOptions()
+{
+    static const QVector<QPair<QString, QString>> options = {
+        { "unused",      QString::fromUtf8("未使用") },
+        { "manual_auto", QString::fromUtf8("手动自动") },
+        { "heater_a",    QString::fromUtf8("加热A") },
+        { "heater_b",    QString::fromUtf8("加热B") },
+        { "heater_c",    QString::fromUtf8("加热C") },
+        { "hv_lockout",  QString::fromUtf8("高压闭锁") }
+    };
+    return options;
+}
+
 class TouchComboDelegate : public QStyledItemDelegate
 {
 public:
@@ -1206,9 +1235,9 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
     auto *metrics = new QGridLayout;
     metrics->setSpacing(10);
     const QStringList titles = {
-        QString::fromUtf8("温湿度传感器 1"),
-        QString::fromUtf8("温湿度传感器 2"),
-        QString::fromUtf8("温湿度传感器 3")
+        QString::fromUtf8("温湿度 A"),
+        QString::fromUtf8("温湿度 B"),
+        QString::fromUtf8("温湿度 C")
     };
     for (int i = 0; i < 3; ++i) {
         auto *card = makeCard(this);
@@ -1666,7 +1695,12 @@ void ManualPanel::refreshControls()
     for (int i = 0; i < m_expInLabels.size(); ++i) {
         const QString field = QString("exp_in%1").arg(i + 1);
         const int value = state.values.contains(field) ? state.values.value(field).toInt() : 0;
-        m_expInLabels[i]->setText(QString::fromUtf8("IN%1 %2").arg(i + 1).arg(value));
+        const QString mode = AppConfig::instance().general().expInMode(i + 1);
+        const QString name = mode == "unused"
+            ? QString("IN%1").arg(i + 1) : expInModeName(mode);
+        m_expInLabels[i]->setText(QString::fromUtf8("%1 %2")
+            .arg(name).arg(value ? QString::fromUtf8("闭合")
+                                 : QString::fromUtf8("断开")));
     }
 }
 
@@ -3416,6 +3450,38 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     idleLayout->addLayout(makeIntegerAdjustment(m_idleDimPercent, idleCard), 2, 3);
     advancedLayout->addWidget(idleCard);
 
+    auto *expInCard = makeCard(advancedPanel);
+    auto *expInLayout = new QGridLayout(expInCard);
+    expInLayout->setContentsMargins(16, 10, 16, 10);
+    auto *expInTitle = new QLabel(QString::fromUtf8("外扩输入接入配置"), expInCard);
+    expInTitle->setObjectName("sectionTitle");
+    expInLayout->addWidget(expInTitle, 0, 0, 1, 4);
+    auto *expInHint = new QLabel(
+        QString::fromUtf8("拨动现场开关, 看哪个 IN 的实时状态在跳, 就把实际功能分配给该 IN (防错线)"), expInCard);
+    expInHint->setObjectName("mutedText");
+    expInLayout->addWidget(expInHint, 1, 0, 1, 4);
+    for (int i = 1; i <= 5; ++i) {
+        auto *inLabel = new QLabel(QString("IN%1").arg(i), expInCard);
+        inLabel->setObjectName("metricTitle");
+        expInLayout->addWidget(inLabel, i + 1, 0);
+        auto *combo = new QComboBox(expInCard);
+        configureDeviceCombo(combo);
+        for (const auto &option : expInModeOptions())
+            combo->addItem(option.second, option.first);
+        const int modeIndex = combo->findData(config.expInMode(i));
+        combo->setCurrentIndex(modeIndex >= 0 ? modeIndex : 0);
+        combo->setMinimumHeight(44);
+        expInLayout->addWidget(combo, i + 1, 1);
+        m_expInCombos.insert(i, combo);
+        auto *stateLabel = new QLabel(QString::fromUtf8("○ 断开"), expInCard);
+        stateLabel->setObjectName("mutedText");
+        stateLabel->setMinimumWidth(80);
+        expInLayout->addWidget(stateLabel, i + 1, 2);
+        m_expInStateLabels.insert(i, stateLabel);
+    }
+    expInLayout->setColumnStretch(1, 1);
+    advancedLayout->addWidget(expInCard);
+
     layout->addWidget(advancedPanel);
     advancedPanel->setVisible(false);
 
@@ -3436,6 +3502,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     };
     for (QWidget *control : parameterControls)
         control->installEventFilter(this);
+    for (QComboBox *combo : m_expInCombos)
+        combo->installEventFilter(this);
     for (QComboBox *combo : m_spareOutputModes)
         combo->installEventFilter(this);
 
@@ -3837,6 +3905,19 @@ void SettingsWidget::saveSettings()
     config.general().brightnessPercent = m_brightnessSlider->value();
     config.general().idleDimMinutes = m_idleDimMinutes->value();
     config.general().idleDimPercent = m_idleDimPercent->value();
+    for (int i = 1; i <= 5; ++i) {
+        const QString mode = m_expInCombos.value(i)
+            ? m_expInCombos.value(i)->currentData().toString()
+            : QString("unused");
+        switch (i) {
+        case 1: config.general().expIn1Mode = mode; break;
+        case 2: config.general().expIn2Mode = mode; break;
+        case 3: config.general().expIn3Mode = mode; break;
+        case 4: config.general().expIn4Mode = mode; break;
+        case 5: config.general().expIn5Mode = mode; break;
+        default: break;
+        }
+    }
     config.general().maxStorageMB = m_maxStorageGB->value() * 1024;
     config.general().spareOt01Mode = m_spareOutputModes.value(1)->currentData().toString();
     config.general().spareOt02Mode = m_spareOutputModes.value(2)->currentData().toString();
@@ -3928,6 +4009,20 @@ void SettingsWidget::showActionFeedback(const QString &message, bool success)
     m_actionFeedback->setProperty("success", success);
     refreshDynamicStyle(m_actionFeedback);
     m_feedbackTimer->start(3000);
+}
+
+void SettingsWidget::updateExpInputStates(const QMap<QString, QVariant> &values)
+{
+    for (int i = 1; i <= 5; ++i) {
+        QLabel *label = m_expInStateLabels.value(i);
+        if (!label)
+            continue;
+        const QString field = QString("exp_in%1").arg(i);
+        const bool closed = values.contains(field)
+            && values.value(field).toInt() != 0;
+        label->setText(closed ? QString::fromUtf8("● 闭合")
+                              : QString::fromUtf8("○ 断开"));
+    }
 }
 
 // ============================================================
@@ -4248,6 +4343,7 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
         evaluateSensorSelfCheck(key, updatedState);
     if (updatedState.online)
         evaluateReservedInput(key, updatedState);
+    m_settingsWidget->updateExpInputStates(updatedState.values);
 
     refreshHighVoltageAlarm();
 

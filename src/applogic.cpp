@@ -55,6 +55,22 @@ bool AppConfig::load(const QString &iniPath)
         qBound(0, ini.value("idleDimMinutes", 10).toInt(), 1440);
     m_general.idleDimPercent =
         qBound(0, ini.value("idleDimPercent", 0).toInt(), 100);
+    // 外扩输入功能映射: 非法值回落 unused, 保证半配置状态不参与逻辑
+    for (int i = 1; i <= 5; ++i) {
+        const QString key = QString("expIn%1Mode").arg(i);
+        QString mode = ini.value(key, "unused").toString();
+        if (mode != "manual_auto" && mode != "heater_a" && mode != "heater_b"
+            && mode != "heater_c" && mode != "hv_lockout")
+            mode = "unused";
+        switch (i) {
+        case 1: m_general.expIn1Mode = mode; break;
+        case 2: m_general.expIn2Mode = mode; break;
+        case 3: m_general.expIn3Mode = mode; break;
+        case 4: m_general.expIn4Mode = mode; break;
+        case 5: m_general.expIn5Mode = mode; break;
+        default: break;
+        }
+    }
     m_general.modbusTimeoutMs = ini.value("modbusTimeoutMs", 500).toInt();
     m_general.interSlaveDelayMs = ini.value("interSlaveDelayMs", 50).toInt();
     m_general.temperatureTarget = ini.value("temperatureTarget", 25.0).toDouble();
@@ -204,6 +220,8 @@ bool AppConfig::save(const QString &iniPath) const
     ini.setValue("brightnessPercent", m_general.brightnessPercent);
     ini.setValue("idleDimMinutes", m_general.idleDimMinutes);
     ini.setValue("idleDimPercent", m_general.idleDimPercent);
+    for (int i = 1; i <= 5; ++i)
+        ini.setValue(QString("expIn%1Mode").arg(i), m_general.expInMode(i));
     ini.setValue("modbusTimeoutMs", m_general.modbusTimeoutMs);
     ini.setValue("interSlaveDelayMs", m_general.interSlaveDelayMs);
     ini.setValue("temperatureTarget", m_general.temperatureTarget);

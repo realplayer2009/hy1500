@@ -239,9 +239,11 @@ QString DeviceProfile::fieldDisplayName(const QString &field)
         return names.value(field);
     // th1_temp ~ th3_humi
     if (field.size() == 8 && field.startsWith("th") && field.endsWith("_temp"))
-        return QString::fromUtf8("温湿度%1-温度").arg(field.mid(2, 1));
+        return QString::fromUtf8("温湿度%1-温度")
+            .arg(QString("ABC").at(field.mid(2, 1).toInt() - 1));
     if (field.size() == 8 && field.startsWith("th") && field.endsWith("_humi"))
-        return QString::fromUtf8("温湿度%1-湿度").arg(field.mid(2, 1));
+        return QString::fromUtf8("温湿度%1-湿度")
+            .arg(QString("ABC").at(field.mid(2, 1).toInt() - 1));
     // exp_in1 ~ exp_in5
     if (field.startsWith("exp_in") && field.length() == 6)
         return QString::fromUtf8("外扩输入%1").arg(field.mid(6));

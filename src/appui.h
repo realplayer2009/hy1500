@@ -289,6 +289,9 @@ signals:
     void dataFilesChanged();
     void brightnessPreview(int percent);
 
+public slots:
+    void updateExpInputStates(const QMap<QString, QVariant> &values);
+
 private slots:
     void saveSettings();
     void deleteOldData();
@@ -328,6 +331,9 @@ private:
     QLabel *m_brightnessValue = nullptr;
     QSpinBox *m_idleDimMinutes = nullptr;
     QSpinBox *m_idleDimPercent = nullptr;
+    // 外扩输入接入配置: 每行一个功能下拉 + 一个实时状态标签
+    QMap<int, QComboBox *> m_expInCombos;
+    QMap<int, QLabel *> m_expInStateLabels;
     QSpinBox *m_maxStorageGB = nullptr;
     QSpinBox *m_deleteAge = nullptr;
     QComboBox *m_deleteAgeUnit = nullptr;

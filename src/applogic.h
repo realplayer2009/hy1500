@@ -85,6 +85,24 @@ public:
         int brightnessPercent = 100;   // 屏幕亮度 5~100
         int idleDimMinutes = 10;       // 无操作自动降亮分钟数, 0=关闭
         int idleDimPercent = 0;        // 自动降亮目标亮度 0=熄灭背光
+        // 外扩输入功能映射 (防错线排查): unused/manual_auto/heater_a/heater_b/heater_c/hv_lockout
+        QString expIn1Mode = "unused";
+        QString expIn2Mode = "unused";
+        QString expIn3Mode = "unused";
+        QString expIn4Mode = "unused";
+        QString expIn5Mode = "unused";
+
+        QString expInMode(int index) const
+        {
+            switch (index) {
+            case 1: return expIn1Mode;
+            case 2: return expIn2Mode;
+            case 3: return expIn3Mode;
+            case 4: return expIn4Mode;
+            case 5: return expIn5Mode;
+            default: return QString("unused");
+            }
+        }
     };
 
     static AppConfig &instance();
