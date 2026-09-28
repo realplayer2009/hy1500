@@ -129,6 +129,7 @@ class Device:
         self.regs["pt1_temp"] = 0
         self.regs["pt2_temp"] = 0
         self.exp_in = [0] * 5   # IN1~IN5 外扩输入 bit0~4
+        self.exp_out = [0] * 7  # OUT1~OUT7 外扩输出 bit0~6 (加热器灯等)
         self.pinned = set()      # set 命令固定、不再被物理模型覆盖的字段
         self.trend_c_per_min = 0.0
         self.tick()
@@ -203,6 +204,13 @@ class Device:
                 if v:
                     mask |= 1 << i
             return mask
+        if addr == 0x0033:
+            # 外扩 OUT1~OUT7 位掩码 (bit0~6)
+            mask = 0
+            for i, v in enumerate(self.exp_out):
+                if v:
+                    mask |= 1 << i
+            return mask
         return None
 
     def write_regs(self, start: int, values: list[int]) -> int | None:
@@ -213,6 +221,12 @@ class Device:
                 mask = values[0] & 0x3FF
                 for i in range(10):
                     self.ot[i] = (mask >> i) & 1
+                return None
+            if start == 0x0033 and len(values) == 1:
+                # 外扩输出位掩码写入口 (bit0~6 = OUT1~OUT7)
+                mask = values[0] & 0x7F
+                for i in range(7):
+                    self.exp_out[i] = (mask >> i) & 1
                 return None
             return 0x02
         if any(value not in (0, 1) for value in values):

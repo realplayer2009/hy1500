@@ -29,6 +29,7 @@ FILES=(
   "src/main.cpp"
   "RS485Control.pro"
   "config/app.ini"
+  "assets/click.wav"
 )
 
 $ADB shell "mkdir -p /data/local/tmp/rs485_push_tmp"

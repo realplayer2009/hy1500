@@ -32,6 +32,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDir>
+#include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QStyle>
@@ -78,6 +81,38 @@ const QVector<QPair<QString, QString>> &expInModeOptions()
         { "hv_lockout",  QString::fromUtf8("高压闭锁") }
     };
     return options;
+}
+
+// 操作确认音: 依次尝试 termux-media-player (Termux:API) 与 Qt beep,
+// 都不可用 (如开发机) 时静默; 音源文件找不到时不阻塞操作。
+void playClickSound()
+{
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    if (!config.soundFeedback)
+        return;
+
+    const QString configured = config.soundFile;
+    const QStringList candidates = {
+        configured,
+        QCoreApplication::applicationDirPath() + "/" + configured,
+        QCoreApplication::applicationDirPath() + "/../" + configured
+    };
+    QString soundPath;
+    for (const QString &candidate : candidates) {
+        if (QFileInfo::exists(candidate)) {
+            soundPath = candidate;
+            break;
+        }
+    }
+    if (soundPath.isEmpty())
+        return;
+
+    if (!QStandardPaths::findExecutable("termux-media-player").isEmpty()) {
+        if (QProcess::startDetached(
+                "termux-media-player", { "play", soundPath }))
+            return;
+    }
+    QApplication::beep();
 }
 
 class TouchComboDelegate : public QStyledItemDelegate
@@ -4469,6 +4504,8 @@ void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterInde
         (next == 1 || next == 3) ? 1 : 0;
     fields[QString("ot%1").arg(highOt, 2, 10, QChar('0'))] =
         (next == 2 || next == 3) ? 1 : 0;
+    // 对应加热器的灯 (OUT1~OUT3 = A/B/C): 有档位即亮, 关闭即灭
+    fields[QString("exp_out%1").arg(heaterIndex + 1)] = next != 0 ? 1 : 0;
     if (m_scheduler)
         m_scheduler->writeToDevice(key, fields);
 
@@ -4574,6 +4611,9 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
                     cycleHeater(key, 1);
                 else if (mode == "heater_c")
                     cycleHeater(key, 2);
+                if (mode == "heater_a" || mode == "heater_b"
+                    || mode == "heater_c")
+                    playClickSound();   // 实体按键确认音
             }
         }
         m_prevExpInMask[keyValue] = mask;
@@ -5033,6 +5073,11 @@ void MainWindow::initializeSafeOutputs(const DeviceProfile::DeviceKey &key)
         && m_pages->currentIndex() == 1 ? 1 : 0;
     fields["ot09"] = m_highVoltageAlarm ? 1 : 0;
     fields["ot10"] = m_highVoltageAlarm ? 1 : 0;
+    // 加热器档位会话重置为 0, 三个加热器的灯 (OUT1~OUT3) 同步熄灭
+    for (int i = 0; i < 3; ++i) {
+        m_heaterGears.remove(keyValue * 4 + i);
+        fields[QString("exp_out%1").arg(i + 1)] = 0;
+    }
     m_scheduler->writeToDevice(key, fields);
 }
 
@@ -5078,6 +5123,9 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     case QEvent::TouchBegin:
     case QEvent::Wheel:
     case QEvent::KeyPress:
+        // 屏幕按键操作确认音 (实体按键在 onDeviceUpdated 的沿检测里播放)
+        if (qobject_cast<QPushButton *>(watched))
+            playClickSound();
         if (m_brightness)
             m_brightness->noteActivity();
         break;

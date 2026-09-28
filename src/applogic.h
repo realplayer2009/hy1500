@@ -85,6 +85,8 @@ public:
         int brightnessPercent = 100;   // 屏幕亮度 5~100
         int idleDimMinutes = 10;       // 无操作自动降亮分钟数, 0=关闭
         int idleDimPercent = 0;        // 自动降亮目标亮度 0=熄灭背光
+        bool soundFeedback = true;     // 操作确认音
+        QString soundFile = "assets/click.wav";
         // 外扩输入功能映射 (防错线排查): unused/manual_auto/heater_a/heater_b/heater_c/hv_lockout
         QString expIn1Mode = "unused";
         QString expIn2Mode = "unused";
