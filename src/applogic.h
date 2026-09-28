@@ -91,6 +91,11 @@ public:
         QString expIn3Mode = "unused";
         QString expIn4Mode = "unused";
         QString expIn5Mode = "unused";
+        // 加热器输出映射: 1=OT1+OT2, 2=OT3+OT4, 3=OT5+OT6, 4=OT7+OT8, 5=OT9+OT10
+        // 每对继电器的低位=1档, 高位=2档, 同开=3档
+        int heaterAPair = 1;
+        int heaterBPair = 2;
+        int heaterCPair = 3;
 
         QString expInMode(int index) const
         {

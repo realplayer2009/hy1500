@@ -92,6 +92,8 @@ signals:
 public slots:
     void refreshDevices();
     void refreshDevice(const DeviceProfile::DeviceKey &key);
+    /** 加热器档位 (key=portIndex*256+slaveId, 值 0=关闭 1=1档 2=2档 3=3档) */
+    void setHeaterGearsForCurrent(int gearA, int gearB, int gearC);
 
 private:
     void refreshValues();
@@ -102,7 +104,7 @@ private:
     QLabel *m_linkState = nullptr;
     QLabel *m_lastUpdate = nullptr;
     QMap<QString, QLabel *> m_values;
-    // 加热器状态排: [加热器1档, 加热器2档, 加热器3档, 加热器关闭]
+    // 加热器状态排: [加热器A, 加热器B, 加热器C]
     QVector<QLabel *> m_heaterGearLabels;
 };
 
@@ -118,11 +120,15 @@ public:
     void setAutoDevices(const QSet<int> &keys);
     void refreshParameters();
     void refreshSettings();
+    /** 推送各子板加热器档位 (key=portIndex*256+slaveId, 值 0~3) */
+    void setHeaterGears(const QMap<int, int> &gears);
 
 signals:
     void writeRequested(const DeviceProfile::DeviceKey &key,
                         const QMap<QString, QVariant> &fields);
     void runningChanged(const DeviceProfile::DeviceKey &key, bool running);
+    /** 屏幕按键请求加热器进一档 (heaterIndex: 0=A 1=B 2=C) */
+    void heaterCycleRequested(const DeviceProfile::DeviceKey &key, int heaterIndex);
 
 private slots:
     void refreshControls();
@@ -144,6 +150,9 @@ private:
     QVector<QLabel *> m_expInLabels;
     QMap<QString, QPushButton *> m_expOutButtons;
     QSet<int> m_autoDevices;
+    // 加热器手动按键与档位缓存 (key=portIndex*256+slaveId, 值 0~3)
+    QMap<int, int> m_heaterGears;
+    QVector<QPushButton *> m_heaterButtons;
 };
 
 /** 自动运行：状态监视、阈值摘要和启停。 */
@@ -336,6 +345,8 @@ private:
     // 外扩输入接入配置: 每行一个功能下拉 + 一个实时状态标签
     QMap<int, QComboBox *> m_expInCombos;
     QMap<int, QLabel *> m_expInStateLabels;
+    // 加热器输出映射: 每行一个 OT 继电器对下拉
+    QMap<int, QComboBox *> m_heaterPairCombos;
     QSpinBox *m_maxStorageGB = nullptr;
     QSpinBox *m_deleteAge = nullptr;
     QComboBox *m_deleteAgeUnit = nullptr;
@@ -371,6 +382,7 @@ private slots:
     void writeToDevice(const DeviceProfile::DeviceKey &key,
                        const QMap<QString, QVariant> &fields);
     void setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool running);
+    void cycleHeater(const DeviceProfile::DeviceKey &key, int heaterIndex);
     void onDeviceUpdated(const DeviceProfile::DeviceKey &key);
     void onWriteCompleted(const DeviceProfile::DeviceKey &key,
                           bool success,
@@ -440,6 +452,9 @@ private:
     QMap<int, QDateTime> m_lastAutoCommandTimes;
     QMap<int, ControlAlgorithm::PidState> m_pidStates;
     QMap<int, QString> m_sensorFaults;
+    // 加热器档位与外扩输入上一周期状态 (实体按键上升沿检测用)
+    QMap<int, int> m_heaterGears;
+    QMap<int, int> m_prevExpInMask;
     QMap<int, int> m_sensorRecoveryCounts;
     QSet<int> m_sensorHealthyDevices;
     QMap<int, QString> m_reservedInputInterlocks;

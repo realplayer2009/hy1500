@@ -1277,7 +1277,7 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
         metrics->addWidget(card, 1, i);
     }
 
-    // 加热器状态排: 四个档位标签, 当前档位高亮 (数据来自 OT3/OT4 回读)
+    // 加热器状态排: 三个独立加热器 A/B/C, 各自显示当前档位
     auto *heaterCard = makeCard(this);
     auto *heaterCardLayout = new QVBoxLayout(heaterCard);
     heaterCardLayout->setContentsMargins(13, 10, 13, 10);
@@ -1286,14 +1286,13 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
     heaterCardLayout->addWidget(heaterTitle);
     auto *heaterRow = new QHBoxLayout;
     heaterRow->setSpacing(10);
-    const QStringList gearNames = {
-        QString::fromUtf8("加热器1档"),
-        QString::fromUtf8("加热器2档"),
-        QString::fromUtf8("加热器3档"),
-        QString::fromUtf8("加热器关闭")
+    const QStringList heaterNames = {
+        QString::fromUtf8("加热器A"),
+        QString::fromUtf8("加热器B"),
+        QString::fromUtf8("加热器C")
     };
-    for (const QString &name : gearNames) {
-        auto *label = new QLabel(name, heaterCard);
+    for (const QString &name : heaterNames) {
+        auto *label = new QLabel(name + QString::fromUtf8(" 关闭"), heaterCard);
         label->setObjectName("runState");
         label->setAlignment(Qt::AlignCenter);
         label->setMinimumHeight(34);
@@ -1395,22 +1394,32 @@ void DeviceOverviewWidget::refreshValues()
             it.value()->setText("--.- %RH");
     }
 
-    // 加热器状态: 从 OT3/OT4 输出回读解码当前档位并高亮
-    // (1档=OT3, 2档=OT4, 3档=两路同开, 全关=关闭; 手动强制与自动同源)
-    if (!m_heaterGearLabels.isEmpty()) {
-        const bool ot3On = state.values.value("ot03").toInt() != 0;
-        const bool ot4On = state.values.value("ot04").toInt() != 0;
-        const int activeIndex = ot3On && ot4On ? 2
-            : ot3On ? 0 : ot4On ? 1 : 3;
-        for (int i = 0; i < m_heaterGearLabels.size(); ++i) {
-            m_heaterGearLabels.at(i)->setProperty("running", i == activeIndex);
-            refreshDynamicStyle(m_heaterGearLabels.at(i));
-        }
-    }
-
     m_lastUpdate->setText(state.lastUpdate.isValid()
         ? QString::fromUtf8("最后更新：%1").arg(state.lastUpdate.toString("yyyy-MM-dd  hh:mm:ss"))
         : QString::fromUtf8("最后更新：等待首次数据"));
+}
+
+void DeviceOverviewWidget::setHeaterGearsForCurrent(int gearA, int gearB, int gearC)
+{
+    if (m_heaterGearLabels.size() < 3)
+        return;
+    const int gears[3] = { gearA, gearB, gearC };
+    const QStringList names = {
+        QString::fromUtf8("加热器A"),
+        QString::fromUtf8("加热器B"),
+        QString::fromUtf8("加热器C")
+    };
+    for (int i = 0; i < 3; ++i) {
+        const int gear = qBound(0, gears[i], 3);
+        m_heaterGearLabels.at(i)->setText(
+            QString::fromUtf8("%1 %2").arg(names.at(i)).arg(
+                gear == 0 ? QString::fromUtf8("关闭")
+                : gear == 1 ? QString::fromUtf8("1档")
+                : gear == 2 ? QString::fromUtf8("2档")
+                            : QString::fromUtf8("3档")));
+        m_heaterGearLabels.at(i)->setProperty("running", gear != 0);
+        refreshDynamicStyle(m_heaterGearLabels.at(i));
+    }
 }
 
 // ============================================================
@@ -1500,6 +1509,31 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
     m_ot3->setProperty("outputField", "ot03");
     m_ot4->setProperty("outputField", "ot04");
 
+    // 加热器手动: 屏幕按键与实体按键 (IN2/IN3/IN4) 同效, 每按一次进一档
+    auto *heaterTitle = new QLabel(
+        QString::fromUtf8("加热器（屏幕与实体按键同效）"), controlCard);
+    heaterTitle->setObjectName("metricTitle");
+    controls->addWidget(heaterTitle);
+    auto *heaterGrid = new QGridLayout;
+    const QStringList heaterNames = {
+        QString::fromUtf8("加热器A"),
+        QString::fromUtf8("加热器B"),
+        QString::fromUtf8("加热器C")
+    };
+    m_heaterButtons.resize(3);
+    for (int i = 0; i < 3; ++i) {
+        auto *button = new QPushButton(
+            heaterNames.at(i) + QString::fromUtf8("\n关闭"), controlCard);
+        button->setObjectName("outputButton");
+        button->setMinimumHeight(58);
+        m_heaterButtons[i] = button;
+        heaterGrid->addWidget(button, 0, i);
+        connect(button, &QPushButton::clicked, this, [this, i]() {
+            emit heaterCycleRequested(currentDevice(), i);
+        });
+    }
+    controls->addLayout(heaterGrid);
+
     auto *spareTitle = new QLabel(QString::fromUtf8("备用输出"), controlCard);
     spareTitle->setObjectName("metricTitle");
     controls->addWidget(spareTitle);
@@ -1586,6 +1620,12 @@ void ManualPanel::setAutoDevices(const QSet<int> &keys)
     if (m_autoDevices == keys)
         return;
     m_autoDevices = keys;
+    refreshControls();
+}
+
+void ManualPanel::setHeaterGears(const QMap<int, int> &gears)
+{
+    m_heaterGears = gears;
     refreshControls();
 }
 
@@ -1743,6 +1783,29 @@ void ManualPanel::refreshControls()
             .arg(name).arg(value ? QString::fromUtf8("闭合")
                                  : QString::fromUtf8("断开")));
     }
+
+    // 加热器档位: 屏幕按键与实体按键 (IN2/IN3/IN4) 同效
+    const int heaterKey = commandKey(currentDevice());
+    const int gearA = qBound(0, m_heaterGears.value(heaterKey * 4 + 0, 0), 3);
+    const int gearB = qBound(0, m_heaterGears.value(heaterKey * 4 + 1, 0), 3);
+    const int gearC = qBound(0, m_heaterGears.value(heaterKey * 4 + 2, 0), 3);
+    const QStringList heaterButtonNames = {
+        QString::fromUtf8("加热器A"),
+        QString::fromUtf8("加热器B"),
+        QString::fromUtf8("加热器C")
+    };
+    const int gears[3] = { gearA, gearB, gearC };
+    for (int i = 0; i < 3 && i < m_heaterButtons.size(); ++i) {
+        m_heaterButtons[i]->setText(
+            QString::fromUtf8("%1\n%2").arg(heaterButtonNames.at(i)).arg(
+                gears[i] == 0 ? QString::fromUtf8("关闭")
+                : gears[i] == 1 ? QString::fromUtf8("1档")
+                : gears[i] == 2 ? QString::fromUtf8("2档")
+                                : QString::fromUtf8("3档")));
+        m_heaterButtons[i]->setProperty("outputOn", gears[i] != 0);
+        refreshDynamicStyle(m_heaterButtons[i]);
+    }
+    m_overview->setHeaterGearsForCurrent(gearA, gearB, gearC);
 }
 
 void ManualPanel::toggleOutput()
@@ -3523,6 +3586,46 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     expInLayout->setColumnStretch(1, 1);
     advancedLayout->addWidget(expInCard);
 
+    // 加热器输出映射: 每个加热器一对 OT 继电器 (低位=1档, 高位=2档, 同开=3档)
+    auto *heaterPairCard = makeCard(advancedPanel);
+    auto *heaterPairLayout = new QGridLayout(heaterPairCard);
+    heaterPairLayout->setContentsMargins(16, 10, 16, 10);
+    auto *heaterPairTitle = new QLabel(
+        QString::fromUtf8("加热器输出配置"), heaterPairCard);
+    heaterPairTitle->setObjectName("sectionTitle");
+    heaterPairLayout->addWidget(heaterPairTitle, 0, 0, 1, 3);
+    auto *heaterPairHint = new QLabel(
+        QString::fromUtf8("每个加热器由一对 OT 继电器驱动: 低位=1档, 高位=2档, 同开=3档; 接线变化时在此切换"), heaterPairCard);
+    heaterPairHint->setObjectName("mutedText");
+    heaterPairLayout->addWidget(heaterPairHint, 1, 0, 1, 3);
+    const QStringList heaterPairNames = {
+        QString::fromUtf8("加热器A"),
+        QString::fromUtf8("加热器B"),
+        QString::fromUtf8("加热器C")
+    };
+    const int defaultPairs[3] = { config.heaterAPair, config.heaterBPair,
+                                  config.heaterCPair };
+    for (int i = 0; i < 3; ++i) {
+        auto *heaterLabel = new QLabel(heaterPairNames.at(i), heaterPairCard);
+        heaterLabel->setObjectName("metricTitle");
+        heaterPairLayout->addWidget(heaterLabel, i + 2, 0);
+        auto *combo = new QComboBox(heaterPairCard);
+        configureDeviceCombo(combo);
+        for (int pair = 1; pair <= 5; ++pair) {
+            const int low = (pair - 1) * 2 + 1;
+            const int high = (pair - 1) * 2 + 2;
+            combo->addItem(QString("OT%1 + OT%2").arg(low).arg(high), pair);
+        }
+        const int pairIndex = combo->findData(qBound(1, defaultPairs[i], 5));
+        combo->setCurrentIndex(pairIndex >= 0 ? pairIndex : 0);
+        combo->setMinimumHeight(44);
+        combo->setMinimumWidth(180);
+        heaterPairLayout->addWidget(combo, i + 2, 1);
+        m_heaterPairCombos.insert(i, combo);
+    }
+    heaterPairLayout->setColumnStretch(2, 1);
+    advancedLayout->addWidget(heaterPairCard);
+
     layout->addWidget(advancedPanel);
     advancedPanel->setVisible(false);
 
@@ -3544,6 +3647,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     for (QWidget *control : parameterControls)
         control->installEventFilter(this);
     for (QComboBox *combo : m_expInCombos)
+        combo->installEventFilter(this);
+    for (QComboBox *combo : m_heaterPairCombos)
         combo->installEventFilter(this);
     for (QComboBox *combo : m_spareOutputModes)
         combo->installEventFilter(this);
@@ -3959,6 +4064,16 @@ void SettingsWidget::saveSettings()
         default: break;
         }
     }
+    for (int i = 0; i < 3; ++i) {
+        const int pair = m_heaterPairCombos.value(i)
+            ? m_heaterPairCombos.value(i)->currentData().toInt() : i + 1;
+        switch (i) {
+        case 0: config.general().heaterAPair = qBound(1, pair, 5); break;
+        case 1: config.general().heaterBPair = qBound(1, pair, 5); break;
+        case 2: config.general().heaterCPair = qBound(1, pair, 5); break;
+        default: break;
+        }
+    }
     config.general().maxStorageMB = m_maxStorageGB->value() * 1024;
     config.general().spareOt01Mode = m_spareOutputModes.value(1)->currentData().toString();
     config.general().spareOt02Mode = m_spareOutputModes.value(2)->currentData().toString();
@@ -4195,6 +4310,8 @@ void MainWindow::setupUi()
             this, &MainWindow::writeToDevice);
     connect(m_manualPanel, &ManualPanel::runningChanged,
             this, &MainWindow::setDeviceAutoRunning);
+    connect(m_manualPanel, &ManualPanel::heaterCycleRequested,
+            this, &MainWindow::cycleHeater);
     connect(m_fleetOverview, &FleetOverviewPanel::deviceActivated,
             this, [this](const DeviceProfile::DeviceKey &key) {
         m_manualPanel->setCurrentDevice(key);
@@ -4315,8 +4432,55 @@ void MainWindow::writeToDevice(const DeviceProfile::DeviceKey &key,
     m_statusBar->setText(QString::fromUtf8("正在向 ID %1 发送指令…").arg(key.slaveId));
 }
 
-void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key,
-                                      bool running)
+void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterIndex)
+{
+    if (heaterIndex < 0 || heaterIndex > 2)
+        return;
+    const AppConfig::GeneralConfig &heaterConfig =
+        AppConfig::instance().general();
+    const int pair = heaterIndex == 0 ? heaterConfig.heaterAPair
+        : heaterIndex == 1 ? heaterConfig.heaterBPair
+                           : heaterConfig.heaterCPair;
+    const int keyValue = commandKey(key);
+    // 安全联锁: 高压告警/备用输入联锁期间禁止手动加热, 与 OT3/OT4 按钮一致
+    if (m_highVoltageAlarm || m_reservedInputInterlocks.contains(keyValue)) {
+        m_statusBar->setText(QString::fromUtf8("⚠  联锁中，加热器%1 操作被拒绝")
+            .arg(QString("ABC").at(heaterIndex)));
+        return;
+    }
+    // 自动温控占用 OT3+OT4 时 (该加热器映射到第2对), 手动让位自动
+    if (m_autoDevices.contains(keyValue) && pair == 2) {
+        m_statusBar->setText(QString::fromUtf8(
+            "自动温控运行中，加热器%1 占用 OT3/OT4，请先停止自动")
+            .arg(QString("ABC").at(heaterIndex)));
+        return;
+    }
+
+    const int gearKey = keyValue * 4 + heaterIndex;
+    const int next = (m_heaterGears.value(gearKey, 0) + 1) % 4;   // 关→1→2→3→关
+    m_heaterGears[gearKey] = next;
+    m_manualPanel->setHeaterGears(m_heaterGears);
+
+    // 驱动该加热器的一对 OT 继电器: 低位=1档, 高位=2档, 同开=3档
+    const int lowOt = (pair - 1) * 2 + 1;
+    const int highOt = (pair - 1) * 2 + 2;
+    QMap<QString, QVariant> fields;
+    fields[QString("ot%1").arg(lowOt, 2, 10, QChar('0'))] =
+        (next == 1 || next == 3) ? 1 : 0;
+    fields[QString("ot%1").arg(highOt, 2, 10, QChar('0'))] =
+        (next == 2 || next == 3) ? 1 : 0;
+    if (m_scheduler)
+        m_scheduler->writeToDevice(key, fields);
+
+    m_statusBar->setText(QString::fromUtf8("加热器%1 已切换到 %2")
+        .arg(QString("ABC").at(heaterIndex))
+        .arg(next == 0 ? QString::fromUtf8("关闭")
+            : next == 1 ? QString::fromUtf8("1档")
+            : next == 2 ? QString::fromUtf8("2档")
+                        : QString::fromUtf8("3档")));
+}
+
+void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool running)
 {
     const int keyValue = commandKey(key);
     const bool online = m_deviceManager.hasDevice(key)
@@ -4385,6 +4549,35 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
     if (updatedState.online)
         evaluateReservedInput(key, updatedState);
     m_settingsWidget->updateExpInputStates(updatedState.values);
+
+    // 实体加热器按键: exp_in 上升沿 → 对应加热器进一档 (按接入配置的功能映射)
+    {
+        const AppConfig::GeneralConfig &heaterConfig =
+            AppConfig::instance().general();
+        const int keyValue = commandKey(key);
+        int mask = 0;
+        for (int i = 1; i <= 5; ++i) {
+            if (updatedState.values.value(QString("exp_in%1").arg(i)).toInt() != 0)
+                mask |= (1 << (i - 1));
+        }
+        const int prev = m_prevExpInMask.value(keyValue, -1);
+        if (prev >= 0) {
+            for (int i = 1; i <= 5; ++i) {
+                const bool now = mask & (1 << (i - 1));
+                const bool before = prev & (1 << (i - 1));
+                if (!now || before)
+                    continue;
+                const QString mode = heaterConfig.expInMode(i);
+                if (mode == "heater_a")
+                    cycleHeater(key, 0);
+                else if (mode == "heater_b")
+                    cycleHeater(key, 1);
+                else if (mode == "heater_c")
+                    cycleHeater(key, 2);
+            }
+        }
+        m_prevExpInMask[keyValue] = mask;
+    }
 
     refreshHighVoltageAlarm();
 

@@ -181,6 +181,13 @@ class Device:
                     "th1_temp", "th1_humi", "th2_temp", "th2_humi",
                     "th3_temp", "th3_humi", "pt1_temp", "pt2_temp"]
             return self.regs[keys[idx]] & 0xFFFF
+        if addr == 0x000C:
+            # 现场 firmware 实测: 外扩输入在 0x000C, IN1~IN5 = bit0~4
+            mask = 0
+            for i, v in enumerate(self.exp_in):
+                if v:
+                    mask |= 1 << i
+            return mask
         if addr == 0x000E:
             mask = 0
             for i, v in enumerate(self.exp_in):
@@ -189,11 +196,24 @@ class Device:
             return mask
         if 0x0011 <= addr <= 0x001A:
             return self.ot[addr - 0x0011] & 0xFFFF
+        if addr == 0x0031:
+            # 程序实际使用的 OT01~OT10 位掩码 (bit0~9)
+            mask = 0
+            for i, v in enumerate(self.ot):
+                if v:
+                    mask |= 1 << i
+            return mask
         return None
 
     def write_regs(self, start: int, values: list[int]) -> int | None:
         """原子写 OT 区；成功返回 None，失败返回 Modbus 异常码。"""
         if not values or start < 0x0011 or start + len(values) - 1 > 0x001A:
+            if start == 0x0031 and len(values) == 1:
+                # 程序实际使用的 OT 位掩码写入口 (bit0~9 = OT01~OT10)
+                mask = values[0] & 0x3FF
+                for i in range(10):
+                    self.ot[i] = (mask >> i) & 1
+                return None
             return 0x02
         if any(value not in (0, 1) for value in values):
             return 0x03

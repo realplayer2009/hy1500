@@ -55,6 +55,10 @@ bool AppConfig::load(const QString &iniPath)
         qBound(0, ini.value("idleDimMinutes", 10).toInt(), 1440);
     m_general.idleDimPercent =
         qBound(0, ini.value("idleDimPercent", 0).toInt(), 100);
+    // 加热器输出映射: 1=OT1+OT2 ... 5=OT9+OT10, 非法值回落 1
+    m_general.heaterAPair = qBound(1, ini.value("heaterAPair", 1).toInt(), 5);
+    m_general.heaterBPair = qBound(1, ini.value("heaterBPair", 2).toInt(), 5);
+    m_general.heaterCPair = qBound(1, ini.value("heaterCPair", 3).toInt(), 5);
     // 外扩输入功能映射: 非法值回落 unused, 保证半配置状态不参与逻辑
     for (int i = 1; i <= 5; ++i) {
         const QString key = QString("expIn%1Mode").arg(i);
@@ -220,6 +224,9 @@ bool AppConfig::save(const QString &iniPath) const
     ini.setValue("brightnessPercent", m_general.brightnessPercent);
     ini.setValue("idleDimMinutes", m_general.idleDimMinutes);
     ini.setValue("idleDimPercent", m_general.idleDimPercent);
+    ini.setValue("heaterAPair", m_general.heaterAPair);
+    ini.setValue("heaterBPair", m_general.heaterBPair);
+    ini.setValue("heaterCPair", m_general.heaterCPair);
     for (int i = 1; i <= 5; ++i)
         ini.setValue(QString("expIn%1Mode").arg(i), m_general.expInMode(i));
     ini.setValue("modbusTimeoutMs", m_general.modbusTimeoutMs);
