@@ -4484,10 +4484,19 @@ void MainWindow::beepConfirmation()
         playClickSound();
         return;
     }
-    QMap<QString, QVariant> fields;
-    fields["exp_out7"] = 1;
-    for (const DeviceProfile::DeviceKey &key : targets)
-        m_scheduler->writeToDevice(key, fields);
+
+    // 连按时上一次的 0.2s 可能还没到 (蜂鸣器仍闭合): 先断开再闭合,
+    // 保证每次操作都产生一次完整的上升沿 (蜂鸣器电路多为沿触发)。
+    const bool stillClosed = m_beepOffTimer->isActive();
+    QMap<QString, QVariant> offFields;
+    offFields["exp_out7"] = 0;
+    QMap<QString, QVariant> onFields;
+    onFields["exp_out7"] = 1;
+    for (const DeviceProfile::DeviceKey &key : targets) {
+        if (stillClosed)
+            m_scheduler->writeToDevice(key, offFields);
+        m_scheduler->writeToDevice(key, onFields);
+    }
     m_beepDevices = targets;
     m_beepOffTimer->start();   // 连续操作时重新计时, 最后一次操作后断开
 }
