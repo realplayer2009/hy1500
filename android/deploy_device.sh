@@ -36,7 +36,7 @@ $ADB shell "mkdir -p /data/local/tmp/rs485_push_tmp"
 for f in "${FILES[@]}"; do
   echo " pushing $f"
   $ADB push "$f" "/data/local/tmp/rs485_push_tmp/" 2>/dev/null || true
-  $ADB shell "run-as ${TERMUX_PKG} cp /data/local/tmp/rs485_push_tmp/$(basename "$f") ${APP_RS485}/$f"
+  $ADB shell "run-as ${TERMUX_PKG} sh -c 'mkdir -p ${APP_RS485}/\$(dirname \"$f\") && cp /data/local/tmp/rs485_push_tmp/$(basename "$f") ${APP_RS485}/$f'"
 done
 
 echo "=== Step 3: verify pushed files ==="
