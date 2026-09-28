@@ -421,6 +421,11 @@ private:
     void leaveReservedInputInterlock(const DeviceProfile::DeviceKey &key);
     void refreshSystemState();
     void checkSystemTimeAnomaly();
+    /** 操作确认音: 接在 OUT7 上的蜂鸣器闭合 0.5 秒; 无在线子板时回退软件音 */
+    void beepConfirmation();
+    void onBeepTimeout();
+    /** 切到自动温控前: 三路加热器一律退到关闭 (继电器+灯), 清理档位会话 */
+    void resetHeaterGears(const DeviceProfile::DeviceKey &key);
 
     DeviceManager m_deviceManager;
     DataLogger m_logger;
@@ -455,6 +460,9 @@ private:
     // 加热器档位与外扩输入上一周期状态 (实体按键上升沿检测用)
     QMap<int, int> m_heaterGears;
     QMap<int, int> m_prevExpInMask;
+    // 蜂鸣器确认音: 待断开蜂鸣器的子板与断开定时器
+    QList<DeviceProfile::DeviceKey> m_beepDevices;
+    QTimer *m_beepOffTimer = nullptr;
     QMap<int, int> m_sensorRecoveryCounts;
     QSet<int> m_sensorHealthyDevices;
     QMap<int, QString> m_reservedInputInterlocks;

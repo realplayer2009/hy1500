@@ -4235,6 +4235,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_brightness->applySettings(config.brightnessPercent,
                                 config.idleDimMinutes,
                                 config.idleDimPercent);
+    m_beepOffTimer = new QTimer(this);
+    m_beepOffTimer->setSingleShot(true);
+    m_beepOffTimer->setInterval(500);   // 蜂鸣器闭合 0.5 秒
+    connect(m_beepOffTimer, &QTimer::timeout,
+            this, &MainWindow::onBeepTimeout);
     qApp->installEventFilter(this);
     checkSystemTimeAnomaly();
 
@@ -4467,6 +4472,58 @@ void MainWindow::writeToDevice(const DeviceProfile::DeviceKey &key,
     m_statusBar->setText(QString::fromUtf8("正在向 ID %1 发送指令…").arg(key.slaveId));
 }
 
+void MainWindow::beepConfirmation()
+{
+    // 接在 OUT7 上的蜂鸣器: 对全部在线子板闭合 0.5 秒后断开;
+    // 无在线子板时回退到软件确认音。
+    QList<DeviceProfile::DeviceKey> targets;
+    for (const DeviceState &state : m_deviceManager.allDevices()) {
+        if (state.online)
+            targets.append(state.key);
+    }
+    if (targets.isEmpty() || !m_scheduler) {
+        playClickSound();
+        return;
+    }
+    QMap<QString, QVariant> fields;
+    fields["exp_out7"] = 1;
+    for (const DeviceProfile::DeviceKey &key : targets)
+        m_scheduler->writeToDevice(key, fields);
+    m_beepDevices = targets;
+    m_beepOffTimer->start();   // 连续操作时重新计时, 最后一次操作后断开
+}
+
+void MainWindow::resetHeaterGears(const DeviceProfile::DeviceKey &key)
+{
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    const int keyValue = commandKey(key);
+    QMap<QString, QVariant> offFields;
+    for (int h = 0; h < 3; ++h) {
+        const int pair = h == 0 ? config.heaterAPair
+            : h == 1 ? config.heaterBPair : config.heaterCPair;
+        const int lowOt = (pair - 1) * 2 + 1;
+        const int highOt = (pair - 1) * 2 + 2;
+        offFields[QString("ot%1").arg(lowOt, 2, 10, QChar('0'))] = 0;
+        offFields[QString("ot%1").arg(highOt, 2, 10, QChar('0'))] = 0;
+        offFields[QString("exp_out%1").arg(h + 1)] = 0;
+        m_heaterGears.remove(keyValue * 4 + h);
+    }
+    m_manualPanel->setHeaterGears(m_heaterGears);
+    if (m_scheduler && !offFields.isEmpty())
+        m_scheduler->writeToDevice(key, offFields);
+}
+
+void MainWindow::onBeepTimeout()
+{
+    if (m_beepDevices.isEmpty() || !m_scheduler)
+        return;
+    QMap<QString, QVariant> fields;
+    fields["exp_out7"] = 0;
+    for (const DeviceProfile::DeviceKey &key : m_beepDevices)
+        m_scheduler->writeToDevice(key, fields);
+    m_beepDevices.clear();
+}
+
 void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterIndex)
 {
     if (heaterIndex < 0 || heaterIndex > 2)
@@ -4548,6 +4605,8 @@ void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool 
         m_lastAutoCommands.remove(keyValue);
         m_lastAutoCommandTimes.remove(keyValue);
         m_pidStates.remove(keyValue);
+        // 切到自动: 手动档位一律退到关闭, 再执行温控程序
+        resetHeaterGears(key);
         syncAutoPanels();
         refreshIndicatorLights();
         applyAutomaticControl(key);
@@ -4613,7 +4672,7 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
                     cycleHeater(key, 2);
                 if (mode == "heater_a" || mode == "heater_b"
                     || mode == "heater_c")
-                    playClickSound();   // 实体按键确认音
+                    beepConfirmation();   // 实体按键确认音
             }
         }
         m_prevExpInMask[keyValue] = mask;
@@ -5125,7 +5184,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     case QEvent::KeyPress:
         // 屏幕按键操作确认音 (实体按键在 onDeviceUpdated 的沿检测里播放)
         if (qobject_cast<QPushButton *>(watched))
-            playClickSound();
+            beepConfirmation();
         if (m_brightness)
             m_brightness->noteActivity();
         break;
