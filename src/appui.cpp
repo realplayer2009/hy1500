@@ -4489,9 +4489,9 @@ void MainWindow::beepConfirmation()
     // 保证每次操作都产生一次完整的上升沿 (蜂鸣器电路多为沿触发)。
     const bool stillClosed = m_beepOffTimer->isActive();
     QMap<QString, QVariant> offFields;
-    offFields["exp_out7"] = 0;
+    offFields["exp_out5"] = 0;
     QMap<QString, QVariant> onFields;
-    onFields["exp_out7"] = 1;
+    onFields["exp_out5"] = 1;
     for (const DeviceProfile::DeviceKey &key : targets) {
         if (stillClosed)
             m_scheduler->writeToDevice(key, offFields);
@@ -4526,7 +4526,7 @@ void MainWindow::onBeepTimeout()
     if (m_beepDevices.isEmpty() || !m_scheduler)
         return;
     QMap<QString, QVariant> fields;
-    fields["exp_out7"] = 0;
+    fields["exp_out5"] = 0;
     for (const DeviceProfile::DeviceKey &key : m_beepDevices)
         m_scheduler->writeToDevice(key, fields);
     m_beepDevices.clear();
