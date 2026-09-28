@@ -1276,6 +1276,33 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
         m_values[otherFields.at(i)] = value;
         metrics->addWidget(card, 1, i);
     }
+
+    // 加热器状态排: 四个档位标签, 当前档位高亮 (数据来自 OT3/OT4 回读)
+    auto *heaterCard = makeCard(this);
+    auto *heaterCardLayout = new QVBoxLayout(heaterCard);
+    heaterCardLayout->setContentsMargins(13, 10, 13, 10);
+    auto *heaterTitle = new QLabel(QString::fromUtf8("加热器状态"), heaterCard);
+    heaterTitle->setObjectName("metricTitle");
+    heaterCardLayout->addWidget(heaterTitle);
+    auto *heaterRow = new QHBoxLayout;
+    heaterRow->setSpacing(10);
+    const QStringList gearNames = {
+        QString::fromUtf8("加热器1档"),
+        QString::fromUtf8("加热器2档"),
+        QString::fromUtf8("加热器3档"),
+        QString::fromUtf8("加热器关闭")
+    };
+    for (const QString &name : gearNames) {
+        auto *label = new QLabel(name, heaterCard);
+        label->setObjectName("runState");
+        label->setAlignment(Qt::AlignCenter);
+        label->setMinimumHeight(34);
+        heaterRow->addWidget(label);
+        m_heaterGearLabels.append(label);
+    }
+    heaterCardLayout->addLayout(heaterRow);
+    metrics->addWidget(heaterCard, 2, 0, 1, 3);
+
     for (int i = 0; i < 3; ++i)
         metrics->setColumnStretch(i, 1);
     layout->addLayout(metrics, 1);
@@ -1367,6 +1394,20 @@ void DeviceOverviewWidget::refreshValues()
         if (it.key().endsWith("_humi") && !state.values.contains(it.key()))
             it.value()->setText("--.- %RH");
     }
+
+    // 加热器状态: 从 OT3/OT4 输出回读解码当前档位并高亮
+    // (1档=OT3, 2档=OT4, 3档=两路同开, 全关=关闭; 手动强制与自动同源)
+    if (!m_heaterGearLabels.isEmpty()) {
+        const bool ot3On = state.values.value("ot03").toInt() != 0;
+        const bool ot4On = state.values.value("ot04").toInt() != 0;
+        const int activeIndex = ot3On && ot4On ? 2
+            : ot3On ? 0 : ot4On ? 1 : 3;
+        for (int i = 0; i < m_heaterGearLabels.size(); ++i) {
+            m_heaterGearLabels.at(i)->setProperty("running", i == activeIndex);
+            refreshDynamicStyle(m_heaterGearLabels.at(i));
+        }
+    }
+
     m_lastUpdate->setText(state.lastUpdate.isValid()
         ? QString::fromUtf8("最后更新：%1").arg(state.lastUpdate.toString("yyyy-MM-dd  hh:mm:ss"))
         : QString::fromUtf8("最后更新：等待首次数据"));

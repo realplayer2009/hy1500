@@ -102,6 +102,8 @@ private:
     QLabel *m_linkState = nullptr;
     QLabel *m_lastUpdate = nullptr;
     QMap<QString, QLabel *> m_values;
+    // 加热器状态排: [加热器1档, 加热器2档, 加热器3档, 加热器关闭]
+    QVector<QLabel *> m_heaterGearLabels;
 };
 
 /** 手动操作：选择子板、查看状态、单独切换 OT3/OT4。 */
