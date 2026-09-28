@@ -421,7 +421,7 @@ private:
     void leaveReservedInputInterlock(const DeviceProfile::DeviceKey &key);
     void refreshSystemState();
     void checkSystemTimeAnomaly();
-    /** 操作确认音: 接在 OUT7 上的蜂鸣器闭合 0.5 秒; 无在线子板时回退软件音 */
+    /** 操作确认音: 接在 OUT7 上的蜂鸣器闭合 0.2 秒; 无子板时回退软件音 */
     void beepConfirmation();
     void onBeepTimeout();
     /** 切到自动温控前: 三路加热器一律退到关闭 (继电器+灯), 清理档位会话 */

@@ -4237,7 +4237,7 @@ MainWindow::MainWindow(QWidget *parent)
                                 config.idleDimPercent);
     m_beepOffTimer = new QTimer(this);
     m_beepOffTimer->setSingleShot(true);
-    m_beepOffTimer->setInterval(500);   // 蜂鸣器闭合 0.5 秒
+    m_beepOffTimer->setInterval(200);   // 蜂鸣器闭合 0.2 秒
     connect(m_beepOffTimer, &QTimer::timeout,
             this, &MainWindow::onBeepTimeout);
     qApp->installEventFilter(this);
@@ -4474,13 +4474,12 @@ void MainWindow::writeToDevice(const DeviceProfile::DeviceKey &key,
 
 void MainWindow::beepConfirmation()
 {
-    // 接在 OUT7 上的蜂鸣器: 对全部在线子板闭合 0.5 秒后断开;
-    // 无在线子板时回退到软件确认音。
+    // 接在 OUT7 上的蜂鸣器: 对全部已知子板闭合 0.2 秒后断开;
+    // 含瞬时掉线的设备 (轮询抖动时写失败无害, 避免确认音被吞);
+    // 完全没有子板时才回退到软件确认音。
     QList<DeviceProfile::DeviceKey> targets;
-    for (const DeviceState &state : m_deviceManager.allDevices()) {
-        if (state.online)
-            targets.append(state.key);
-    }
+    for (const DeviceState &state : m_deviceManager.allDevices())
+        targets.append(state.key);
     if (targets.isEmpty() || !m_scheduler) {
         playClickSound();
         return;
