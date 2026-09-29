@@ -91,6 +91,7 @@ python3 tests/simulator/test_pty_modbus_sim.py
 | 文档 | 内容 |
 | --- | --- |
 | [docs/BUILD_LINUX.md](docs/BUILD_LINUX.md) | 依赖安装、命令行编译、RK3568 部署 |
+| [docs/DEVICE_PANEL_PA0715N.md](docs/DEVICE_PANEL_PA0715N.md) | 现场屏（PA0715-N）硬件规格与程序相关要点 |
 | [docs/CONTROL_AND_SAFETY_DESIGN.md](docs/CONTROL_AND_SAFETY_DESIGN.md) | 自检、温控、联锁与备用引脚设计 |
 | [docs/DATA_BROWSER_DESIGN.md](docs/DATA_BROWSER_DESIGN.md) | 数据浏览交互与聚合规则 |
 | [使用说明.txt](使用说明.txt) | `rs485_modbus_debug.py` 调试脚本用法 |
