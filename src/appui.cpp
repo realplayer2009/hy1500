@@ -85,8 +85,7 @@ const QVector<QPair<QString, QString>> &expInModeOptions()
 
 // 操作确认音: 依次尝试 termux-media-player (Termux:API) 与 Qt beep,
 // 都不可用 (如开发机) 时静默; 音源文件找不到时不阻塞操作。
-void playClickSound()
-{
+void playClickSound(){
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
     if (!config.soundFeedback)
         return;
@@ -113,6 +112,20 @@ void playClickSound()
             return;
     }
     QApplication::beep();
+}
+
+// 从 OT 输出回读解码某个加热器 (一对继电器) 的当前档位:
+// 低位=1档, 高位=2档, 同开=3档, 全关=0。手动与自动写入同源,
+// 因此自动温控驱动 OT3/OT4 时也能反映真实档位。
+int heaterGearFromOutputs(const DeviceState &state, int pair)
+{
+    const int lowOt = (pair - 1) * 2 + 1;
+    const int highOt = (pair - 1) * 2 + 2;
+    const QString lowField = QString("ot%1").arg(lowOt, 2, 10, QChar('0'));
+    const QString highField = QString("ot%1").arg(highOt, 2, 10, QChar('0'));
+    const bool low = state.values.value(lowField).toInt() != 0;
+    const bool high = state.values.value(highField).toInt() != 0;
+    return (low ? 1 : 0) | (high ? 2 : 0);
 }
 
 class TouchComboDelegate : public QStyledItemDelegate
@@ -1819,11 +1832,17 @@ void ManualPanel::refreshControls()
                                  : QString::fromUtf8("断开")));
     }
 
-    // 加热器档位: 屏幕按键与实体按键 (IN2/IN3/IN4) 同效
+    // 加热器档位: 屏幕按键与实体按键 (IN2/IN3/IN4) 同效;
+    // 显示按 OT 输出回读解码 (手动/自动同源), 自动温控驱动 OT3/OT4 时
+    // 加热器状态排同样反映真实档位
+    const AppConfig::GeneralConfig &heaterCfg = AppConfig::instance().general();
     const int heaterKey = commandKey(currentDevice());
-    const int gearA = qBound(0, m_heaterGears.value(heaterKey * 4 + 0, 0), 3);
-    const int gearB = qBound(0, m_heaterGears.value(heaterKey * 4 + 1, 0), 3);
-    const int gearC = qBound(0, m_heaterGears.value(heaterKey * 4 + 2, 0), 3);
+    const int gearA = heaterGearFromOutputs(state, heaterCfg.heaterAPair);
+    const int gearB = heaterGearFromOutputs(state, heaterCfg.heaterBPair);
+    const int gearC = heaterGearFromOutputs(state, heaterCfg.heaterCPair);
+    m_heaterGears[heaterKey * 4 + 0] = gearA;
+    m_heaterGears[heaterKey * 4 + 1] = gearB;
+    m_heaterGears[heaterKey * 4 + 2] = gearC;
     const QStringList heaterButtonNames = {
         QString::fromUtf8("加热器A"),
         QString::fromUtf8("加热器B"),
@@ -4501,6 +4520,29 @@ void MainWindow::beepConfirmation()
     m_beepOffTimer->start();   // 连续操作时重新计时, 最后一次操作后断开
 }
 
+void MainWindow::syncHeaterLamps(const DeviceProfile::DeviceKey &key,
+                                 const DeviceState &state)
+{
+    // 灯 = 加热状态: 按每个加热器输出对的实际回读档位同步 OUT1~OUT3,
+    // 手动循环和自动温控写入都覆盖, 只在档位变化时写一次。
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    const int keyValue = commandKey(key);
+    for (int h = 0; h < 3; ++h) {
+        const int pair = h == 0 ? config.heaterAPair
+            : h == 1 ? config.heaterBPair : config.heaterCPair;
+        const int gear = heaterGearFromOutputs(state, pair);
+        const int lampKey = keyValue * 4 + h;
+        if (m_lastLampGear.value(lampKey, -1) == gear)
+            continue;
+        m_lastLampGear[lampKey] = gear;
+        if (!m_scheduler)
+            continue;
+        QMap<QString, QVariant> fields;
+        fields[QString("exp_out%1").arg(h + 1)] = gear != 0 ? 1 : 0;
+        m_scheduler->writeToDevice(key, fields);
+    }
+}
+
 void MainWindow::resetHeaterGears(const DeviceProfile::DeviceKey &key)
 {
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
@@ -4685,6 +4727,9 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
         }
         m_prevExpInMask[keyValue] = mask;
     }
+
+    // 加热器灯跟随实际输出 (自动温控驱动 OT3/OT4 时同样点灯)
+    syncHeaterLamps(key, updatedState);
 
     refreshHighVoltageAlarm();
 

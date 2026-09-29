@@ -426,6 +426,9 @@ private:
     void onBeepTimeout();
     /** 切到自动温控前: 三路加热器一律退到关闭 (继电器+灯), 清理档位会话 */
     void resetHeaterGears(const DeviceProfile::DeviceKey &key);
+    /** 灯随输出状态同步: 任何来源 (手动/自动) 的档位变化都点亮对应灯 */
+    void syncHeaterLamps(const DeviceProfile::DeviceKey &key,
+                         const DeviceState &state);
 
     DeviceManager m_deviceManager;
     DataLogger m_logger;
@@ -463,6 +466,8 @@ private:
     // 蜂鸣器确认音: 待断开蜂鸣器的子板与断开定时器
     QList<DeviceProfile::DeviceKey> m_beepDevices;
     QTimer *m_beepOffTimer = nullptr;
+    // 加热器灯上次同步的档位 (key=portIndex*256+slaveId)*4+heaterIndex
+    QMap<int, int> m_lastLampGear;
     QMap<int, int> m_sensorRecoveryCounts;
     QSet<int> m_sensorHealthyDevices;
     QMap<int, QString> m_reservedInputInterlocks;
