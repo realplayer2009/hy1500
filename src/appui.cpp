@@ -3772,6 +3772,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     auto *save = new QPushButton(QString::fromUtf8("保存并应用"), this);
     save->setObjectName("primaryButton");
     save->setMinimumSize(180, 48);
+    // 保存按钮自带“✓ 配置已保存”文字反馈, 不再叠加蜂鸣器确认音
+    save->setProperty("noBeep", true);
     buttonRow->addWidget(rescan);
     buttonRow->addWidget(advanced);
     buttonRow->addWidget(m_actionFeedback, 1);
@@ -5358,9 +5360,12 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     case QEvent::TouchBegin:
     case QEvent::Wheel:
     case QEvent::KeyPress:
-        // 屏幕按键操作确认音 (实体按键在 onDeviceUpdated 的沿检测里播放)
-        if (qobject_cast<QPushButton *>(watched))
-            beepConfirmation();
+        // 屏幕按键操作确认音 (实体按键在 onDeviceUpdated 的沿检测里播放);
+        // noBeep 属性的按钮 (如保存并应用, 自带文字反馈) 不发声
+        if (QPushButton *button = qobject_cast<QPushButton *>(watched)) {
+            if (!button->property("noBeep").toBool())
+                beepConfirmation();
+        }
         if (m_brightness)
             m_brightness->noteActivity();
         break;
