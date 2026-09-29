@@ -3628,6 +3628,29 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     idleLayout->addLayout(makeIntegerAdjustment(m_idleDimPercent, idleCard), 2, 3);
     advancedLayout->addWidget(idleCard);
 
+    auto *soundCard = makeCard(advancedPanel);
+    auto *soundLayout = new QHBoxLayout(soundCard);
+    soundLayout->setContentsMargins(16, 10, 16, 10);
+    auto *soundText = new QVBoxLayout;
+    auto *soundTitle = new QLabel(QString::fromUtf8("操作提示音"), soundCard);
+    soundTitle->setObjectName("sectionTitle");
+    soundText->addWidget(soundTitle);
+    auto *soundHint = new QLabel(
+        QString::fromUtf8("屏幕按键与实体加热器按键操作时, 接在 OUT5 上的蜂鸣器短响确认"), soundCard);
+    soundHint->setObjectName("mutedText");
+    soundText->addWidget(soundHint);
+    soundLayout->addLayout(soundText, 1);
+    m_soundFeedback = new QComboBox(soundCard);
+    configureDeviceCombo(m_soundFeedback);
+    m_soundFeedback->addItem(QString::fromUtf8("开启"), true);
+    m_soundFeedback->addItem(QString::fromUtf8("关闭"), false);
+    const int soundIndex = m_soundFeedback->findData(config.soundFeedback);
+    m_soundFeedback->setCurrentIndex(soundIndex >= 0 ? soundIndex : 0);
+    m_soundFeedback->setMinimumHeight(44);
+    m_soundFeedback->setMinimumWidth(140);
+    soundLayout->addWidget(m_soundFeedback);
+    advancedLayout->addWidget(soundCard);
+
     auto *expInCard = makeCard(advancedPanel);
     auto *expInLayout = new QGridLayout(expInCard);
     expInLayout->setContentsMargins(16, 10, 16, 10);
@@ -3717,7 +3740,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
         m_highVoltageThreshold, m_displayTheme, m_pollInterval, m_maxStorageGB,
         m_deleteAge, m_deleteAgeUnit, m_reservedInputMode,
         m_relaySwitchInterval, m_recordInterval, m_brightnessSlider,
-        m_idleDimMinutes, m_idleDimPercent
+        m_idleDimMinutes, m_idleDimPercent, m_soundFeedback
     };
     for (QWidget *control : parameterControls)
         control->installEventFilter(this);
@@ -4025,6 +4048,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
         connect(input, QOverload<int>::of(&QSpinBox::valueChanged),
                 this, [clearFeedback](int) { clearFeedback(); });
     }
+    connect(m_soundFeedback, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [clearFeedback](int) { clearFeedback(); });
     for (QComboBox *combo : m_spareOutputModes)
         connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, [clearFeedback](int) { clearFeedback(); });
@@ -4139,6 +4164,8 @@ void SettingsWidget::saveSettings()
     config.general().brightnessPercent = m_brightnessSlider->value();
     config.general().idleDimMinutes = m_idleDimMinutes->value();
     config.general().idleDimPercent = m_idleDimPercent->value();
+    config.general().soundFeedback =
+        m_soundFeedback->currentData().toBool();
     for (int i = 1; i <= 5; ++i) {
         const QString mode = m_expInCombos.value(i)
             ? m_expInCombos.value(i)->currentData().toString()
@@ -4541,6 +4568,10 @@ void MainWindow::writeToDevice(const DeviceProfile::DeviceKey &key,
 
 void MainWindow::beepConfirmation()
 {
+    // 操作提示音总开关: 关闭时屏幕按键与实体按键均静音
+    if (!AppConfig::instance().general().soundFeedback)
+        return;
+
     // 接在 OUT7 上的蜂鸣器: 对全部已知子板闭合 0.2 秒后断开;
     // 含瞬时掉线的设备 (轮询抖动时写失败无害, 避免确认音被吞);
     // 完全没有子板时才回退到软件确认音。

@@ -351,6 +351,8 @@ private:
     QMap<int, QLabel *> m_expInStateLabels;
     // 加热器输出映射: 每行一个 OT 继电器对下拉
     QMap<int, QComboBox *> m_heaterPairCombos;
+    // 操作提示音开关 (蜂鸣器确认音)
+    QComboBox *m_soundFeedback = nullptr;
     QSpinBox *m_maxStorageGB = nullptr;
     QSpinBox *m_deleteAge = nullptr;
     QComboBox *m_deleteAgeUnit = nullptr;
