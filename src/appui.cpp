@@ -997,7 +997,7 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#outputButton[outputOn="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
         QPushButton#outputButton[locked="true"] { color: #ff8a85; background: #3a1f1f; border-color: #7a4440; }
         QLabel#gearBox { border: 1px solid #636366; border-radius: 3px; color: #7c7c80; font-size: 13px; font-weight: 700; }
-        QLabel#gearBox[on="true"] { background: #00e676; border-color: #00c853; }
+        QLabel#gearBox[on="true"] { background: #ff9100; border-color: #ff6d00; }
     )");
 
     if (themeName == "low_light")
@@ -1861,7 +1861,7 @@ void ManualPanel::refreshControls()
         QPushButton *button = it.value();
         button->blockSignals(true);
         button->setChecked(value != 0);
-        button->setEnabled(state.online && mode == "manual");
+        button->setEnabled(state.online && !locked && !deviceAuto);
         button->setProperty("outputOn", value != 0);
         button->setText(QString::fromUtf8("OT%1  %2\n%3")
                             .arg(output)
@@ -1967,23 +1967,18 @@ void ManualPanel::toggleOutput()
     if (!button)
         return;
     const QString field = button->property("outputField").toString();
-    const bool controlledOutput = field == "ot03" || field == "ot04";
+    const bool otOutput = field.startsWith("ot");
     const bool deviceAuto = m_autoDevices.contains(commandKey(currentDevice()));
     const QString highVoltageField = config.highVoltageDetectionMode == "digital"
         ? "hv_input" : "external_voltage";
-    if (!state.online || (controlledOutput && deviceAuto)
-        || (controlledOutput
-            && (!state.values.contains(highVoltageField)
-                || hasHighVoltage(state.values)))) {
+    // OT1~OT6 统一按主回路保护: 离线/自动运行中/高压联锁时拒绝手动写入
+    // (OT7~OT10 是只读状态灯不接本槽点, 外扩输出不受此限)
+    if (otOutput
+        && (!state.online || deviceAuto
+            || !state.values.contains(highVoltageField)
+            || hasHighVoltage(state.values))) {
         refreshControls();
         return;
-    }
-    if (!controlledOutput && !field.startsWith("exp_out")) {
-        const int output = field.mid(2).toInt();
-        if (spareOutputMode(config, output) != "manual") {
-            refreshControls();
-            return;
-        }
     }
     QMap<QString, QVariant> fields;
     fields[field] = button->isChecked() ? 1 : 0;
@@ -4621,20 +4616,6 @@ void MainWindow::writeToDevice(const DeviceProfile::DeviceKey &key,
 {
     if (!m_scheduler || !m_deviceManager.hasDevice(key))
         return;
-    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
-    const QStringList spareOutputs = { "ot01", "ot02", "ot05", "ot06" };
-    for (const QString &field : spareOutputs) {
-        if (fields.contains(field)) {
-            const int output = field.mid(2).toInt();
-            if (spareOutputMode(config, output) != "manual") {
-                m_statusBar->setText(QString::fromUtf8(
-                    "备用输出 %1 当前为“%2”，已拦截手动操作")
-                    .arg(field.toUpper(), spareModeDisplayName(
-                        spareOutputMode(config, output))));
-                return;
-            }
-        }
-    }
     if (m_highVoltageAlarm && (fields.contains("ot03") || fields.contains("ot04"))) {
         m_statusBar->setText(QString::fromUtf8("高压告警中，已拦截 OT3 / OT4 操作"));
         return;
