@@ -375,6 +375,8 @@ QString applicationStyleSheet(const QString &themeName)
         QLabel#metricValue { color: #202020; font-size: 23px; font-weight: 700; }
         QLabel#metricSubValue { color: #555555; font-size: 15px; font-weight: 600; }
         QLabel#metricValueSmall { color: #202020; font-size: 20px; font-weight: 700; }
+        QLabel#gearBox { border: 1px solid #aaaaaa; border-radius: 3px; color: #999999; font-size: 13px; font-weight: 700; }
+        QLabel#gearBox[on="true"] { background: #168f4f; border-color: #107b43; color: white; }
         QLabel#heroValue { color: #202020; font-size: 34px; font-weight: 700; }
         QLabel#mutedText { color: #777777; font-size: 12px; }
         QLabel#noticeText { color: #333333; background: #f3f3f3; border: 1px solid #cccccc;
@@ -994,6 +996,8 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#startButton:disabled { color: #7c7c80; background: #262628; border-color: #454547; }
         QPushButton#outputButton[outputOn="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
         QPushButton#outputButton[locked="true"] { color: #ff8a85; background: #3a1f1f; border-color: #7a4440; }
+        QLabel#gearBox { border: 1px solid #636366; border-radius: 3px; color: #7c7c80; font-size: 13px; font-weight: 700; }
+        QLabel#gearBox[on="true"] { background: #00e676; border-color: #00c853; }
     )");
 
     if (themeName == "low_light")
@@ -1355,9 +1359,9 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
 
     // 加热器 A/B/C 三张独立卡片
     const QStringList heaterTitles = {
-        QString::fromUtf8("加热器A"),
-        QString::fromUtf8("加热器B"),
-        QString::fromUtf8("加热器C")
+        QString::fromUtf8("加热器状态A"),
+        QString::fromUtf8("加热器状态B"),
+        QString::fromUtf8("加热器状态C")
     };
     for (int i = 0; i < 3; ++i) {
         auto *card = makeCard(this);
@@ -1365,11 +1369,27 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
         cardLayout->setContentsMargins(13, 10, 13, 10);
         auto *title = new QLabel(heaterTitles.at(i), card);
         title->setObjectName("metricTitle");
-        auto *value = new QLabel(QString::fromUtf8("关闭"), card);
-        value->setObjectName("metricValue");
+        auto *target = new QLabel(QString::fromUtf8("目标 --.- ℃"), card);
+        target->setObjectName("metricSubValue");
+        auto *gearBoxLayout = new QHBoxLayout;
+        gearBoxLayout->setSpacing(8);
+        gearBoxLayout->setContentsMargins(0, 0, 0, 0);
+        QVector<QLabel *> boxes;
+        for (int j = 0; j < 3; ++j) {
+            auto *box = new QLabel(QString::fromUtf8("×"), card);
+            box->setObjectName("gearBox");
+            box->setFixedSize(22, 22);
+            box->setAlignment(Qt::AlignCenter);
+            boxes.append(box);
+            gearBoxLayout->addWidget(box);
+        }
         cardLayout->addWidget(title);
-        cardLayout->addWidget(value);
-        m_heaterGearLabels.append(value);
+        cardLayout->addWidget(target);
+        cardLayout->addLayout(gearBoxLayout);
+        HeaterStatusRow row;
+        row.target = target;
+        row.boxes = boxes;
+        m_heaterStatus.append(row);
         metrics->addWidget(card, 1, i);
     }
 
@@ -1465,6 +1485,27 @@ void DeviceOverviewWidget::refreshValues()
             it.value()->setText("--.- %RH");
     }
 
+    const AppConfig::GeneralConfig &cfg = AppConfig::instance().general();
+    if (cfg.temperatureControlMode == "dew_point") {
+        for (int i = 0; i < 3 && i < m_heaterStatus.size(); ++i)
+            m_heaterStatus[i].target->setText(QString::fromUtf8("目标 防凝露"));
+    } else if (cfg.temperatureTargetSource == "fixed") {
+        const double targets[3] = { cfg.heaterATarget, cfg.heaterBTarget, cfg.heaterCTarget };
+        for (int i = 0; i < 3 && i < m_heaterStatus.size(); ++i)
+            m_heaterStatus[i].target->setText(QString::fromUtf8("目标 %1 ℃")
+                .arg(targets[i], 0, 'f', 1));
+    } else {
+        for (int i = 0; i < 3 && i < m_heaterStatus.size(); ++i) {
+            if (state.values.contains("pt1_temp") || state.values.contains("pt2_temp")) {
+                const double avg = averageField(state.values, { "pt1_temp", "pt2_temp" });
+                m_heaterStatus[i].target->setText(QString::fromUtf8("目标 %1 ℃")
+                    .arg(avg, 0, 'f', 1));
+            } else {
+                m_heaterStatus[i].target->setText(QString::fromUtf8("目标 --.- ℃"));
+            }
+        }
+    }
+
     m_lastUpdate->setText(state.lastUpdate.isValid()
         ? QString::fromUtf8("最后更新：%1").arg(state.lastUpdate.toString("yyyy-MM-dd  hh:mm:ss"))
         : QString::fromUtf8("最后更新：等待首次数据"));
@@ -1472,18 +1513,22 @@ void DeviceOverviewWidget::refreshValues()
 
 void DeviceOverviewWidget::setHeaterGearsForCurrent(int gearA, int gearB, int gearC)
 {
-    if (m_heaterGearLabels.size() < 3)
+    if (m_heaterStatus.size() < 3)
         return;
     const int gears[3] = { gearA, gearB, gearC };
     for (int i = 0; i < 3; ++i) {
         const int gear = qBound(0, gears[i], 3);
-        m_heaterGearLabels.at(i)->setText(
-            gear == 0 ? QString::fromUtf8("关闭")
-            : gear == 1 ? QString::fromUtf8("1档")
-            : gear == 2 ? QString::fromUtf8("2档")
-                        : QString::fromUtf8("3档"));
-        m_heaterGearLabels.at(i)->setProperty("running", gear != 0);
-        refreshDynamicStyle(m_heaterGearLabels.at(i));
+        for (int j = 0; j < 3 && j < m_heaterStatus[i].boxes.size(); ++j) {
+            QLabel *box = m_heaterStatus[i].boxes.at(j);
+            if (gear == 0) {
+                box->setText(QString::fromUtf8("×"));
+                box->setProperty("on", false);
+            } else {
+                box->setText(QString());
+                box->setProperty("on", j < gear);
+            }
+            refreshDynamicStyle(box);
+        }
     }
 }
 
@@ -1560,19 +1605,50 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
     m_operationBanner->setWordWrap(true);
     controls->addWidget(m_operationBanner);
 
+    auto *outputGrid = new QGridLayout;
+    outputGrid->setSpacing(7);
     m_ot3 = new QPushButton(QString::fromUtf8("OT3  回路一\n关闭"), controlCard);
     m_ot4 = new QPushButton(QString::fromUtf8("OT4  回路二\n关闭"), controlCard);
-    auto *controlledOutputs = new QHBoxLayout;
     for (QPushButton *button : { m_ot3, m_ot4 }) {
         button->setObjectName("outputButton");
         button->setCheckable(true);
-        button->setMinimumHeight(58);
-        controlledOutputs->addWidget(button);
+        button->setMinimumHeight(48);
+        const int output = button == m_ot3 ? 3 : 4;
+        outputGrid->addWidget(button, (output - 1) / 2, (output - 1) % 2);
         connect(button, &QPushButton::clicked, this, &ManualPanel::toggleOutput);
     }
-    controls->addLayout(controlledOutputs);
     m_ot3->setProperty("outputField", "ot03");
     m_ot4->setProperty("outputField", "ot04");
+
+    const QList<int> spareNumbers = { 1, 2, 5, 6 };
+    for (int i = 0; i < spareNumbers.size(); ++i) {
+        const int output = spareNumbers.at(i);
+        const QString field = QString("ot%1").arg(output, 2, 10, QChar('0'));
+        auto *button = new QPushButton(controlCard);
+        button->setObjectName("outputButton");
+        button->setCheckable(true);
+        button->setMinimumHeight(48);
+        button->setProperty("outputField", field);
+        m_spareOutputs[field] = button;
+        const int idx = output - 1;
+        outputGrid->addWidget(button, idx / 2, idx % 2);
+        connect(button, &QPushButton::clicked, this, &ManualPanel::toggleOutput);
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        const int output = 7 + i;
+        const QString field = QString("ot%1").arg(output, 2, 10, QChar('0'));
+        auto *button = new QPushButton(controlCard);
+        button->setObjectName("outputButton");
+        button->setCheckable(false);
+        button->setEnabled(false);
+        button->setMinimumHeight(48);
+        button->setToolTip(QString::fromUtf8("状态灯，由程序自动控制"));
+        m_lightOutputs[field] = button;
+        const int idx = output - 1;
+        outputGrid->addWidget(button, idx / 2, idx % 2);
+    }
+    controls->addLayout(outputGrid);
 
     // 加热器手动: 屏幕按键与实体按键 (IN2/IN3/IN4) 同效, 每按一次进一档
     auto *heaterTitle = new QLabel(
@@ -1598,25 +1674,6 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
         });
     }
     controls->addLayout(heaterGrid);
-
-    auto *spareTitle = new QLabel(QString::fromUtf8("备用输出"), controlCard);
-    spareTitle->setObjectName("metricTitle");
-    controls->addWidget(spareTitle);
-    auto *spareGrid = new QGridLayout;
-    const QList<int> spareNumbers = { 1, 2, 5, 6 };
-    for (int i = 0; i < spareNumbers.size(); ++i) {
-        const int output = spareNumbers.at(i);
-        const QString field = QString("ot%1").arg(output, 2, 10, QChar('0'));
-        auto *button = new QPushButton(controlCard);
-        button->setObjectName("outputButton");
-        button->setCheckable(true);
-        button->setMinimumHeight(42);
-        button->setProperty("outputField", field);
-        m_spareOutputs[field] = button;
-        spareGrid->addWidget(button, i / 2, i % 2);
-        connect(button, &QPushButton::clicked, this, &ManualPanel::toggleOutput);
-    }
-    controls->addLayout(spareGrid);
 
     auto *expInTitle = new QLabel(QString::fromUtf8("外扩输入"), controlCard);
     expInTitle->setObjectName("metricTitle");
@@ -1812,6 +1869,29 @@ void ManualPanel::refreshControls()
                             .arg(value ? QString::fromUtf8("已打开")
                                        : QString::fromUtf8("已关闭")));
         button->blockSignals(false);
+        refreshDynamicStyle(button);
+    }
+
+    for (auto it = m_lightOutputs.begin(); it != m_lightOutputs.end(); ++it) {
+        const QString field = it.key();
+        const int value = state.values.value(field).toInt();
+        QPushButton *button = it.value();
+        button->setChecked(false);
+        button->setProperty("outputOn", value != 0);
+        QString secondLine;
+        if (field == "ot07")
+            secondLine = QString::fromUtf8("绿灯");
+        else if (field == "ot08")
+            secondLine = QString::fromUtf8("黄灯");
+        else if (field == "ot09")
+            secondLine = QString::fromUtf8("红灯");
+        else
+            secondLine = QString();
+        button->setText(QString::fromUtf8("OT%1  %2\n%3")
+                            .arg(field.mid(2).toInt())
+                            .arg(secondLine)
+                            .arg(value ? QString::fromUtf8("已打开")
+                                       : QString::fromUtf8("已关闭")));
         refreshDynamicStyle(button);
     }
 
@@ -4360,7 +4440,7 @@ void MainWindow::setupUi()
     sideLayout->addSpacing(28);
 
     const QStringList navTexts = {
-        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手自控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("数据浏览"),
         QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };
@@ -4512,7 +4592,7 @@ void MainWindow::switchPage(int index)
     if (index < 0 || index >= m_pages->count())
         return;
     const QStringList titles = {
-        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手自控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("历史数据浏览"),
         QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };

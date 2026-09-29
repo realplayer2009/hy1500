@@ -104,11 +104,15 @@ private:
     QLabel *m_linkState = nullptr;
     QLabel *m_lastUpdate = nullptr;
     QMap<QString, QLabel *> m_values;
-    // 加热器状态排: [加热器A, 加热器B, 加热器C]
-    QVector<QLabel *> m_heaterGearLabels;
+    struct HeaterStatusRow {
+        QLabel *target = nullptr;
+        QVector<QLabel *> boxes;
+    };
+    // 加热器状态卡: [加热器A, 加热器B, 加热器C] 目标温度 + 三个档位方框
+    QVector<HeaterStatusRow> m_heaterStatus;
 };
 
-/** 手动操作：选择子板、查看状态、单独切换 OT3/OT4。 */
+/** 手动操作：选择子板、查看状态、单独切换 OT1~OT10。 */
 class ManualPanel : public QWidget
 {
     Q_OBJECT
@@ -147,6 +151,7 @@ private:
     QPushButton *m_ot3 = nullptr;
     QPushButton *m_ot4 = nullptr;
     QMap<QString, QPushButton *> m_spareOutputs;
+    QMap<QString, QPushButton *> m_lightOutputs;
     QVector<QLabel *> m_expInLabels;
     QMap<QString, QPushButton *> m_expOutButtons;
     QSet<int> m_autoDevices;
