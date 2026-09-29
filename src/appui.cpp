@@ -375,7 +375,7 @@ QString applicationStyleSheet(const QString &themeName)
         QLabel#metricValue { color: #202020; font-size: 23px; font-weight: 700; }
         QLabel#metricSubValue { color: #555555; font-size: 15px; font-weight: 600; }
         QLabel#metricValueSmall { color: #202020; font-size: 20px; font-weight: 700; }
-        QLabel#gearBox { border: 1px solid #aaaaaa; border-radius: 3px; color: #999999; font-size: 13px; font-weight: 700; }
+        QLabel#gearBox { border: 1px solid #aaaaaa; border-radius: 3px; color: #999999; font-size: 26px; font-weight: 700; }
         QLabel#gearBox[on="true"] { background: #168f4f; border-color: #107b43; color: white; }
         QLabel#heroValue { color: #202020; font-size: 34px; font-weight: 700; }
         QLabel#mutedText { color: #777777; font-size: 12px; }
@@ -996,7 +996,7 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#startButton:disabled { color: #7c7c80; background: #262628; border-color: #454547; }
         QPushButton#outputButton[outputOn="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
         QPushButton#outputButton[locked="true"] { color: #ff8a85; background: #3a1f1f; border-color: #7a4440; }
-        QLabel#gearBox { border: 1px solid #636366; border-radius: 3px; color: #7c7c80; font-size: 13px; font-weight: 700; }
+        QLabel#gearBox { border: 1px solid #636366; border-radius: 3px; color: #7c7c80; font-size: 26px; font-weight: 700; }
         QLabel#gearBox[on="true"] { background: #ff9100; border-color: #ff6d00; }
     )");
 
@@ -1372,13 +1372,13 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
         auto *target = new QLabel(QString::fromUtf8("目标 --.- ℃"), card);
         target->setObjectName("metricSubValue");
         auto *gearBoxLayout = new QHBoxLayout;
-        gearBoxLayout->setSpacing(8);
+        gearBoxLayout->setSpacing(16);
         gearBoxLayout->setContentsMargins(0, 0, 0, 0);
         QVector<QLabel *> boxes;
         for (int j = 0; j < 3; ++j) {
             auto *box = new QLabel(QString::fromUtf8("×"), card);
             box->setObjectName("gearBox");
-            box->setFixedSize(22, 22);
+            box->setFixedSize(44, 44);
             box->setAlignment(Qt::AlignCenter);
             boxes.append(box);
             gearBoxLayout->addWidget(box);
