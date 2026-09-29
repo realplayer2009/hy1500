@@ -84,6 +84,13 @@ bool AppConfig::load(const QString &iniPath)
         ini.value("temperatureTargetSource", "pt100").toString().toLower();
     if (m_general.temperatureTargetSource != "fixed")
         m_general.temperatureTargetSource = "pt100";
+    // 三个加热器各自的目标温度 (未配置时回退到统一目标温度)
+    m_general.heaterATarget =
+        ini.value("heaterATarget", m_general.temperatureTarget).toDouble();
+    m_general.heaterBTarget =
+        ini.value("heaterBTarget", m_general.temperatureTarget).toDouble();
+    m_general.heaterCTarget =
+        ini.value("heaterCTarget", m_general.temperatureTarget).toDouble();
     m_general.temperatureControlMode =
         ini.value("temperatureControlMode", "threshold").toString().toLower();
     if (m_general.temperatureControlMode != "pid"
@@ -237,6 +244,9 @@ bool AppConfig::save(const QString &iniPath) const
     ini.setValue("interSlaveDelayMs", m_general.interSlaveDelayMs);
     ini.setValue("temperatureTarget", m_general.temperatureTarget);
     ini.setValue("temperatureTargetSource", m_general.temperatureTargetSource);
+    ini.setValue("heaterATarget", m_general.heaterATarget);
+    ini.setValue("heaterBTarget", m_general.heaterBTarget);
+    ini.setValue("heaterCTarget", m_general.heaterCTarget);
     ini.setValue("temperatureControlMode", m_general.temperatureControlMode);
     ini.setValue("thresholdSingleStageDelta", m_general.thresholdSingleStageDelta);
     ini.setValue("thresholdSecondStageDelta", m_general.thresholdSecondStageDelta);

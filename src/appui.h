@@ -290,7 +290,9 @@ class SettingsWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit SettingsWidget(StorageRotator *rotator, QWidget *parent = nullptr);
+    /** advancedOnly=true 时作为独立的高级设置页 (隐藏温控参数区) */
+    explicit SettingsWidget(StorageRotator *rotator, bool advancedOnly = false,
+                            QWidget *parent = nullptr);
     void showActionFeedback(const QString &message, bool success);
     void refreshStorageInfo();
 
@@ -313,7 +315,9 @@ private:
     StorageRotator *m_rotator = nullptr;
     QComboBox *m_controlMode = nullptr;
     QComboBox *m_targetSource = nullptr;
-    QDoubleSpinBox *m_targetTemp = nullptr;
+    QDoubleSpinBox *m_heaterTargetA = nullptr;
+    QDoubleSpinBox *m_heaterTargetB = nullptr;
+    QDoubleSpinBox *m_heaterTargetC = nullptr;
     QDoubleSpinBox *m_thresholdSingleStage = nullptr;
     QDoubleSpinBox *m_thresholdSecondStage = nullptr;
     QDoubleSpinBox *m_thresholdDualStage = nullptr;
@@ -357,6 +361,7 @@ private:
     QLabel *m_formula = nullptr;
     QLabel *m_actionFeedback = nullptr;
     QTimer *m_feedbackTimer = nullptr;
+    bool m_advancedOnly = false;
 
     QDate deleteCutoffDate() const;
 };
@@ -441,6 +446,7 @@ private:
     FleetOverviewPanel *m_fleetOverview = nullptr;
     ManualPanel *m_manualPanel = nullptr;
     SettingsWidget *m_settingsWidget = nullptr;
+    SettingsWidget *m_advancedWidget = nullptr;
     HistoryWidget *m_historyWidget = nullptr;
     AboutWidget *m_aboutWidget = nullptr;
     QLabel *m_pageTitle = nullptr;

@@ -55,6 +55,10 @@ public:
         int interSlaveDelayMs = 10;
         double temperatureTarget = 25.0;
         QString temperatureTargetSource = "pt100";
+        // 三个加热器各自的目标温度 (自动温控按加热器独立计算)
+        double heaterATarget = 25.0;
+        double heaterBTarget = 25.0;
+        double heaterCTarget = 25.0;
         QString temperatureControlMode = "threshold";
         double thresholdSingleStageDelta = 0.3;
         double thresholdSecondStageDelta = 1.5;

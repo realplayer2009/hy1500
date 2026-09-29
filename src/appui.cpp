@@ -128,6 +128,20 @@ int heaterGearFromOutputs(const DeviceState &state, int pair)
     return (low ? 1 : 0) | (high ? 2 : 0);
 }
 
+// 某个 OT 输出是否被三个加热器的输出对占用 (占用则加热器控制优先,
+// 不再参与“备用输出”模式配置, 避免自动温控写入被备用配置覆盖)
+bool isHeaterPairOutput(const AppConfig::GeneralConfig &config, int output)
+{
+    const int pairs[3] = { config.heaterAPair, config.heaterBPair,
+                           config.heaterCPair };
+    for (const int pair : pairs) {
+        const int bounded = qBound(1, pair, 5);
+        if (output == (bounded - 1) * 2 + 1 || output == (bounded - 1) * 2 + 2)
+            return true;
+    }
+    return false;
+}
+
 class TouchComboDelegate : public QStyledItemDelegate
 {
 public:
@@ -2922,9 +2936,11 @@ AboutWidget::AboutWidget(QWidget *parent)
 // SettingsWidget
 // ============================================================
 
-SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
+SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
+                               QWidget *parent)
     : QWidget(parent)
     , m_rotator(rotator)
+    , m_advancedOnly(advancedOnly)
 {
     auto *outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -2972,7 +2988,9 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     auto *parameterGrid = new QGridLayout;
     parameterGrid->setHorizontalSpacing(18);
     const QStringList labels = {
-        QString::fromUtf8("固定目标温度"),
+        QString::fromUtf8("加热器A 目标温度"),
+        QString::fromUtf8("加热器B 目标温度"),
+        QString::fromUtf8("加热器C 目标温度"),
         QString::fromUtf8("阈值一级温差"),
         QString::fromUtf8("阈值二级温差"),
         QString::fromUtf8("阈值三级温差"),
@@ -2986,7 +3004,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     };
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
     const QList<double> values = {
-        config.temperatureTarget,
+        config.heaterATarget, config.heaterBTarget, config.heaterCTarget,
         config.thresholdSingleStageDelta, config.thresholdSecondStageDelta,
         config.thresholdDualStageDelta, config.thresholdHysteresis,
         config.pidKp, config.pidKi, config.pidKd,
@@ -3003,23 +3021,23 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         auto *label = new QLabel(labels.at(i), block);
         label->setObjectName("metricTitle");
         auto *input = new QDoubleSpinBox(block);
-        if (i == 0) {
+        if (i <= 2) {
             input->setRange(-20.0, 80.0);
             input->setSuffix(" ℃");
             input->setSingleStep(0.5);
-        } else if (i <= 4) {
+        } else if (i <= 6) {
             input->setRange(0.0, 30.0);
             input->setSuffix(" ℃");
             input->setSingleStep(0.1);
-        } else if (i == 6) {
+        } else if (i == 8) {
             input->setRange(0.0, 10.0);
             input->setSingleStep(0.05);
         } else {
             input->setRange(0.0, 100.0);
             input->setSingleStep(0.5);
         }
-        input->setDecimals(i >= 5 && i <= 7 ? 2 : 1);
-        if (i >= 8)
+        input->setDecimals(i >= 7 && i <= 9 ? 2 : 1);
+        if (i >= 10)
             input->setSuffix(" %");
         input->setValue(values.at(i));
         input->setButtonSymbols(QAbstractSpinBox::NoButtons);
@@ -3050,17 +3068,19 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         connect(decrease, &QPushButton::clicked, input, &QDoubleSpinBox::stepDown);
         connect(increase, &QPushButton::clicked, input, &QDoubleSpinBox::stepUp);
     }
-    m_targetTemp = inputs.at(0);
-    m_thresholdSingleStage = inputs.at(1);
-    m_thresholdSecondStage = inputs.at(2);
-    m_thresholdDualStage = inputs.at(3);
-    m_thresholdHysteresis = inputs.at(4);
-    m_pidKp = inputs.at(5);
-    m_pidKi = inputs.at(6);
-    m_pidKd = inputs.at(7);
-    m_pidSingleStage = inputs.at(8);
-    m_pidSecondStage = inputs.at(9);
-    m_pidDualStage = inputs.at(10);
+    m_heaterTargetA = inputs.at(0);
+    m_heaterTargetB = inputs.at(1);
+    m_heaterTargetC = inputs.at(2);
+    m_thresholdSingleStage = inputs.at(3);
+    m_thresholdSecondStage = inputs.at(4);
+    m_thresholdDualStage = inputs.at(5);
+    m_thresholdHysteresis = inputs.at(6);
+    m_pidKp = inputs.at(7);
+    m_pidKi = inputs.at(8);
+    m_pidKd = inputs.at(9);
+    m_pidSingleStage = inputs.at(10);
+    m_pidSecondStage = inputs.at(11);
+    m_pidDualStage = inputs.at(12);
     auto *outputOrderBlock = new QWidget(temperatureCard);
     auto *outputOrderLayout = new QVBoxLayout(outputOrderBlock);
     outputOrderLayout->setContentsMargins(0, 0, 0, 0);
@@ -3684,7 +3704,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     advancedPanel->setVisible(false);
 
     const QList<QWidget *> parameterControls = {
-        m_targetSource, m_controlMode, m_targetTemp,
+        m_targetSource, m_controlMode, m_heaterTargetA, m_heaterTargetB,
+        m_heaterTargetC,
         m_thresholdSingleStage, m_thresholdSecondStage,
         m_thresholdDualStage, m_thresholdHysteresis,
         m_pidKp, m_pidKi, m_pidKd, m_pidSingleStage,
@@ -3741,6 +3762,12 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
             ? QString::fromUtf8("返回参数设置")
             : QString::fromUtf8("高级设置"));
     });
+    if (m_advancedOnly) {
+        // 高级设置独立成页: 隐藏温控参数区与折叠按钮, 高级卡片直接展开
+        temperatureCard->setVisible(false);
+        advanced->setVisible(false);
+        advancedPanel->setVisible(true);
+    }
     connect(formulaToggle, &QPushButton::toggled, this,
             [formulaToggle, formulaDetails](bool visible) {
         formulaDetails->setVisible(visible);
@@ -3752,7 +3779,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     auto updateFormula = [this, parameterGrid, parameterBlocks,
                           targetSourceLabel, condensationPanel,
                           dewPointReference]() {
-        const double target = m_targetTemp->value();
+        const double target = m_heaterTargetA->value();
         const QString mode = m_controlMode->currentData().toString();
         const bool pid = mode == "pid";
         const bool condensation = mode == "dew_point";
@@ -3768,9 +3795,9 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         condensationPanel->setVisible(condensation);
         int position = 0;
         for (int i = 0; i < parameterBlocks.size(); ++i) {
-            const bool visible = (i == 0 && fixedTarget && !condensation)
+            const bool visible = (i <= 2 && fixedTarget && !condensation)
                 || (!condensation && i == parameterBlocks.size() - 1)
-                || (!condensation && (pid ? i >= 5 : i >= 1 && i <= 4));
+                || (!condensation && (pid ? i >= 7 : i >= 3 && i <= 6));
             parameterGrid->removeWidget(parameterBlocks.at(i));
             parameterBlocks.at(i)->setVisible(visible);
             if (visible) {
@@ -3915,8 +3942,11 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
     };
     connect(m_controlMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [updateFormula](int) { updateFormula(); });
-    connect(m_targetTemp, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, [updateFormula](double) { updateFormula(); });
+    for (QDoubleSpinBox *input : { m_heaterTargetA, m_heaterTargetB,
+                                   m_heaterTargetC }) {
+        connect(input, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+                this, [updateFormula](double) { updateFormula(); });
+    }
     connect(m_targetSource, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [updateFormula](int) { updateFormula(); });
     connect(m_thresholdSingleStage, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
@@ -3979,7 +4009,8 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, QWidget *parent)
         m_actionFeedback->clear();
     };
     for (QDoubleSpinBox *input : {
-             m_targetTemp, m_thresholdSingleStage, m_thresholdSecondStage,
+             m_heaterTargetA, m_heaterTargetB, m_heaterTargetC,
+             m_thresholdSingleStage, m_thresholdSecondStage,
              m_thresholdDualStage, m_thresholdHysteresis, m_highVoltageThreshold,
              m_pidKp, m_pidKi, m_pidKd, m_pidSingleStage,
              m_pidSecondStage, m_pidDualStage, m_dewPointSingleStage,
@@ -4047,7 +4078,10 @@ void SettingsWidget::saveSettings()
 {
     AppConfig &config = AppConfig::instance();
     config.general().displayTheme = m_displayTheme->currentData().toString();
-    config.general().temperatureTarget = m_targetTemp->value();
+    config.general().temperatureTarget = m_heaterTargetA->value();
+    config.general().heaterATarget = m_heaterTargetA->value();
+    config.general().heaterBTarget = m_heaterTargetB->value();
+    config.general().heaterCTarget = m_heaterTargetC->value();
     config.general().temperatureTargetSource =
         m_targetSource->currentData().toString();
     config.general().temperatureControlMode = m_controlMode->currentData().toString();
@@ -4296,7 +4330,7 @@ void MainWindow::setupUi()
     const QStringList navTexts = {
         QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("数据浏览"),
-        QString::fromUtf8("关于本机")
+        QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };
     for (int i = 0; i < navTexts.size(); ++i) {
         auto *button = new QPushButton(navTexts.at(i), sideBar);
@@ -4343,13 +4377,15 @@ void MainWindow::setupUi()
     m_pages = new QStackedWidget(root);
     m_fleetOverview = new FleetOverviewPanel(&m_deviceManager, m_pages);
     m_manualPanel = new ManualPanel(&m_deviceManager, m_pages);
-    m_settingsWidget = new SettingsWidget(&m_rotator, m_pages);
+    m_settingsWidget = new SettingsWidget(&m_rotator, false, m_pages);
     m_historyWidget = new HistoryWidget(&m_historyQuery, &m_deviceManager, m_pages);
+    m_advancedWidget = new SettingsWidget(&m_rotator, true, m_pages);
     m_aboutWidget = new AboutWidget(m_pages);
     m_pages->addWidget(m_fleetOverview);
     m_pages->addWidget(m_manualPanel);
     m_pages->addWidget(m_settingsWidget);
     m_pages->addWidget(m_historyWidget);
+    m_pages->addWidget(m_advancedWidget);
     m_pages->addWidget(m_aboutWidget);
 
     auto *pageMargin = new QWidget(root);
@@ -4387,6 +4423,15 @@ void MainWindow::setupUi()
         if (m_brightness)
             m_brightness->setBrightnessPercent(percent);
     });
+    connect(m_advancedWidget, &SettingsWidget::settingsSaved,
+            this, &MainWindow::onSettingsSaved);
+    connect(m_advancedWidget, &SettingsWidget::dataFilesChanged,
+            m_historyWidget, &HistoryWidget::onDataFilesChanged);
+    connect(m_advancedWidget, &SettingsWidget::brightnessPreview,
+            this, [this](int percent) {
+        if (m_brightness)
+            m_brightness->setBrightnessPercent(percent);
+    });
 
     auto *clockTimer = new QTimer(this);
     connect(clockTimer, &QTimer::timeout, this, &MainWindow::updateClock);
@@ -4405,6 +4450,7 @@ void MainWindow::startServices()
     m_rotator.setMaxStorageMB(config.general().maxStorageMB);
     m_rotator.start();
     m_settingsWidget->refreshStorageInfo();
+    m_advancedWidget->refreshStorageInfo();
 
     m_scheduler = new PollScheduler(&m_deviceManager, &m_logger, this);
     connect(m_scheduler, &PollScheduler::writeCompleted,
@@ -4436,7 +4482,7 @@ void MainWindow::switchPage(int index)
     const QStringList titles = {
         QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手动控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("历史数据浏览"),
-        QString::fromUtf8("关于本机")
+        QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };
     m_pages->setCurrentIndex(index);
     m_pageTitle->setText(titles.at(index));
@@ -4453,6 +4499,8 @@ void MainWindow::switchPage(int index)
         m_historyWidget->activate();
     } else if (index == 2) {
         m_settingsWidget->refreshStorageInfo();
+    } else if (index == 4) {
+        m_advancedWidget->refreshStorageInfo();
     }
 }
 
@@ -4590,10 +4638,10 @@ void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterInde
             .arg(QString("ABC").at(heaterIndex)));
         return;
     }
-    // 自动温控占用 OT3+OT4 时 (该加热器映射到第2对), 手动让位自动
-    if (m_autoDevices.contains(keyValue) && pair == 2) {
+    // 自动温控运行期间三个加热器全部让位自动 (自动按各自目标驱动三个输出对)
+    if (m_autoDevices.contains(keyValue)) {
         m_statusBar->setText(QString::fromUtf8(
-            "自动温控运行中，加热器%1 占用 OT3/OT4，请先停止自动")
+            "自动温控运行中，加热器%1 请先停止自动再手动操作")
             .arg(QString("ABC").at(heaterIndex)));
         return;
     }
@@ -4652,9 +4700,11 @@ void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool 
     }
     if (running) {
         m_autoDevices.insert(keyValue);
-        m_lastAutoCommands.remove(keyValue);
-        m_lastAutoCommandTimes.remove(keyValue);
-        m_pidStates.remove(keyValue);
+        for (int h = 0; h < 3; ++h) {
+            m_lastAutoCommands.remove(keyValue * 4 + h);
+            m_lastAutoCommandTimes.remove(keyValue * 4 + h);
+            m_pidStates.remove(keyValue * 4 + h);
+        }
         // 切到自动: 手动档位一律退到关闭, 再执行温控程序
         resetHeaterGears(key);
         syncAutoPanels();
@@ -4664,9 +4714,11 @@ void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool 
                                  .arg(key.slaveId));
     } else {
         m_autoDevices.remove(keyValue);
-        m_lastAutoCommands.remove(keyValue);
-        m_lastAutoCommandTimes.remove(keyValue);
-        m_pidStates.remove(keyValue);
+        for (int h = 0; h < 3; ++h) {
+            m_lastAutoCommands.remove(keyValue * 4 + h);
+            m_lastAutoCommandTimes.remove(keyValue * 4 + h);
+            m_pidStates.remove(keyValue * 4 + h);
+        }
         syncAutoPanels();
         refreshIndicatorLights();
         m_statusBar->setText(QString::fromUtf8(
@@ -4695,6 +4747,7 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
     if (updatedState.online)
         evaluateReservedInput(key, updatedState);
     m_settingsWidget->updateExpInputStates(updatedState.values);
+    m_advancedWidget->updateExpInputStates(updatedState.values);
 
     // 实体加热器按键: exp_in 上升沿 → 对应加热器进一档 (按接入配置的功能映射)
     {
@@ -4759,8 +4812,10 @@ void MainWindow::onWriteCompleted(const DeviceProfile::DeviceKey &key,
                                   const QString &error)
 {
     if (!success) {
-        m_lastAutoCommands.remove(commandKey(key));
-        m_lastAutoCommandTimes.remove(commandKey(key));
+        for (int h = 0; h < 3; ++h) {
+            m_lastAutoCommands.remove(commandKey(key) * 4 + h);
+            m_lastAutoCommandTimes.remove(commandKey(key) * 4 + h);
+        }
     }
     m_statusBar->setText(success
         ? QString::fromUtf8("ID %1 指令执行成功").arg(key.slaveId)
@@ -4776,6 +4831,7 @@ void MainWindow::onSettingsSaved()
     m_rotator.setDataPath(config.dataPath);
     m_rotator.setMaxStorageMB(config.maxStorageMB);
     m_settingsWidget->refreshStorageInfo();
+    m_advancedWidget->refreshStorageInfo();
     if (m_scheduler)
         m_scheduler->applyPollInterval(config.pollIntervalMs);
     if (m_brightness)
@@ -4848,6 +4904,10 @@ void MainWindow::addConfiguredSpareOutputs(const DeviceProfile::DeviceKey &key,
     const bool alarm = m_highVoltageAlarm || !m_sensorFaults.isEmpty()
         || !m_reservedInputInterlocks.isEmpty();
     for (int output : { 1, 2, 5, 6 }) {
+        // 加热器输出对占用的 OT 跳过: 加热器控制 (手动/自动) 优先,
+        // 备用输出模式不再覆盖这些位
+        if (isHeaterPairOutput(config, output))
+            continue;
         const QString mode = spareOutputMode(config, output);
         const QString field = QString("ot%1").arg(output, 2, 10, QChar('0'));
         if (mode == "manual") {
@@ -4926,29 +4986,17 @@ void MainWindow::applyAutomaticControl(const DeviceProfile::DeviceKey &key)
         pt100Sum += value;
         ++pt100Count;
     }
-    double target = config.temperatureTarget;
+    // 目标来源为 PT100 或防凝露模式时, 三个加热器共用 PT100 平均温度
     const bool followPt100 = config.temperatureTargetSource == "pt100"
         || config.temperatureControlMode == "dew_point";
-    if (followPt100) {
-        if (pt100Count == 0)
-            return;
-        target = pt100Sum / pt100Count;
-    }
-    ControlAlgorithm::ControlOutput control;
-    if (config.temperatureControlMode == "pid") {
-        ControlAlgorithm::PidConfig pidConfig;
-        pidConfig.kp = config.pidKp;
-        pidConfig.ki = config.pidKi;
-        pidConfig.kd = config.pidKd;
-        pidConfig.singleStagePercent = config.pidSingleStagePercent;
-        pidConfig.secondStagePercent = config.pidSecondStagePercent;
-        pidConfig.dualStagePercent = config.pidDualStagePercent;
-        pidConfig.firstStageOt3 = config.pidFirstStageOutput != "ot4";
-        control = ControlAlgorithm::pidControl(
-            temperature, target,
-            QDateTime::currentMSecsSinceEpoch(), pidConfig, m_pidStates[keyValue]);
-    } else if (config.temperatureControlMode == "dew_point") {
-        double worstDewPoint = -std::numeric_limits<double>::infinity();
+    if (followPt100 && pt100Count == 0)
+        return;
+    const double pt100Average = pt100Count > 0 ? pt100Sum / pt100Count : 0.0;
+
+    // 防凝露: 最不利露点 (三个加热器共用同一室外空气条件, 算一次)
+    double worstDewPoint = 0.0;
+    if (config.temperatureControlMode == "dew_point") {
+        worstDewPoint = -std::numeric_limits<double>::infinity();
         for (int channel = 1; channel <= 3; ++channel) {
             const QString temperatureField = QString("th%1_temp").arg(channel);
             const QString humidityField = QString("th%1_humi").arg(channel);
@@ -4971,61 +5019,100 @@ void MainWindow::applyAutomaticControl(const DeviceProfile::DeviceKey &key)
         }
         if (!std::isfinite(worstDewPoint))
             return;
-        ControlAlgorithm::CondensationConfig condensationConfig;
-        condensationConfig.singleStageMargin = config.dewPointSingleStageMargin;
-        condensationConfig.secondStageMargin = config.dewPointSecondStageMargin;
-        condensationConfig.dualStageMargin = config.dewPointDualStageMargin;
-        condensationConfig.hysteresis = config.dewPointHysteresis;
-        const bool firstStageOt3 = config.pidFirstStageOutput != "ot4";
-        const int ot3 = state.values.value("ot03").toInt() != 0 ? 1 : 0;
-        const int ot4 = state.values.value("ot04").toInt() != 0 ? 1 : 0;
-        int currentStage = 0;
-        if (ot3 && ot4)
-            currentStage = 3;
-        else if ((firstStageOt3 && ot3) || (!firstStageOt3 && ot4))
-            currentStage = 1;
-        else if (ot3 || ot4)
-            currentStage = 2;
-        int desiredStage = ControlAlgorithm::condensationHeatingStage(
-            target, worstDewPoint, condensationConfig, currentStage);
-        if (temperature > target + config.humidityTemperatureLimitDelta)
-            desiredStage = 0;
-        control.hasCommand = desiredStage != currentStage;
-        control.demandPercent = desiredStage * 100.0 / 3.0;
-        control.ot3 = desiredStage == 3
-            || (desiredStage == 1 && firstStageOt3)
-            || (desiredStage == 2 && !firstStageOt3) ? 1 : 0;
-        control.ot4 = desiredStage == 3
-            || (desiredStage == 1 && !firstStageOt3)
-            || (desiredStage == 2 && firstStageOt3) ? 1 : 0;
-    } else {
-        ControlAlgorithm::ThresholdConfig thresholdConfig;
-        thresholdConfig.singleStageDelta = config.thresholdSingleStageDelta;
-        thresholdConfig.secondStageDelta = config.thresholdSecondStageDelta;
-        thresholdConfig.dualStageDelta = config.thresholdDualStageDelta;
-        thresholdConfig.hysteresis = config.thresholdHysteresis;
-        thresholdConfig.firstStageOt3 = config.pidFirstStageOutput != "ot4";
-        control = ControlAlgorithm::thresholdControl(
-            temperature, target, thresholdConfig,
-            state.values.value("ot03").toInt(),
-            state.values.value("ot04").toInt());
     }
-    if (!control.hasCommand)
+
+    // 三个加热器各自独立计算: 同一测量温度, 各自目标温度, 各自输出对
+    const bool firstStageLow = config.pidFirstStageOutput != "ot4";
+    const int pairs[3] = { config.heaterAPair, config.heaterBPair,
+                           config.heaterCPair };
+    const double targets[3] = { config.heaterATarget, config.heaterBTarget,
+                                config.heaterCTarget };
+    QMap<QString, QVariant> fields;
+    bool anyWrite = false;
+    const QDateTime now = QDateTime::currentDateTime();
+    for (int h = 0; h < 3; ++h) {
+        const int pair = qBound(1, pairs[h], 5);
+        const int lowOt = (pair - 1) * 2 + 1;
+        const int highOt = (pair - 1) * 2 + 2;
+        const QString lowField = QString("ot%1").arg(lowOt, 2, 10, QChar('0'));
+        const QString highField = QString("ot%1").arg(highOt, 2, 10, QChar('0'));
+        const QString firstField = firstStageLow ? lowField : highField;
+        const QString secondField = firstStageLow ? highField : lowField;
+        const int firstOn =
+            state.values.value(firstField).toInt() != 0 ? 1 : 0;
+        const int secondOn =
+            state.values.value(secondField).toInt() != 0 ? 1 : 0;
+        const double target = followPt100 ? pt100Average : targets[h];
+        const int heaterKey = keyValue * 4 + h;
+
+        ControlAlgorithm::ControlOutput control;
+        if (config.temperatureControlMode == "pid") {
+            ControlAlgorithm::PidConfig pidConfig;
+            pidConfig.kp = config.pidKp;
+            pidConfig.ki = config.pidKi;
+            pidConfig.kd = config.pidKd;
+            pidConfig.singleStagePercent = config.pidSingleStagePercent;
+            pidConfig.secondStagePercent = config.pidSecondStagePercent;
+            pidConfig.dualStagePercent = config.pidDualStagePercent;
+            pidConfig.firstStageOt3 = firstStageLow;
+            control = ControlAlgorithm::pidControl(
+                temperature, target,
+                QDateTime::currentMSecsSinceEpoch(), pidConfig,
+                m_pidStates[heaterKey]);
+        } else if (config.temperatureControlMode == "dew_point") {
+            int currentStage = 0;
+            if (firstOn && secondOn)
+                currentStage = 3;
+            else if (firstOn)
+                currentStage = 1;
+            else if (secondOn)
+                currentStage = 2;
+            ControlAlgorithm::CondensationConfig condensationConfig;
+            condensationConfig.singleStageMargin = config.dewPointSingleStageMargin;
+            condensationConfig.secondStageMargin = config.dewPointSecondStageMargin;
+            condensationConfig.dualStageMargin = config.dewPointDualStageMargin;
+            condensationConfig.hysteresis = config.dewPointHysteresis;
+            int desiredStage = ControlAlgorithm::condensationHeatingStage(
+                target, worstDewPoint, condensationConfig, currentStage);
+            if (temperature > target + config.humidityTemperatureLimitDelta)
+                desiredStage = 0;
+            control.hasCommand = desiredStage != currentStage;
+            control.demandPercent = desiredStage * 100.0 / 3.0;
+            control.ot3 = desiredStage == 3
+                || (desiredStage == 1 && firstStageLow)
+                || (desiredStage == 2 && !firstStageLow) ? 1 : 0;
+            control.ot4 = desiredStage == 3
+                || (desiredStage == 1 && !firstStageLow)
+                || (desiredStage == 2 && firstStageLow) ? 1 : 0;
+        } else {
+            ControlAlgorithm::ThresholdConfig thresholdConfig;
+            thresholdConfig.singleStageDelta = config.thresholdSingleStageDelta;
+            thresholdConfig.secondStageDelta = config.thresholdSecondStageDelta;
+            thresholdConfig.dualStageDelta = config.thresholdDualStageDelta;
+            thresholdConfig.hysteresis = config.thresholdHysteresis;
+            thresholdConfig.firstStageOt3 = firstStageLow;
+            control = ControlAlgorithm::thresholdControl(
+                temperature, target, thresholdConfig, firstOn, secondOn);
+        }
+        if (!control.hasCommand)
+            continue;
+
+        const QPair<int, int> desired(control.ot3, control.ot4);
+        if (m_lastAutoCommands.value(heaterKey, QPair<int, int>(-1, -1)) == desired)
+            continue;
+        if (m_lastAutoCommandTimes.contains(heaterKey)
+            && m_lastAutoCommandTimes.value(heaterKey).secsTo(now)
+                < qMax(1, config.relaySwitchIntervalSec))
+            continue;
+        m_lastAutoCommands[heaterKey] = desired;
+        m_lastAutoCommandTimes[heaterKey] = now;
+        fields[firstField] = control.ot3;
+        fields[secondField] = control.ot4;
+        anyWrite = true;
+    }
+    if (!anyWrite)
         return;
 
-    const QPair<int, int> desired(control.ot3, control.ot4);
-    if (m_lastAutoCommands.value(keyValue, QPair<int, int>(-1, -1)) == desired)
-        return;
-    const QDateTime now = QDateTime::currentDateTime();
-    if (m_lastAutoCommandTimes.contains(keyValue)
-        && m_lastAutoCommandTimes.value(keyValue).secsTo(now)
-            < qMax(1, config.relaySwitchIntervalSec))
-        return;
-    m_lastAutoCommands[keyValue] = desired;
-    m_lastAutoCommandTimes[keyValue] = now;
-    QMap<QString, QVariant> fields;
-    fields["ot03"] = control.ot3;
-    fields["ot04"] = control.ot4;
     addConfiguredSpareOutputs(key, fields, state.values);
     m_scheduler->writeToDevice(key, fields);
 }
@@ -5126,9 +5213,11 @@ void MainWindow::enterReservedInputInterlock(const DeviceProfile::DeviceKey &key
                                      : QString::fromUtf8("高电平");
     m_reservedInputInterlocks[keyValue] = level;
     const bool wasAuto = m_autoDevices.remove(keyValue);
-    m_lastAutoCommands.remove(keyValue);
-    m_lastAutoCommandTimes.remove(keyValue);
-    m_pidStates.remove(keyValue);
+    for (int h = 0; h < 3; ++h) {
+        m_lastAutoCommands.remove(keyValue * 4 + h);
+        m_lastAutoCommandTimes.remove(keyValue * 4 + h);
+        m_pidStates.remove(keyValue * 4 + h);
+    }
     if (wasAuto)
         syncAutoPanels();
     if (m_scheduler) {
