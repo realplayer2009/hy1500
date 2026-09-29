@@ -488,6 +488,6 @@ powershell -File android\provision.ps1 -DeviceAddr <设备IP>:<端口>
 | 设备端启动脚本 | 设备 `/data/data/com.termux/files/home/start_rs485.sh` | 幂等，可重复执行；改动后必须重跑回归清单 |
 | 设备端程序目录 | 设备 `/data/data/com.termux/files/home/rs485/` | RS485Control 二进制所在 |
 | 设备端日志 | 设备 `~/apk_launch.log`、`~/x11.log`、`~/app_run.log` | 排障第一现场，出问题先看这三个 |
-| 构建工具链 | 开发机自行准备 | Android build-tools 34、platform-33、JDK 17；版本需一致 |
+| 构建工具链 | 开发机自行准备 | Qt 5.15.2、JDK 11、platform-33；Qt 部署工具使用 build-tools 34，AGP 3.6.0 工程使用 28.0.3 |
 
 > **一句话记住整套方法**：先分层定位，再单点验证；报错文案是线索不是结论，系统日志才是证据；改完必须过回归清单。

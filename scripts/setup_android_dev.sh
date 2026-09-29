@@ -16,9 +16,9 @@ fi
 echo "[2/6] Installing adb..." | tee -a "$LOG"
 brew install --cask android-platform-tools | tee -a "$LOG"
 
-# 3. JDK 17
-echo "[3/6] Installing JDK 17..." | tee -a "$LOG"
-brew install openjdk@17 | tee -a "$LOG"
+# 3. JDK 11
+echo "[3/6] Installing JDK 11..." | tee -a "$LOG"
+brew install openjdk@11 | tee -a "$LOG"
 
 # 4. Android cmdline-tools
 ANDROID_SDK_ROOT="${HOME}/Library/Android/sdk"
@@ -31,8 +31,8 @@ mv "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" "${ANDROID_SDK_ROOT}/cmdlin
 rm -f "$CMDLINE_ZIP"
 
 # 5. Android packages
-echo "[5/6] Installing Android platform-33 and build-tools 34..." | tee -a "$LOG"
-yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;34.0.0" | tee -a "$LOG"
+echo "[5/6] Installing Android platform-33 and build-tools 28/34..." | tee -a "$LOG"
+yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" "platform-tools" "platforms;android-33" "build-tools;28.0.3" "build-tools;34.0.0" | tee -a "$LOG"
 
 # 6. PowerShell (pwsh)
 echo "[6/6] Installing PowerShell (pwsh)..." | tee -a "$LOG"
@@ -45,14 +45,14 @@ cat <<'EOF' | tee -a "$LOG"
 export ANDROID_SDK_ROOT="$HOME/Library/Android/sdk"
 export PATH="$PATH:$ANDROID_SDK_ROOT/platform-tools"
 export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
-export PATH="/usr/local/opt/openjdk@17/bin:$PATH"
+export PATH="$(brew --prefix openjdk@11)/bin:$PATH"
 
 Then run: source ~/.zprofile
 
 Verify with:
   adb --version
   java -version
-  sdkmanager --list | grep -E "platforms;android-33|build-tools;34.0.0"
+  sdkmanager --list | grep -E "platforms;android-33|build-tools;28.0.3|build-tools;34.0.0"
   pwsh --version
 
 EOF

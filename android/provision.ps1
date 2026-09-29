@@ -12,7 +12,7 @@ Write-Host "Connecting to $DeviceAddr ..."
 adb connect $DeviceAddr | Out-Null
 
 Write-Host "Installing RS485Launcher APK ..."
-adb -s $DeviceAddr install -r android/dist/RS485Launcher-debug.apk
+adb -s $DeviceAddr install -r android/dist/RS485Control-arm64-v8a-debug.apk
 
 Write-Host "Configuring Termux environment ..."
 adb -s $DeviceAddr shell 'export PREFIX=/data/data/com.termux/files/usr; export PATH=$PREFIX/bin:$PATH; termux-wake-lock'

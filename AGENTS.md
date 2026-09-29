@@ -2,6 +2,9 @@
 
 > 后续修改本组件的 agents 请继续维护本文档：有实际参数或工程权衡时记录，没有则不强行添加。
 
+- 问题：qmake 生成的根目录 `Makefile`、`Makefile.ct` 和 `Makefile.controlalgorithm_test` 含编译主机的绝对路径，提交后会让其他机器直接 `make` 使用错误的 Qt 和源码路径。解决方案选择：从版本库移除生成文件并忽略，主程序编译前按 `docs/BUILD_LINUX.md` 运行 `qmake RS485Control.pro`，测试构建前按所需文件名运行 `qmake -o Makefile.ct tests/controlalgorithm_test.pro`。解释：各机器生成自己的构建规则，避免本机挂载路径传播。
+- 问题：运行程序会将界面修改的参数写回 `config/app.ini`，本机亮度、主题和温控目标容易误提交给协作者。解决方案选择：保留共享 `config/app.ini`，优先读取被忽略的 `config/app.local.ini`。解释：本机配置仍能被程序持续保存，模拟器工作目录的配置优先级保持不变。
+
 数据浏览的完整交互和聚合规则见 [`docs/DATA_BROWSER_DESIGN.md`](docs/DATA_BROWSER_DESIGN.md)。
 
 - 无硬件测试用 `tests/simulator/pty_modbus_sim.py`（纯标准库，独立进程，不依赖主程序代码）：用 Linux PTY 模拟两条 RS485 总线，稳定符号链接放 `/tmp/rs485_sim/`（工作区文件系统不支持符号链接，不能放仓库内），启动时自动生成 `tests/simulator/run/config/app.ini` 指向模拟串口，主程序用 `tests/simulator/run_app.sh` 启动（cd 到 run/ 才能加载该配置，数据目录也隔离在 run/ 下，已 gitignore）；模拟器默认在交互模式自动调用 run_app.sh 拉起上位机（`--no-launch-app` 关闭、`--no-interactive` 自动化默认不启动、`--launch-app` 强制启动，未编译时提示先 make），模拟器内显式安装 SIGINT/SIGTERM 处理器转 KeyboardInterrupt——非交互 shell 的后台任务会把 SIGINT 继承为 SIG_IGN，不装处理器就无法在退出时关闭自动启动的上位机。模拟器内置物理模型（OT3 低功率 +0.03 ℃/s、OT4 高功率 +0.06 ℃/s、断电向环境温度回落），使用单调时钟计算物理时间，避免轮询频率改变升温速度；默认复现现场板卡在切换从站地址后首次直接 0x10 静默的行为，可用 `--no-write-sync-quirk` 关闭。主控制台只呈现现场操作：动态增减子站、高压出现/解除、温湿度与 PT100 温度的独立即时调整、温度持续升降、两口各 16 块的满载场景；正常状态高压数字量为 1、模拟量为 0 V，报警时数字量为 0、模拟量为 12 V，与默认低电平/5 V 两种检测配置对应。方向键选择子站，左右键调温湿度温度，`,/.` 调 PT100 温度，`h/a/r/v` 控制高压/增站/减站/温度趋势，`1~4` 切换正常/高压/温变/满载场景；管道输入或 `--cli` 走命令行（add/remove/highvoltage/temperature/pt100/trend/ambient/set/auto/normal/bus/scenario），`--script` 开机预置、`--no-interactive` 自动化、`--real` 换真实串口。配套地，主程序串口具备自动重连：`processQueue` 发现未打开即重开（2 秒退避，队列任务保留），`errorOccurred` 的 Resource/DeviceNotFound/Permission 及写失败标记重开，`portError` 只在状态变化时报一次，避免模拟器重启或 USB 拔插后永久失联。

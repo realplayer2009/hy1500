@@ -10,11 +10,15 @@ controlalgorithm_test.moc
 controlalgorithm_test.o
 target_wrapper.sh
 .qmake.stash
+/Makefile
+/Makefile.ct
+/Makefile.controlalgorithm_test
 RS485Control.app/
 build/
 
 # Runtime data / logs
 data/logs/
+config/app.local.ini
 tests/simulator/run/
 sim.log
 
@@ -25,3 +29,13 @@ __pycache__/
 # IDE / tooling
 .omo/
 .vscode/
+
+# 项目专用 Android 工具链与本机构建输出
+.android-toolchain/
+aqtinstall.log
+android/build/
+android/dist/
+android/src/Makefile
+android/src/.qmake.stash
+android/src/android-libRS485Control.so-deployment-settings.json
+android/src/android-RS485Control-deployment-settings.json

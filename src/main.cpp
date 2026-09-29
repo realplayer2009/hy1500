@@ -6,11 +6,12 @@
 static QString locateConfigFile()
 {
     const QStringList candidates = {
+        QDir::currentPath() + "/config/app.local.ini",
         QDir::currentPath() + "/config/app.ini",
         QDir::currentPath() + "/app.ini",
+        QApplication::applicationDirPath() + "/config/app.local.ini",
         QApplication::applicationDirPath() + "/config/app.ini",
-        QApplication::applicationDirPath() + "/app.ini",
-        "D:/RS485Control/config/app.ini"
+        QApplication::applicationDirPath() + "/app.ini"
     };
     for (const QString &path : candidates) {
         if (QFileInfo::exists(path))

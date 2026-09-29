@@ -1,18 +1,26 @@
 # Android 部署与设备预装指南
 
-## 目标
-把 `RS485Control` 部署到 RK3568  Android 设备，并通过 `com.rs485.launcher` 拉起 Termux X11 会话运行。
+## 两种运行方式
+
+项目保留两种 Android 运行方式：Qt APK 直接运行控制界面；Termux + Termux:X11
+运行 Linux 版本并提供远程维护/启动脚本。两者的启动链路和串口权限配置不同，不能把
+APK 构建成功当作 Termux/X11 环境已经配置完成。
 
 ## 前提
-- Mac 开发机已安装：Android SDK (`platform-tools`、`platforms;android-33`、`build-tools;34.0.0`)、JDK 17、Qt 5.15 for Android `arm64-v8a`
+- Qt APK 构建使用仓库根目录 `.android-toolchain/` 下的项目专用 Android SDK、NDK r21e、JDK 11 和 Qt 5.15.2；详见 [`android/README.md`](../android/README.md)。无需在目标设备安装 NDK。
 - 设备已开启 ADB/SSH，`adb connect <IP>:<PORT>` 可达
 - 设备已安装 Termux、Termux:X11、`com.rs485.launcher`
 
-## 方案 A：APK 构建（推荐长期方案）
-1. 在 Mac 上安装 Qt 5.15 Android `arm64-v8a` 工具链。
-2. 运行 `android/build_apk.sh` 生成 `android/dist/RS485Launcher-debug.apk`。
-3. 推送到设备：`adb -s <device> install -r android/dist/RS485Launcher-debug.apk`
-4. 用 `android/provision.ps1` 配置设备自启与 X11 拉起。
+## Qt APK 构建
+
+运行 `./android/build_apk.sh`，生成 `android/dist/RS485Control-arm64-v8a-debug.apk`；
+再用 `adb -s <device> install -r android/dist/RS485Control-arm64-v8a-debug.apk` 安装。
+APK 启动 Qt 控制界面。设备侧的串口权限需要单独验证。
+
+## Termux + Termux:X11 方式
+
+这条路径运行 Termux 内编译的 Linux 二进制，不依赖 Qt Android APK；启动脚本和设备
+预装步骤见下文及 [`docs/DEBUGGING_GUIDE.md`](DEBUGGING_GUIDE.md)。
 
 ## 方案 B：GitHub Actions 自动构建
 1. 推送代码到 GitHub。

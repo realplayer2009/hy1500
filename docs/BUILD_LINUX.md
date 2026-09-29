@@ -69,7 +69,7 @@ qmake 只是"生成 Makefile"这一步，之后就是纯标准的 make 编译，
 ```bash
 cd ~/RS485Control            # 进入项目根目录 (有 RS485Control.pro 的目录)
 
-qmake RS485Control.pro       # 生成 Makefile (只需在 .pro 变化后重新执行)
+qmake RS485Control.pro       # 首次构建或 .pro 变化后生成本机 Makefile
 
 make -j$(nproc)              # 并行编译, 产物为 ./RS485Control
 
