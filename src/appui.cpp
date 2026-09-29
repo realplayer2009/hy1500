@@ -4750,10 +4750,13 @@ void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool 
             m_lastAutoCommandTimes.remove(keyValue * 4 + h);
             m_pidStates.remove(keyValue * 4 + h);
         }
+        // 切回手动: 自动运行期间的加热输出一律退到关闭 (继电器+灯),
+        // 避免温控指令在手动模式下继续保持
+        resetHeaterGears(key);
         syncAutoPanels();
         refreshIndicatorLights();
         m_statusBar->setText(QString::fromUtf8(
-            "ID %1 自动温控已停止，OT3/OT4 保持当前状态").arg(key.slaveId));
+            "ID %1 自动温控已停止，加热器已全部关闭").arg(key.slaveId));
     }
     refreshSystemState();
 }
