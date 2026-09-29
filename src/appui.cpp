@@ -939,7 +939,7 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#navButton { color: #b5b5ba; }
         QPushButton#navButton:hover { background: #2e2e30; color: white; }
         QPushButton#navButton:checked { background: #3a3a3c; color: white;
-            border-left-color: #a1a1a6; }
+            border-left-color: #00e676; }
         QFrame#topBar, QFrame#card { background: #2a2a2c; border-color: #48484a; }
         QLabel#pageTitle, QLabel#sectionTitle, QLabel#metricValue,
         QLabel#metricValueSmall, QLabel#heroValue { color: #ffffff; }
@@ -982,6 +982,18 @@ QString applicationStyleSheet(const QString &themeName)
         QHeaderView::section { color: #ffffff; background: #38383a; }
         QLabel#bottomStatus { color: #a1a1a6; background: #1a1a1c;
             border-top-color: #48484a; }
+        QLabel#systemPill { color: #00e676; background: #123324; border: 1px solid #00b85f; }
+        QLabel#selfCheckPill[healthy="true"] { color: white; background: #00b85f; border-color: #00e676; }
+        QLabel#actionFeedback[success="true"] { color: #00e676; }
+        QLabel#safeBanner { color: #00e676; background: #123324; border: 1px solid #00b85f; }
+        QLabel#statusPill[online="true"] { color: #00e676; background: #123324; border-color: #00b85f; }
+        QLabel#runState[running="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
+        QLabel#metricValue[running="true"] { color: #00e676; }
+        QPushButton#startButton { color: #0a2118; background: #00e676; border: 1px solid #00c853; font-weight: 700; }
+        QPushButton#startButton:hover { background: #33eb8b; }
+        QPushButton#startButton:disabled { color: #7c7c80; background: #262628; border-color: #454547; }
+        QPushButton#outputButton[outputOn="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
+        QPushButton#outputButton[locked="true"] { color: #ff8a85; background: #3a1f1f; border-color: #7a4440; }
     )");
 
     if (themeName == "low_light")
@@ -1156,7 +1168,9 @@ void FleetOverviewPanel::updateCard(const DeviceState &state)
     const bool sensorFault = sensorCheck.state == ControlAlgorithm::SensorCheck::Fault;
     const bool reservedAlarm = hasReservedInputInterlock(values);
     const QString alarmColor = QStringLiteral("#c93632");
-    const QString runColor = QStringLiteral("#168f4f");
+    const QString runColor = AppConfig::instance().general().displayTheme == "graphite"
+        ? QStringLiteral("#00e676")
+        : QStringLiteral("#168f4f");
     const QString manualColor = QStringLiteral("#146b97");
     const QString stateText = !state.online
         ? QString::fromUtf8("● 离线")
@@ -1336,33 +1350,28 @@ DeviceOverviewWidget::DeviceOverviewWidget(DeviceManager *manager, QWidget *pare
         cardLayout->addWidget(title);
         cardLayout->addWidget(value);
         m_values[otherFields.at(i)] = value;
-        metrics->addWidget(card, 1, i);
+        metrics->addWidget(card, 2, i);
     }
 
-    // 加热器状态排: 三个独立加热器 A/B/C, 各自显示当前档位
-    auto *heaterCard = makeCard(this);
-    auto *heaterCardLayout = new QVBoxLayout(heaterCard);
-    heaterCardLayout->setContentsMargins(13, 10, 13, 10);
-    auto *heaterTitle = new QLabel(QString::fromUtf8("加热器状态"), heaterCard);
-    heaterTitle->setObjectName("metricTitle");
-    heaterCardLayout->addWidget(heaterTitle);
-    auto *heaterRow = new QHBoxLayout;
-    heaterRow->setSpacing(10);
-    const QStringList heaterNames = {
+    // 加热器 A/B/C 三张独立卡片
+    const QStringList heaterTitles = {
         QString::fromUtf8("加热器A"),
         QString::fromUtf8("加热器B"),
         QString::fromUtf8("加热器C")
     };
-    for (const QString &name : heaterNames) {
-        auto *label = new QLabel(name + QString::fromUtf8(" 关闭"), heaterCard);
-        label->setObjectName("runState");
-        label->setAlignment(Qt::AlignCenter);
-        label->setMinimumHeight(34);
-        heaterRow->addWidget(label);
-        m_heaterGearLabels.append(label);
+    for (int i = 0; i < 3; ++i) {
+        auto *card = makeCard(this);
+        auto *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(13, 10, 13, 10);
+        auto *title = new QLabel(heaterTitles.at(i), card);
+        title->setObjectName("metricTitle");
+        auto *value = new QLabel(QString::fromUtf8("关闭"), card);
+        value->setObjectName("metricValue");
+        cardLayout->addWidget(title);
+        cardLayout->addWidget(value);
+        m_heaterGearLabels.append(value);
+        metrics->addWidget(card, 1, i);
     }
-    heaterCardLayout->addLayout(heaterRow);
-    metrics->addWidget(heaterCard, 2, 0, 1, 3);
 
     for (int i = 0; i < 3; ++i)
         metrics->setColumnStretch(i, 1);
@@ -1466,19 +1475,13 @@ void DeviceOverviewWidget::setHeaterGearsForCurrent(int gearA, int gearB, int ge
     if (m_heaterGearLabels.size() < 3)
         return;
     const int gears[3] = { gearA, gearB, gearC };
-    const QStringList names = {
-        QString::fromUtf8("加热器A"),
-        QString::fromUtf8("加热器B"),
-        QString::fromUtf8("加热器C")
-    };
     for (int i = 0; i < 3; ++i) {
         const int gear = qBound(0, gears[i], 3);
         m_heaterGearLabels.at(i)->setText(
-            QString::fromUtf8("%1 %2").arg(names.at(i)).arg(
-                gear == 0 ? QString::fromUtf8("关闭")
-                : gear == 1 ? QString::fromUtf8("1档")
-                : gear == 2 ? QString::fromUtf8("2档")
-                            : QString::fromUtf8("3档")));
+            gear == 0 ? QString::fromUtf8("关闭")
+            : gear == 1 ? QString::fromUtf8("1档")
+            : gear == 2 ? QString::fromUtf8("2档")
+                        : QString::fromUtf8("3档"));
         m_heaterGearLabels.at(i)->setProperty("running", gear != 0);
         refreshDynamicStyle(m_heaterGearLabels.at(i));
     }
@@ -5460,6 +5463,7 @@ void MainWindow::refreshSystemState()
 
     bool alarm = false;
     bool neutral = false;
+    bool benign = false;
     m_systemState->setToolTip(QString());
     if (m_highVoltageAlarm) {
         const QString alarmText = QString::fromUtf8("⚠ 高压：%1")
@@ -5494,10 +5498,14 @@ void MainWindow::refreshSystemState()
     } else if (!m_autoDevices.isEmpty()) {
         m_systemState->setText(QString::fromUtf8("●  自动运行 %1/%2 块")
                                    .arg(m_autoDevices.size()).arg(devices.size()));
+        benign = true;
     } else {
         m_systemState->setText(QString::fromUtf8("●  系统正常"));
+        benign = true;
     }
     m_systemState->setProperty("alarm", alarm);
     m_systemState->setProperty("neutral", neutral);
+    // 全部正常时顶部只留自检状态, 不显示"自动运行/系统正常"; 告警与搜索等状态照常显示
+    m_systemState->setVisible(!benign);
     refreshDynamicStyle(m_systemState);
 }
