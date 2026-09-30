@@ -9,6 +9,7 @@
 #include <QMap>
 #include <QPoint>
 #include <QSet>
+#include <QThreadPool>
 #include <QVector>
 #include <QWidget>
 
@@ -237,6 +238,7 @@ public:
     explicit HistoryWidget(HistoryQuery *query,
                            DeviceManager *manager,
                            QWidget *parent = nullptr);
+    ~HistoryWidget() override;
 
 public slots:
     void activate();
@@ -288,14 +290,15 @@ private:
     };
     QSharedPointer<QueryState> m_queryState;
     QTimer *m_queryPollTimer = nullptr;
+    QThreadPool m_queryPool;
 };
 
-/** 参数设置：温控参数，其他运维项收纳在高级设置。 */
+/** 参数设置与扩展设置分别显示各自负责的配置。 */
 class SettingsWidget : public QWidget
 {
     Q_OBJECT
 public:
-    /** advancedOnly=true 时作为独立的高级设置页 (隐藏温控参数区) */
+    /** advancedOnly=true 时只显示扩展接线及提示音配置。 */
     explicit SettingsWidget(StorageRotator *rotator, bool advancedOnly = false,
                             QWidget *parent = nullptr);
     void showActionFeedback(const QString &message, bool success);
@@ -369,6 +372,7 @@ private:
     QLabel *m_actionFeedback = nullptr;
     QTimer *m_feedbackTimer = nullptr;
     bool m_advancedOnly = false;
+    bool m_themePopupPressed = false;
 
     QDate deleteCutoffDate() const;
 };
@@ -476,6 +480,8 @@ private:
     // 加热器档位与外扩输入上一周期状态 (实体按键上升沿检测用)
     QMap<int, int> m_heaterGears;
     QMap<int, int> m_prevExpInMask;
+    QVector<int> m_appliedHeaterPairs;
+    QSet<int> m_retiredHeaterPairs;
     // 蜂鸣器确认音: 待断开蜂鸣器的子板与断开定时器
     QList<DeviceProfile::DeviceKey> m_beepDevices;
     QTimer *m_beepOffTimer = nullptr;

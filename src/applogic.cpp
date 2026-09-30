@@ -6,6 +6,7 @@
 
 #include "applogic.h"
 #include <QSettings>
+#include <QSet>
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
@@ -40,7 +41,8 @@ bool AppConfig::load(const QString &iniPath)
     m_general.dataPath = ini.value("dataPath").toString();
     m_general.displayTheme =
         ini.value("displayTheme", "graphite").toString().toLower();
-    if (m_general.displayTheme != "low_light"
+    if (m_general.displayTheme != "standard"
+        && m_general.displayTheme != "low_light"
         && m_general.displayTheme != "high_contrast"
         && m_general.displayTheme != "graphite"
         && m_general.displayTheme != "harmony")
@@ -59,6 +61,19 @@ bool AppConfig::load(const QString &iniPath)
     m_general.heaterAPair = qBound(1, ini.value("heaterAPair", 1).toInt(), 5);
     m_general.heaterBPair = qBound(1, ini.value("heaterBPair", 2).toInt(), 5);
     m_general.heaterCPair = qBound(1, ini.value("heaterCPair", 3).toInt(), 5);
+    QSet<int> usedHeaterPairs;
+    for (int *pair : { &m_general.heaterAPair, &m_general.heaterBPair,
+                       &m_general.heaterCPair }) {
+        if (usedHeaterPairs.contains(*pair)) {
+            for (int candidate = 1; candidate <= 5; ++candidate) {
+                if (!usedHeaterPairs.contains(candidate)) {
+                    *pair = candidate;
+                    break;
+                }
+            }
+        }
+        usedHeaterPairs.insert(*pair);
+    }
     m_general.soundFeedback = ini.value("soundFeedback", true).toBool();
     m_general.soundFile = ini.value("soundFile", "assets/click.wav").toString();
     // 外扩输入功能映射: 非法值回落 unused, 保证半配置状态不参与逻辑
@@ -785,13 +800,19 @@ HistoryQuery::DisplayResult HistoryQuery::queryForDisplay(
     if (m_dataPath.isEmpty() || !filter.dateFrom.isValid())
         return result;
 
-    QStringList files;
-    QDate d = filter.dateFrom;
     const QDate end = filter.dateTo.isValid() ? filter.dateTo : filter.dateFrom;
-    while (d <= end) {
-        files << (m_dataPath + QDir::separator()
-                  + d.toString("yyyy-MM-dd") + ".csv");
-        d = d.addDays(1);
+    if (end < filter.dateFrom)
+        return result;
+    QStringList files;
+    const QDir dir(m_dataPath);
+    const QStringList names = dir.entryList(
+        { "*.csv" }, QDir::Files, QDir::Name);
+    for (const QString &name : names) {
+        if (name.size() != 14 || name.at(10) != '.')
+            continue;
+        const QDate date = QDate::fromString(name.left(10), "yyyy-MM-dd");
+        if (date.isValid() && date >= filter.dateFrom && date <= end)
+            files.append(dir.filePath(name));
     }
 
     // 第一遍: 只数行, 得到精确总数并推算抽样步长 (读整文件按字节计数, 不解析列)
@@ -829,11 +850,18 @@ qint64 HistoryQuery::countFile(const QString &filePath, const Filter &filter) co
     const bool deviceFiltered = filter.portIndex >= 0 && filter.slaveId >= 0;
     if (!deviceFiltered && filter.deviceType.isEmpty()) {
         // 无筛选时只数字节里的换行符, 不解析任何列
-        const QByteArray content = file.readAll();
-        if (content.isEmpty())
+        qint64 lines = 0;
+        qint64 bytes = 0;
+        char last = '\0';
+        QByteArray chunk;
+        while (!(chunk = file.read(64 * 1024)).isEmpty()) {
+            lines += chunk.count('\n');
+            bytes += chunk.size();
+            last = chunk.at(chunk.size() - 1);
+        }
+        if (bytes == 0)
             return 0;
-        qint64 lines = content.count('\n');
-        if (!content.endsWith('\n'))
+        if (last != '\n')
             ++lines;
         return qMax<qint64>(0, lines - 1);   // 减去表头
     }
@@ -1059,7 +1087,7 @@ void PollScheduler::stop()
         }
         if (h.thread) {
             h.thread->quit();
-            h.thread->wait(3000);
+            h.thread->wait();
         }
     }
     m_ports.clear();
@@ -1159,7 +1187,11 @@ void PollScheduler::setupPortWorker(int portIndex, const AppConfig::PortConfig &
     connect(worker, &SerialPortWorker::writeFinished,
             this, &PollScheduler::onWriteFinished, Qt::QueuedConnection);
     connect(worker, &SerialPortWorker::portError,
-            this, [this](int, const QString &err) {
+            this, [this](int portIndex, const QString &err) {
+                for (const DeviceState &state : m_deviceMgr->allDevices()) {
+                    if (state.key.portIndex == portIndex && state.online)
+                        m_deviceMgr->updateDeviceData(state.key, {}, false);
+                }
                 emit schedulerError(err);
             });
 

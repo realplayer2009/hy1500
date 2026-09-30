@@ -142,6 +142,25 @@ bool isHeaterPairOutput(const AppConfig::GeneralConfig &config, int output)
     return false;
 }
 
+void addHeaterOffFields(const QVector<int> &pairs,
+                        QMap<QString, QVariant> &fields)
+{
+    for (int pair : pairs) {
+        const int low = (qBound(1, pair, 5) - 1) * 2 + 1;
+        fields[QString("ot%1").arg(low, 2, 10, QChar('0'))] = 0;
+        fields[QString("ot%1").arg(low + 1, 2, 10, QChar('0'))] = 0;
+    }
+}
+
+void removeHeaterOwnedIndicators(const AppConfig::GeneralConfig &config,
+                                 QMap<QString, QVariant> &fields)
+{
+    for (int output = 7; output <= 10; ++output) {
+        if (isHeaterPairOutput(config, output))
+            fields.remove(QString("ot%1").arg(output, 2, 10, QChar('0')));
+    }
+}
+
 class TouchComboDelegate : public QStyledItemDelegate
 {
 public:
@@ -1683,7 +1702,7 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
     m_expInLabels.resize(5);
     for (int i = 0; i < 5; ++i) {
         auto *label = new QLabel(QString::fromUtf8("IN%1 --").arg(i + 1), controlCard);
-        label->setObjectName("metricValueSmall");
+        label->setObjectName("metricSubValue");
         label->setAlignment(Qt::AlignCenter);
         label->setMinimumWidth(72);
         m_expInLabels[i] = label;
@@ -1879,7 +1898,17 @@ void ManualPanel::refreshControls()
         button->setChecked(false);
         button->setProperty("outputOn", value != 0);
         QString secondLine;
-        if (field == "ot07")
+        const int outputNumber = field.mid(2).toInt();
+        const AppConfig::GeneralConfig &heaterConfig =
+            AppConfig::instance().general();
+        const int pair = (outputNumber + 1) / 2;
+        if (pair == heaterConfig.heaterAPair)
+            secondLine = QString::fromUtf8("加热器A");
+        else if (pair == heaterConfig.heaterBPair)
+            secondLine = QString::fromUtf8("加热器B");
+        else if (pair == heaterConfig.heaterCPair)
+            secondLine = QString::fromUtf8("加热器C");
+        else if (field == "ot07")
             secondLine = QString::fromUtf8("绿灯");
         else if (field == "ot08")
             secondLine = QString::fromUtf8("黄灯");
@@ -1892,6 +1921,9 @@ void ManualPanel::refreshControls()
                             .arg(secondLine)
                             .arg(value ? QString::fromUtf8("已打开")
                                        : QString::fromUtf8("已关闭")));
+        button->setToolTip(isHeaterPairOutput(heaterConfig, outputNumber)
+            ? QString::fromUtf8("加热器输出，由加热器控制")
+            : QString::fromUtf8("状态灯，由程序自动控制"));
         refreshDynamicStyle(button);
     }
 
@@ -2591,6 +2623,7 @@ HistoryWidget::HistoryWidget(HistoryQuery *query,
     , m_query(query)
     , m_manager(manager)
 {
+    m_queryPool.setMaxThreadCount(1);
     m_queryPollTimer = new QTimer(this);
     m_queryPollTimer->setInterval(100);
     connect(m_queryPollTimer, &QTimer::timeout,
@@ -2685,6 +2718,13 @@ HistoryWidget::HistoryWidget(HistoryQuery *query,
     connect(m_manager, &DeviceManager::devicesChanged,
             this, &HistoryWidget::refreshDevices);
     refreshDevices();
+}
+
+HistoryWidget::~HistoryWidget()
+{
+    m_queryPollTimer->stop();
+    m_queryPool.clear();
+    m_queryPool.waitForDone();
 }
 
 void HistoryWidget::refreshDevices()
@@ -2886,11 +2926,14 @@ void HistoryWidget::loadRecords(bool resetToLatest)
     m_pendingResetToLatest = resetToLatest;
     QSharedPointer<QueryState> state(new QueryState);
     m_queryState = state;
-    HistoryQuery *query = m_query;
-    QThreadPool::globalInstance()->start(
-        [query, filter, state]() {
+    const QString dataPath = m_query->dataPath();
+    m_queryPool.clear();
+    m_queryPool.start(
+        [dataPath, filter, state]() {
+            HistoryQuery query;
+            query.setDataPath(dataPath);
             const HistoryQuery::DisplayResult result =
-                query->queryForDisplay(filter);
+                query.queryForDisplay(filter);
             QMutexLocker lock(&state->mutex);
             state->result = result;
             state->done = true;
@@ -3338,14 +3381,18 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     const int displayThemeIndex = m_displayTheme->findData(config.displayTheme);
     m_displayTheme->setCurrentIndex(displayThemeIndex >= 0 ? displayThemeIndex : 0);
     m_displayTheme->setMinimumSize(180, 44);
+    m_displayTheme->view()->viewport()->installEventFilter(this);
     displayLayout->addWidget(m_displayTheme);
     advancedLayout->addWidget(displayCard);
-    connect(m_displayTheme, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    connect(m_displayTheme, QOverload<int>::of(&QComboBox::activated),
             this, [this](int) {
         AppConfig &appConfig = AppConfig::instance();
         appConfig.general().displayTheme =
             m_displayTheme->currentData().toString();
-        applyApplicationTheme(appConfig.general().displayTheme);
+        const QString selectedTheme = appConfig.general().displayTheme;
+        QTimer::singleShot(0, qApp, [selectedTheme]() {
+            applyApplicationTheme(selectedTheme);
+        });
         if (!appConfig.configFilePath().isEmpty())
             appConfig.save(appConfig.configFilePath());
     });
@@ -3736,8 +3783,9 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     expInTitle->setObjectName("sectionTitle");
     expInLayout->addWidget(expInTitle, 0, 0, 1, 4);
     auto *expInHint = new QLabel(
-        QString::fromUtf8("拨动现场开关, 看哪个 IN 的实时状态在跳, 就把实际功能分配给该 IN (防错线)"), expInCard);
+        QString::fromUtf8("显示手动页当前子板的 IN 状态；拨动现场开关看哪一路变化，再分配实际功能"), expInCard);
     expInHint->setObjectName("mutedText");
+    expInHint->setWordWrap(true);
     expInLayout->addWidget(expInHint, 1, 0, 1, 4);
     for (int i = 1; i <= 5; ++i) {
         auto *inLabel = new QLabel(QString("IN%1").arg(i), expInCard);
@@ -3772,6 +3820,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     auto *heaterPairHint = new QLabel(
         QString::fromUtf8("每个加热器由一对 OT 继电器驱动: 低位=1档, 高位=2档, 同开=3档; 接线变化时在此切换"), heaterPairCard);
     heaterPairHint->setObjectName("mutedText");
+    heaterPairHint->setWordWrap(true);
     heaterPairLayout->addWidget(heaterPairHint, 1, 0, 1, 3);
     const QStringList heaterPairNames = {
         QString::fromUtf8("加热器A"),
@@ -3802,7 +3851,12 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     advancedLayout->addWidget(heaterPairCard);
 
     layout->addWidget(advancedPanel);
-    advancedPanel->setVisible(false);
+    temperatureCard->setVisible(!m_advancedOnly);
+    for (QWidget *card : { displayCard, highVoltageCard, storageCard,
+                           spareCard, relayCard, screenCard, idleCard })
+        card->setVisible(!m_advancedOnly);
+    for (QWidget *card : { soundCard, expInCard, heaterPairCard })
+        card->setVisible(m_advancedOnly);
 
     const QList<QWidget *> parameterControls = {
         m_targetSource, m_controlMode, m_heaterTargetA, m_heaterTargetB,
@@ -3833,10 +3887,7 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     auto *rescan = new QPushButton(QString::fromUtf8("重新扫描子板"), this);
     rescan->setObjectName("secondaryButton");
     rescan->setMinimumSize(180, 48);
-    auto *advanced = new QPushButton(QString::fromUtf8("高级设置"), this);
-    advanced->setObjectName("secondaryButton");
-    advanced->setCheckable(true);
-    advanced->setMinimumSize(180, 48);
+    rescan->setVisible(!m_advancedOnly);
     m_actionFeedback = new QLabel(this);
     m_actionFeedback->setObjectName("actionFeedback");
     m_actionFeedback->setAlignment(Qt::AlignCenter);
@@ -3852,25 +3903,12 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     save->setMinimumSize(180, 48);
     // 保存按钮自带“✓ 配置已保存”文字反馈, 不再叠加蜂鸣器确认音
     save->setProperty("noBeep", true);
-    buttonRow->addWidget(rescan);
-    buttonRow->addWidget(advanced);
+    if (!m_advancedOnly)
+        buttonRow->addWidget(rescan);
     buttonRow->addWidget(m_actionFeedback, 1);
     buttonRow->addWidget(save);
     layout->addLayout(buttonRow);
 
-    connect(advanced, &QPushButton::toggled, this,
-            [advanced, advancedPanel](bool visible) {
-        advancedPanel->setVisible(visible);
-        advanced->setText(visible
-            ? QString::fromUtf8("返回参数设置")
-            : QString::fromUtf8("高级设置"));
-    });
-    if (m_advancedOnly) {
-        // 高级设置独立成页: 隐藏温控参数区与折叠按钮, 高级卡片直接展开
-        temperatureCard->setVisible(false);
-        advanced->setVisible(false);
-        advancedPanel->setVisible(true);
-    }
     connect(formulaToggle, &QPushButton::toggled, this,
             [formulaToggle, formulaDetails](bool visible) {
         formulaDetails->setVisible(visible);
@@ -4173,7 +4211,17 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
 
 bool SettingsWidget::eventFilter(QObject *watched, QEvent *event)
 {
-    Q_UNUSED(watched)
+    if (watched == m_displayTheme->view()->viewport()) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            m_themePopupPressed = true;
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            if (!m_themePopupPressed)
+                return true;
+            m_themePopupPressed = false;
+        } else if (event->type() == QEvent::Hide) {
+            m_themePopupPressed = false;
+        }
+    }
     if (event->type() == QEvent::Wheel)
         return true;
     return QWidget::eventFilter(watched, event);
@@ -4182,105 +4230,122 @@ bool SettingsWidget::eventFilter(QObject *watched, QEvent *event)
 void SettingsWidget::saveSettings()
 {
     AppConfig &config = AppConfig::instance();
-    config.general().displayTheme = m_displayTheme->currentData().toString();
-    config.general().temperatureTarget = m_heaterTargetA->value();
-    config.general().heaterATarget = m_heaterTargetA->value();
-    config.general().heaterBTarget = m_heaterTargetB->value();
-    config.general().heaterCTarget = m_heaterTargetC->value();
-    config.general().temperatureTargetSource =
-        m_targetSource->currentData().toString();
-    config.general().temperatureControlMode = m_controlMode->currentData().toString();
-    QList<double> thresholdStages = {
-        m_thresholdSingleStage->value(), m_thresholdSecondStage->value(),
-        m_thresholdDualStage->value()
-    };
-    std::sort(thresholdStages.begin(), thresholdStages.end());
-    config.general().thresholdSingleStageDelta = thresholdStages.at(0);
-    config.general().thresholdSecondStageDelta = thresholdStages.at(1);
-    config.general().thresholdDualStageDelta = thresholdStages.at(2);
-    config.general().thresholdHysteresis = qMin(
-        m_thresholdHysteresis->value(),
-        qMin((thresholdStages.at(1) - thresholdStages.at(0)) / 2.0,
-             (thresholdStages.at(2) - thresholdStages.at(1)) / 2.0));
-    config.general().pidKp = m_pidKp->value();
-    config.general().pidKi = m_pidKi->value();
-    config.general().pidKd = m_pidKd->value();
-    QList<double> stages = {
-        m_pidSingleStage->value(), m_pidSecondStage->value(),
-        m_pidDualStage->value()
-    };
-    std::sort(stages.begin(), stages.end());
-    config.general().pidSingleStagePercent = stages.at(0);
-    config.general().pidSecondStagePercent = stages.at(1);
-    config.general().pidDualStagePercent = stages.at(2);
-    config.general().pidFirstStageOutput =
-        m_pidFirstStageOutput->currentData().toString();
-    config.general().pidFirstStageOutput =
-        m_pidFirstStageOutput->currentData().toString();
-    QList<double> dewMargins = {
-        m_dewPointSingleStage->value(), m_dewPointSecondStage->value(),
-        m_dewPointDualStage->value()
-    };
-    std::sort(dewMargins.begin(), dewMargins.end(), std::greater<double>());
-    config.general().dewPointSingleStageMargin = dewMargins.at(0);
-    config.general().dewPointSecondStageMargin = dewMargins.at(1);
-    config.general().dewPointDualStageMargin = dewMargins.at(2);
-    config.general().dewPointHysteresis = qMin(
-        m_dewPointHysteresis->value(),
-        qMin((dewMargins.at(0) - dewMargins.at(1)) / 2.0,
-             (dewMargins.at(1) - dewMargins.at(2)) / 2.0));
-    config.general().humidityTemperatureLimitDelta =
-        m_humidityTemperatureLimit->value();
-    config.general().highVoltageDetectionMode =
-        m_highVoltageDetectionMode->currentData().toString();
-    config.general().highVoltageDigitalTrigger =
-        m_highVoltageDigitalTrigger->currentData().toInt();
-    config.general().highVoltageThreshold = m_highVoltageThreshold->value();
-    config.general().relaySwitchIntervalSec = m_relaySwitchInterval->value();
-    config.general().pollIntervalMs =
-        qRound(m_pollInterval->value() * 1000.0);
-    config.general().recordIntervalMs =
-        qRound(m_recordInterval->value() * 1000.0);
-    config.general().brightnessPercent = m_brightnessSlider->value();
-    config.general().idleDimMinutes = m_idleDimMinutes->value();
-    config.general().idleDimPercent = m_idleDimPercent->value();
-    config.general().soundFeedback =
-        m_soundFeedback->currentData().toBool();
-    for (int i = 1; i <= 5; ++i) {
-        const QString mode = m_expInCombos.value(i)
-            ? m_expInCombos.value(i)->currentData().toString()
-            : QString("unused");
-        switch (i) {
-        case 1: config.general().expIn1Mode = mode; break;
-        case 2: config.general().expIn2Mode = mode; break;
-        case 3: config.general().expIn3Mode = mode; break;
-        case 4: config.general().expIn4Mode = mode; break;
-        case 5: config.general().expIn5Mode = mode; break;
-        default: break;
+    if (m_advancedOnly) {
+        QSet<int> usedPairs;
+        for (int i = 0; i < 3; ++i) {
+            const int pair = m_heaterPairCombos.value(i)->currentData().toInt();
+            if (usedPairs.contains(pair)) {
+                showActionFeedback(QString::fromUtf8(
+                    "⚠  加热器 A/B/C 不能共用同一组 OT 输出"), false);
+                return;
+            }
+            usedPairs.insert(pair);
         }
     }
-    for (int i = 0; i < 3; ++i) {
-        const int pair = m_heaterPairCombos.value(i)
-            ? m_heaterPairCombos.value(i)->currentData().toInt() : i + 1;
-        switch (i) {
-        case 0: config.general().heaterAPair = qBound(1, pair, 5); break;
-        case 1: config.general().heaterBPair = qBound(1, pair, 5); break;
-        case 2: config.general().heaterCPair = qBound(1, pair, 5); break;
-        default: break;
+    const AppConfig::GeneralConfig previous = config.general();
+    if (!m_advancedOnly) {
+        config.general().displayTheme = m_displayTheme->currentData().toString();
+        config.general().temperatureTarget = m_heaterTargetA->value();
+        config.general().heaterATarget = m_heaterTargetA->value();
+        config.general().heaterBTarget = m_heaterTargetB->value();
+        config.general().heaterCTarget = m_heaterTargetC->value();
+        config.general().temperatureTargetSource =
+            m_targetSource->currentData().toString();
+        config.general().temperatureControlMode = m_controlMode->currentData().toString();
+        QList<double> thresholdStages = {
+            m_thresholdSingleStage->value(), m_thresholdSecondStage->value(),
+            m_thresholdDualStage->value()
+        };
+        std::sort(thresholdStages.begin(), thresholdStages.end());
+        config.general().thresholdSingleStageDelta = thresholdStages.at(0);
+        config.general().thresholdSecondStageDelta = thresholdStages.at(1);
+        config.general().thresholdDualStageDelta = thresholdStages.at(2);
+        config.general().thresholdHysteresis = qMin(
+            m_thresholdHysteresis->value(),
+            qMin((thresholdStages.at(1) - thresholdStages.at(0)) / 2.0,
+                 (thresholdStages.at(2) - thresholdStages.at(1)) / 2.0));
+        config.general().pidKp = m_pidKp->value();
+        config.general().pidKi = m_pidKi->value();
+        config.general().pidKd = m_pidKd->value();
+        QList<double> stages = {
+            m_pidSingleStage->value(), m_pidSecondStage->value(),
+            m_pidDualStage->value()
+        };
+        std::sort(stages.begin(), stages.end());
+        config.general().pidSingleStagePercent = stages.at(0);
+        config.general().pidSecondStagePercent = stages.at(1);
+        config.general().pidDualStagePercent = stages.at(2);
+        config.general().pidFirstStageOutput =
+            m_pidFirstStageOutput->currentData().toString();
+        QList<double> dewMargins = {
+            m_dewPointSingleStage->value(), m_dewPointSecondStage->value(),
+            m_dewPointDualStage->value()
+        };
+        std::sort(dewMargins.begin(), dewMargins.end(), std::greater<double>());
+        config.general().dewPointSingleStageMargin = dewMargins.at(0);
+        config.general().dewPointSecondStageMargin = dewMargins.at(1);
+        config.general().dewPointDualStageMargin = dewMargins.at(2);
+        config.general().dewPointHysteresis = qMin(
+            m_dewPointHysteresis->value(),
+            qMin((dewMargins.at(0) - dewMargins.at(1)) / 2.0,
+                 (dewMargins.at(1) - dewMargins.at(2)) / 2.0));
+        config.general().humidityTemperatureLimitDelta =
+            m_humidityTemperatureLimit->value();
+        config.general().highVoltageDetectionMode =
+            m_highVoltageDetectionMode->currentData().toString();
+        config.general().highVoltageDigitalTrigger =
+            m_highVoltageDigitalTrigger->currentData().toInt();
+        config.general().highVoltageThreshold = m_highVoltageThreshold->value();
+        config.general().relaySwitchIntervalSec = m_relaySwitchInterval->value();
+        config.general().pollIntervalMs =
+            qRound(m_pollInterval->value() * 1000.0);
+        config.general().recordIntervalMs =
+            qRound(m_recordInterval->value() * 1000.0);
+        config.general().brightnessPercent = m_brightnessSlider->value();
+        config.general().idleDimMinutes = m_idleDimMinutes->value();
+        config.general().idleDimPercent = m_idleDimPercent->value();
+        config.general().maxStorageMB = m_maxStorageGB->value() * 1024;
+        config.general().spareOt01Mode = m_spareOutputModes.value(1)->currentData().toString();
+        config.general().spareOt02Mode = m_spareOutputModes.value(2)->currentData().toString();
+        config.general().spareOt05Mode = m_spareOutputModes.value(5)->currentData().toString();
+        config.general().spareOt06Mode = m_spareOutputModes.value(6)->currentData().toString();
+        config.general().reservedInputMode = m_reservedInputMode->currentData().toString();
+    } else {
+        config.general().soundFeedback =
+            m_soundFeedback->currentData().toBool();
+        for (int i = 1; i <= 5; ++i) {
+            const QString mode = m_expInCombos.value(i)
+                ? m_expInCombos.value(i)->currentData().toString()
+                : QString("unused");
+            switch (i) {
+            case 1: config.general().expIn1Mode = mode; break;
+            case 2: config.general().expIn2Mode = mode; break;
+            case 3: config.general().expIn3Mode = mode; break;
+            case 4: config.general().expIn4Mode = mode; break;
+            case 5: config.general().expIn5Mode = mode; break;
+            default: break;
+            }
+        }
+        for (int i = 0; i < 3; ++i) {
+            const int pair = m_heaterPairCombos.value(i)
+                ? m_heaterPairCombos.value(i)->currentData().toInt() : i + 1;
+            switch (i) {
+            case 0: config.general().heaterAPair = qBound(1, pair, 5); break;
+            case 1: config.general().heaterBPair = qBound(1, pair, 5); break;
+            case 2: config.general().heaterCPair = qBound(1, pair, 5); break;
+            default: break;
+            }
         }
     }
-    config.general().maxStorageMB = m_maxStorageGB->value() * 1024;
-    config.general().spareOt01Mode = m_spareOutputModes.value(1)->currentData().toString();
-    config.general().spareOt02Mode = m_spareOutputModes.value(2)->currentData().toString();
-    config.general().spareOt05Mode = m_spareOutputModes.value(5)->currentData().toString();
-    config.general().spareOt06Mode = m_spareOutputModes.value(6)->currentData().toString();
-    config.general().reservedInputMode = m_reservedInputMode->currentData().toString();
     const bool saved = config.configFilePath().isEmpty()
         || config.save(config.configFilePath());
+    if (!saved)
+        config.general() = previous;
     showActionFeedback(saved
         ? QString::fromUtf8("✓  配置已保存并应用")
         : QString::fromUtf8("⚠  配置保存失败"), saved);
-    emit settingsSaved();
+    if (saved)
+        emit settingsSaved();
 }
 
 void SettingsWidget::refreshStorageInfo()
@@ -4388,6 +4453,10 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1024, 600);
     setMinimumSize(800, 480);
     setupUi();
+    const AppConfig::GeneralConfig &initialConfig = AppConfig::instance().general();
+    m_appliedHeaterPairs = { initialConfig.heaterAPair,
+                             initialConfig.heaterBPair,
+                             initialConfig.heaterCPair };
     startServices();
 
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
@@ -4410,6 +4479,8 @@ MainWindow::~MainWindow()
 {
     if (m_scheduler)
         m_scheduler->stop();
+    delete m_historyWidget;
+    m_historyWidget = nullptr;
 }
 
 void MainWindow::setupUi()
@@ -4608,6 +4679,10 @@ void MainWindow::switchPage(int index)
         m_settingsWidget->refreshStorageInfo();
     } else if (index == 4) {
         m_advancedWidget->refreshStorageInfo();
+        const DeviceProfile::DeviceKey key = m_manualPanel->currentDevice();
+        const DeviceState state = m_deviceManager.device(key);
+        m_advancedWidget->updateExpInputStates(state.online
+            ? state.values : QMap<QString, QVariant>());
     }
 }
 
@@ -4638,12 +4713,13 @@ void MainWindow::beepConfirmation()
     if (!AppConfig::instance().general().soundFeedback)
         return;
 
-    // 接在 OUT7 上的蜂鸣器: 对全部已知子板闭合 0.2 秒后断开;
-    // 含瞬时掉线的设备 (轮询抖动时写失败无害, 避免确认音被吞);
-    // 完全没有子板时才回退到软件确认音。
+    // 接在 OUT5 上的蜂鸣器: 对在线子板闭合 0.2 秒后断开。
+    // 离线时持续操作不能向等待重连的串口无限追加写任务。
     QList<DeviceProfile::DeviceKey> targets;
-    for (const DeviceState &state : m_deviceManager.allDevices())
-        targets.append(state.key);
+    for (const DeviceState &state : m_deviceManager.allDevices()) {
+        if (state.online)
+            targets.append(state.key);
+    }
     if (targets.isEmpty() || !m_scheduler) {
         playClickSound();
         return;
@@ -4668,6 +4744,9 @@ void MainWindow::beepConfirmation()
 void MainWindow::syncHeaterLamps(const DeviceProfile::DeviceKey &key,
                                  const DeviceState &state)
 {
+    if (!state.online || m_highVoltageAlarm
+        || m_reservedInputInterlocks.contains(commandKey(key)))
+        return;
     // 灯 = 加热状态: 按每个加热器输出对的实际回读档位同步 OUT1~OUT3,
     // 手动循环和自动温控写入都覆盖, 只在档位变化时写一次。
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
@@ -4722,6 +4801,8 @@ void MainWindow::onBeepTimeout()
 void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterIndex)
 {
     if (heaterIndex < 0 || heaterIndex > 2)
+        return;
+    if (!m_deviceManager.hasDevice(key) || !m_deviceManager.device(key).online)
         return;
     const AppConfig::GeneralConfig &heaterConfig =
         AppConfig::instance().general();
@@ -4807,7 +4888,7 @@ void MainWindow::setDeviceAutoRunning(const DeviceProfile::DeviceKey &key, bool 
         syncAutoPanels();
         refreshIndicatorLights();
         applyAutomaticControl(key);
-        m_statusBar->setText(QString::fromUtf8("ID %1 自动温控已启动，该子板绿灯点亮")
+        m_statusBar->setText(QString::fromUtf8("ID %1 自动温控已启动")
                                  .arg(key.slaveId));
     } else {
         m_autoDevices.remove(keyValue);
@@ -4839,18 +4920,24 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
     if (!updatedState.online) {
         m_initializedDevices.remove(commandKey(key));
         m_sensorHealthyDevices.remove(commandKey(key));
+        m_prevExpInMask.remove(commandKey(key));
     }
-    if (updatedState.online && !m_initializedDevices.contains(commandKey(key)))
+    const bool newlyInitialized = updatedState.online
+        && !m_initializedDevices.contains(commandKey(key));
+    if (newlyInitialized)
         initializeSafeOutputs(key);
     if (updatedState.online)
         evaluateSensorSelfCheck(key, updatedState);
     if (updatedState.online)
         evaluateReservedInput(key, updatedState);
-    m_settingsWidget->updateExpInputStates(updatedState.values);
-    m_advancedWidget->updateExpInputStates(updatedState.values);
+    refreshHighVoltageAlarm();
+    const QMap<QString, QVariant> inputValues = updatedState.online
+        ? updatedState.values : QMap<QString, QVariant>();
+    if (key == m_manualPanel->currentDevice())
+        m_advancedWidget->updateExpInputStates(inputValues);
 
     // 实体加热器按键: exp_in 上升沿 → 对应加热器进一档 (按接入配置的功能映射)
-    {
+    if (updatedState.online) {
         const AppConfig::GeneralConfig &heaterConfig =
             AppConfig::instance().general();
         const int keyValue = commandKey(key);
@@ -4882,9 +4969,8 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
     }
 
     // 加热器灯跟随实际输出 (自动温控驱动 OT3/OT4 时同样点灯)
-    syncHeaterLamps(key, updatedState);
-
-    refreshHighVoltageAlarm();
+    if (!newlyInitialized)
+        syncHeaterLamps(key, updatedState);
 
     if (m_autoDevices.contains(commandKey(key)) && !m_highVoltageAlarm
         && !m_reservedInputInterlocks.contains(commandKey(key)))
@@ -4925,6 +5011,30 @@ void MainWindow::onWriteCompleted(const DeviceProfile::DeviceKey &key,
 void MainWindow::onSettingsSaved()
 {
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    const QVector<int> selectedPairs = { config.heaterAPair,
+                                         config.heaterBPair,
+                                         config.heaterCPair };
+    const bool heaterMappingChanged = selectedPairs != m_appliedHeaterPairs;
+    if (heaterMappingChanged) {
+        for (int pair : m_appliedHeaterPairs)
+            m_retiredHeaterPairs.insert(pair);
+        m_autoDevices.clear();
+        syncAutoPanels();
+        m_heaterGears.clear();
+        m_manualPanel->setHeaterGears(m_heaterGears);
+        m_lastLampGear.clear();
+        for (const DeviceState &state : m_deviceManager.allDevices()) {
+            if (!state.online || !m_scheduler)
+                continue;
+            QMap<QString, QVariant> offFields;
+            addHeaterOffFields(m_appliedHeaterPairs, offFields);
+            addHeaterOffFields(selectedPairs, offFields);
+            for (int h = 1; h <= 3; ++h)
+                offFields[QString("exp_out%1").arg(h)] = 0;
+            m_scheduler->writeToDevice(state.key, offFields);
+        }
+        m_appliedHeaterPairs = selectedPairs;
+    }
     m_manualPanel->refreshParameters();
     m_logger.setDataPath(config.dataPath);
     m_historyQuery.setDataPath(config.dataPath);
@@ -4939,7 +5049,9 @@ void MainWindow::onSettingsSaved()
                                     config.idleDimMinutes,
                                     config.idleDimPercent);
     m_manualPanel->refreshSettings();
-    m_statusBar->setText(QString::fromUtf8("参数已保存并应用"));
+    m_statusBar->setText(heaterMappingChanged
+        ? QString::fromUtf8("输出映射已保存，自动温控已停止，旧加热回路已关闭")
+        : QString::fromUtf8("参数已保存并应用"));
     m_lastAutoCommands.clear();
     m_lastAutoCommandTimes.clear();
     m_pidStates.clear();
@@ -4954,6 +5066,8 @@ void MainWindow::onSettingsSaved()
         if (!fields.isEmpty() && m_scheduler)
             m_scheduler->writeToDevice(state.key, fields);
     }
+    if (heaterMappingChanged)
+        refreshIndicatorLights();
     refreshSystemState();
 }
 
@@ -5033,6 +5147,8 @@ void MainWindow::refreshIndicatorLights()
     if (!m_scheduler || m_highVoltageAlarm)
         return;
     for (const DeviceState &state : m_deviceManager.allDevices()) {
+        if (!state.online)
+            continue;
         const int keyValue = commandKey(state.key);
         const bool fault = m_sensorFaults.contains(keyValue)
             || m_reservedInputInterlocks.contains(keyValue);
@@ -5043,6 +5159,7 @@ void MainWindow::refreshIndicatorLights()
             && m_pages->currentIndex() == 1 ? 1 : 0;
         fields["ot09"] = fault ? 1 : 0;
         fields["ot10"] = 0;
+        removeHeaterOwnedIndicators(AppConfig::instance().general(), fields);
         addConfiguredSpareOutputs(state.key, fields, state.values);
         m_scheduler->writeToDevice(state.key, fields);
     }
@@ -5255,6 +5372,7 @@ void MainWindow::enterSensorFault(const DeviceProfile::DeviceKey &key,
     if (m_scheduler) {
         QMap<QString, QVariant> fields;
         fields["ot09"] = 1;
+        removeHeaterOwnedIndicators(AppConfig::instance().general(), fields);
         addConfiguredSpareOutputs(key, fields, m_deviceManager.device(key).values);
         m_scheduler->writeToDevice(key, fields);
     }
@@ -5275,6 +5393,7 @@ void MainWindow::leaveSensorFault(const DeviceProfile::DeviceKey &key)
             && m_pages->currentIndex() == 1 ? 1 : 0;
         fields["ot09"] = m_reservedInputInterlocks.contains(keyValue) ? 1 : 0;
         fields["ot10"] = 0;
+        removeHeaterOwnedIndicators(AppConfig::instance().general(), fields);
         addConfiguredSpareOutputs(key, fields, m_deviceManager.device(key).values);
         m_scheduler->writeToDevice(key, fields);
     }
@@ -5328,16 +5447,23 @@ void MainWindow::enterReservedInputInterlock(const DeviceProfile::DeviceKey &key
         fields["ot08"] = 0;
         fields["ot09"] = 1;
         fields["ot10"] = 0;
+        addHeaterOffFields(m_appliedHeaterPairs, fields);
+        for (int h = 1; h <= 3; ++h)
+            fields[QString("exp_out%1").arg(h)] = 0;
+        m_lastLampGear.clear();
+        for (int h = 0; h < 3; ++h)
+            m_heaterGears.remove(keyValue * 4 + h);
+        m_manualPanel->setHeaterGears(m_heaterGears);
         addConfiguredSpareOutputs(key, fields, m_deviceManager.device(key).values);
         m_scheduler->writeToDevice(key, fields);
     }
     m_statusBar->setText(QString::fromUtf8(
-        "ID %1 备用输入%2联锁：已关闭 OT3/OT4")
+        "ID %1 备用输入%2联锁：已关闭全部加热回路")
         .arg(key.slaveId).arg(level));
     QTimer::singleShot(0, this, [this, key, level]() {
         QMessageBox::critical(this, QString::fromUtf8("备用输入联锁"),
             QString::fromUtf8("端口 %1 / 子板 ID %2 的备用输入为%3。\n\n"
-                              "已停止该子板自动温控、关闭 OT3/OT4，并点亮红灯。")
+                              "已停止该子板自动温控并关闭全部加热回路。")
                 .arg(key.portIndex + 1).arg(key.slaveId).arg(level));
     });
 }
@@ -5354,6 +5480,7 @@ void MainWindow::leaveReservedInputInterlock(const DeviceProfile::DeviceKey &key
             && m_pages->currentIndex() == 1 ? 1 : 0;
         fields["ot09"] = m_sensorFaults.contains(keyValue) ? 1 : 0;
         fields["ot10"] = 0;
+        removeHeaterOwnedIndicators(AppConfig::instance().general(), fields);
         addConfiguredSpareOutputs(key, fields, m_deviceManager.device(key).values);
         m_scheduler->writeToDevice(key, fields);
     }
@@ -5374,6 +5501,10 @@ void MainWindow::initializeSafeOutputs(const DeviceProfile::DeviceKey &key)
         && m_pages->currentIndex() == 1 ? 1 : 0;
     fields["ot09"] = m_highVoltageAlarm ? 1 : 0;
     fields["ot10"] = m_highVoltageAlarm ? 1 : 0;
+    removeHeaterOwnedIndicators(AppConfig::instance().general(), fields);
+    addHeaterOffFields(m_appliedHeaterPairs, fields);
+    for (int pair : m_retiredHeaterPairs)
+        addHeaterOffFields({ pair }, fields);
     // 加热器档位会话重置为 0, 三个加热器的灯 (OUT1~OUT3) 同步熄灭
     for (int i = 0; i < 3; ++i) {
         m_heaterGears.remove(keyValue * 4 + i);
@@ -5390,6 +5521,8 @@ void MainWindow::enterHighVoltageAlarm()
     m_lastAutoCommands.clear();
     m_lastAutoCommandTimes.clear();
     m_pidStates.clear();
+    m_heaterGears.clear();
+    m_manualPanel->setHeaterGears(m_heaterGears);
     if (m_scheduler) {
         for (const DeviceState &state : m_deviceManager.allDevices()) {
             QMap<QString, QVariant> fields;
@@ -5399,12 +5532,16 @@ void MainWindow::enterHighVoltageAlarm()
             fields["ot08"] = 0;
             fields["ot09"] = 1;
             fields["ot10"] = 1;
+            addHeaterOffFields(m_appliedHeaterPairs, fields);
+            for (int h = 1; h <= 3; ++h)
+                fields[QString("exp_out%1").arg(h)] = 0;
             addConfiguredSpareOutputs(state.key, fields, state.values);
             m_scheduler->writeToDevice(state.key, fields);
         }
     }
+    m_lastLampGear.clear();
     refreshSystemState();
-    m_statusBar->setText(QString::fromUtf8("高压带电：已切断全部 OT3 / OT4 并启动声光告警"));
+    m_statusBar->setText(QString::fromUtf8("高压带电：已切断全部加热回路并启动声光告警"));
 }
 
 void MainWindow::leaveHighVoltageAlarm()

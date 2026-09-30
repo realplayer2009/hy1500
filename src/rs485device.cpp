@@ -563,6 +563,19 @@ void SerialPortWorker::restartDiscovery()
 void SerialPortWorker::enqueueWrite(const WriteTask &task)
 {
     QMutexLocker lock(&m_queueMutex);
+    if (task.fields.size() == 1 && task.fields.value("exp_out5").toInt() == 0
+        && task.fields.contains("exp_out5")) {
+        // 关蜂鸣器是最终状态。若总线忙，丢掉同一子板尚未执行的提示音脉冲，
+        // 使连按和断线等待时的反馈任务不会无限积压。
+        for (int i = m_queue.size() - 1; i >= 0; --i) {
+            const QueueItem &pending = m_queue.at(i);
+            if (pending.type == Write
+                && pending.write.deviceKey == task.deviceKey
+                && pending.write.fields.size() == 1
+                && pending.write.fields.contains("exp_out5"))
+                m_queue.removeAt(i);
+        }
+    }
     QueueItem item;
     item.type = Write;
     item.write = task;
@@ -876,6 +889,10 @@ void SerialPortWorker::onSerialError(QSerialPort::SerialPortError error)
     case QSerialPort::ResourceError:
     case QSerialPort::DeviceNotFoundError:
     case QSerialPort::PermissionError:
+        if (!m_reopenPending)
+            emit portError(m_settings.portIndex,
+                           QString::fromUtf8("串口连接中断: %1")
+                               .arg(m_settings.device));
         m_reopenPending = true;
         break;
     default:
