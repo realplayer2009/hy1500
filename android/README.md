@@ -1,4 +1,9 @@
-# Android 本机构建
+# 原生 Android APK 构建
+
+本目录保留两条独立路线：`build_apk.sh` 构建包名为 `com.rs485.control` 的原生
+Qt 控制应用；Termux 路线使用 `build_device.sh`、`deploy_device.sh` 和已有的
+`com.rs485.launcher` 启动器。两个应用使用不同包名，可以同时安装，但运行时
+应只启动一套控制程序，避免同时操作同一串口。
 
 ## 工具链隔离
 
@@ -26,5 +31,17 @@ Build Tools 版本都保留在项目本地 SDK 中。该目录已加入 `.gitign
 生成文件为 `android/dist/RS485Control-arm64-v8a-debug.apk`。构建主机需要 Linux 和
 Qt 5.15.2 Android 的 arm64-v8a 工具链。
 
-当前 APK 包含 RS485Control Qt 界面和全屏 Activity。设备安装、Termux/X11 启动以及真实
-串口权限仍需按 `docs/ANDROID_DEPLOYMENT.md` 和 `docs/DEBUGGING_GUIDE.md` 配置。
+当前 APK 包含 RS485Control Qt 界面和全屏 Activity，入口源码为
+`package/src/com/rs485/control/MainActivity.java`，运行时不需要 Termux/X11。
+GitHub Actions 的 `Native Android APK Build` 只构建这条路线，产物名为
+`RS485Control-native-arm64-v8a`。
+
+## 安装入口
+
+- 原生 APK：`powershell -File android/provision_apk.ps1 -DeviceAddr <设备IP>:<端口>`。
+- Termux 启动器：`powershell -File android/provision.ps1 -DeviceAddr <设备IP>:<端口> -LauncherApk <已有启动器.apk>`。设备须已配置 Termux/X11、Qt 依赖、业务程序与启动脚本。
+
+`provision.ps1` 不安装原生控制 APK；`build_apk.sh` 不生成 Termux 启动器。
+仓库的 `src/com/rs485/launcher/MainActivity.java` 仅是旧 QtActivity 示例，未实现
+调试手册描述的 RUN_COMMAND/HOME 启动链路，不能替代现场已有启动器。
+完整部署边界和串口权限检查见 [`docs/ANDROID_DEPLOYMENT.md`](../docs/ANDROID_DEPLOYMENT.md)。

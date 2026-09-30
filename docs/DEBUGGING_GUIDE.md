@@ -4,6 +4,9 @@
 
 ## TL;DR
 
+本文描述 Termux + Termux:X11 路线。原生 Qt APK 使用独立包名 `com.rs485.control`，
+构建与安装见 [Android 部署指南](ANDROID_DEPLOYMENT.md)，不使用本文的启动器链路。
+
 这套系统把一份 **Qt5/C++ 的 RS485 环境控制程序**跑在了**安卓触摸屏**上：Termux 提供 Linux 用户态运行时，Termux:X11 负责显示，启动器 APK 充当设备桌面。调试它的正确姿势不是"哪里坏了修哪里"，而是**自下而上分层验证**——系统层 → 运行时层 → 显示服务层 → 应用层 → 显示端层，每层单独确认，绝不跳层。
 
 ## 文档信息
@@ -471,7 +474,7 @@ $ADB shell screencap -p /data/local/tmp/s.png && $ADB pull /data/local/tmp/s.png
 $ADB shell input keyevent 3          # 按 Home 键
 
 # —— 预装（在项目仓库根目录执行）——
-powershell -File android\provision.ps1 -DeviceAddr <设备IP>:<端口>
+powershell -File android\provision.ps1 -DeviceAddr <设备IP>:<端口> -LauncherApk <已有启动器.apk>
 ```
 
 ## 八、附录：组件清单与维护边界
@@ -480,11 +483,12 @@ powershell -File android\provision.ps1 -DeviceAddr <设备IP>:<端口>
 
 | 组件 | 位置 | 维护要点 |
 |---|---|---|
-| 启动器 APK | 仓库 `android/dist/RS485Launcher.apk` | 装到设备后同时注册为桌面（HOME），是"上电即用"的关键 |
-| 启动器源码 | 仓库 `android/src/com/rs485/launcher/MainActivity.java` | 单 Activity，逻辑很短，改前先读懂上面那条启动链路 |
-| APK 构建脚本 | 仓库 `android/build_apk.sh` | 免 Android Studio，一条命令出包 |
-| 预装脚本 | 仓库 `android/provision.ps1` | 新设备一键预装（装 APK、设桌面、设屏幕常亮） |
-| 签名密钥 | 仓库 `android/rs485.keystore` | **丢失后无法对已装机做覆盖升级**；口令由项目负责人保管，不记录在本文档 |
+| Termux 启动器 APK | 现场已有的 `com.rs485.launcher` APK，由 `-LauncherApk` 指定 | 应实现本文描述的 RUN_COMMAND/HOME 链路；原生构建不会生成它 |
+| 旧启动器示例 | 仓库 `android/src/com/rs485/launcher/MainActivity.java` | 仅 QtActivity 全屏示例，未实现本文描述的启动链路 |
+| Termux 编译/更新脚本 | 仓库 `android/build_device.sh`、`android/deploy_device.sh` | 在已配置的 Termux 环境编译、更新业务程序 |
+| 启动器安装入口 | 仓库 `android/provision.ps1` | 安装已有启动器并启动；环境、桌面、常亮和唤醒锁须另外配置及验证 |
+| 原生 APK 构建/安装 | 仓库 `android/build_apk.sh`、`android/provision_apk.ps1` | 构建和安装 `com.rs485.control`，与 Termux 启动器分开 |
+| Termux 启动器签名密钥 | 由现场启动器维护方保管 | 覆盖升级需要与已安装启动器相同的签名；仓库密钥不能证明与现场一致 |
 | 设备端启动脚本 | 设备 `/data/data/com.termux/files/home/start_rs485.sh` | 幂等，可重复执行；改动后必须重跑回归清单 |
 | 设备端程序目录 | 设备 `/data/data/com.termux/files/home/rs485/` | RS485Control 二进制所在 |
 | 设备端日志 | 设备 `~/apk_launch.log`、`~/x11.log`、`~/app_run.log` | 排障第一现场，出问题先看这三个 |

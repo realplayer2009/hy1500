@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Build the standalone Qt Android app; Termux uses build_device.sh instead.
 # Prefer the project-local toolchain. CI and other machines can pass their own
 # installed paths through the standard Android/Java variables and QT_ANDROID_ROOT.
 ANDROID_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -82,6 +83,8 @@ cp "$DEPLOY_DIR/libRS485Control_arm64-v8a.so" \
     "$DEPLOY_DIR/libs/arm64-v8a/libRS485Control_arm64-v8a.so"
 
 OUTPUT_APK="$APK_DIR/RS485Control-arm64-v8a-debug.apk"
+# aux-mode expects a manifest in place; refresh it from our package source.
+cp "$ANDROID_DIR/package/AndroidManifest.xml" "$DEPLOY_DIR/AndroidManifest.xml"
 "$QT_ROOT/bin/androiddeployqt" \
     --input "$SETTINGS" \
     --output "$DEPLOY_DIR" \
@@ -94,7 +97,7 @@ import sys
 
 manifest = Path(sys.argv[1])
 text = manifest.read_text(encoding="utf-8")
-activity = 'android:name="com.rs485.launcher.MainActivity"'
+activity = 'android:name="com.rs485.control.MainActivity"'
 if activity in text and "android:exported=" not in text:
     text = text.replace(
         'android:launchMode="singleTop">',
@@ -103,8 +106,11 @@ if activity in text and "android:exported=" not in text:
     )
 manifest.write_text(text, encoding="utf-8")
 PY
-cp "$ANDROID_DIR/package/src/com/rs485/launcher/MainActivity.java" \
-    "$DEPLOY_DIR/src/com/rs485/launcher/MainActivity.java"
+# Remove the old package's generated Activity when reusing a previous build.
+rm -f "$DEPLOY_DIR/src/com/rs485/launcher/MainActivity.java"
+mkdir -p "$DEPLOY_DIR/src/com/rs485/control"
+cp "$ANDROID_DIR/package/src/com/rs485/control/MainActivity.java" \
+    "$DEPLOY_DIR/src/com/rs485/control/MainActivity.java"
 
 # Gradle 5.6 reads gradle.properties as ISO-8859-1. Escape UTF-8 project paths
 # as Java properties Unicode sequences so Qt paths remain valid on non-ASCII mounts.
@@ -126,6 +132,11 @@ cd "$DEPLOY_DIR"
 BUILT_APK="$DEPLOY_DIR/build/outputs/apk/debug/deployment-debug.apk"
 if [[ ! -s "$BUILT_APK" ]]; then
     printf 'Gradle did not produce an APK: %s\n' "$BUILT_APK" >&2
+    exit 1
+fi
+if ! "$SDK_ROOT/build-tools/34.0.0/aapt" dump badging "$BUILT_APK" \
+    | grep -q "^package: name='com.rs485.control' "; then
+    printf 'Refusing to publish an APK with an unexpected package name: %s\n' "$BUILT_APK" >&2
     exit 1
 fi
 cp "$BUILT_APK" "$OUTPUT_APK"

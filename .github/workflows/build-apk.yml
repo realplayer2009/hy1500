@@ -1,4 +1,4 @@
-name: Android Build
+name: Native Android APK Build
 
 on:
   push:
@@ -42,5 +42,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: RS485Launcher-arm64-v8a
-          path: android/dist/*.apk
+          name: RS485Control-native-arm64-v8a
+          path: android/dist/RS485Control-arm64-v8a-debug.apk
+          if-no-files-found: error

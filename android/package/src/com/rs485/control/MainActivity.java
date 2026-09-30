@@ -1,4 +1,4 @@
-package com.rs485.launcher;
+package com.rs485.control;
 
 import android.os.Bundle;
 import android.view.View;

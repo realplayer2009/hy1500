@@ -2,6 +2,10 @@
 
 > 后续修改本组件的 agents 请继续维护本文档；记录格式为“问题 + 解决方案选择 + 解释”。
 
+- 问题：原生 Qt APK 与 Termux 启动器共用 `com.rs485.launcher` 包名，安装时可能覆盖启动器或遇到签名冲突；预装脚本又混用两条启动链路。
+- 解决方案选择：原生 APK 改用 `com.rs485.control`，由 `provision_apk.ps1` 安装；`provision.ps1` 保留 Termux 启动器入口，接收现场已有启动器 APK，Termux 编译和更新脚本保持独立；构建复用目录时移除旧包名的生成 Activity，并在 aux-mode 前用源清单覆盖生成清单，输出前核对成品包名。
+- 解释：两种应用可独立安装升级，原生 CI 产物不能替代 Termux 启动器；Qt aux-mode 读取已有生成清单，仅改源清单仍会产出旧包名，删除生成清单又会导致打包失败，因此必须先刷新它再校验成品。旧 QtActivity 示例不具备现场 RUN_COMMAND/HOME 链路，不能声明本仓库能构建完整的 Termux 启动器。唤醒锁由正常启动链路申请，去掉 ADB 直接调用的假成功路径。
+
 - 问题：只从 `.android-toolchain/` 查找工具链会使 CI 即使通过 setup-java/setup-qt 安装完成也在依赖检查时失败。
 - 解决方案选择：APK 脚本使用 `QT_ANDROID_ROOT`、`ANDROID_SDK_ROOT`、`ANDROID_NDK_ROOT`、`JAVA_HOME` 覆盖默认的项目本地路径；CI 显式传入其安装路径。
 - 解释：本机仍可使用被 Git 忽略的隔离工具链，编译机可使用自己的安装位置，脚本中的版本检查保证两者使用同一目标 API 和 NDK 版本。
