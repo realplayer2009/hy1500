@@ -28,14 +28,14 @@ class QStackedWidget;
 class QTableWidget;
 class QTimer;
 
-/** 总览页可点击状态卡片，用富文本强调运行模式与 OT3/OT4 状态。 */
+/** 总览页可点击状态卡片，显示运行模式、三个加热器档位和状态指示。 */
 class OverviewCard : public QFrame
 {
     Q_OBJECT
 public:
     explicit OverviewCard(QWidget *parent = nullptr);
 
-    QLabel *content() const { return m_content; }
+    void updateState(const DeviceState &state, bool automatic);
 
 signals:
     void clicked();
@@ -44,7 +44,12 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
-    QLabel *m_content = nullptr;
+    QLabel *m_identity = nullptr;
+    QLabel *m_mode = nullptr;
+    QLabel *m_status = nullptr;
+    QVector<QLabel *> m_measurements;
+    QVector<QLabel *> m_heaters;
+    QMap<int, QLabel *> m_indicators;
 };
 
 /** 所有已发现子板的可点击状态卡片总览。 */
@@ -60,8 +65,10 @@ public:
 signals:
     void deviceActivated(const DeviceProfile::DeviceKey &key);
 
-private slots:
+public slots:
     void refreshDevices();
+
+private slots:
     void refreshDevice(const DeviceProfile::DeviceKey &key);
 
 private:
@@ -113,7 +120,7 @@ private:
     QVector<HeaterStatusRow> m_heaterStatus;
 };
 
-/** 手动操作：选择子板、查看状态、单独切换 OT1~OT10。 */
+/** 按实际用途显示加热器、加热回路、状态指示和扩展设备。 */
 class ManualPanel : public QWidget
 {
     Q_OBJECT
@@ -298,11 +305,12 @@ class SettingsWidget : public QWidget
 {
     Q_OBJECT
 public:
-    /** advancedOnly=true 时只显示扩展接线及提示音配置。 */
+    /** advancedOnly=true 时显示运维、联锁及扩展配置，否则显示温控参数。 */
     explicit SettingsWidget(StorageRotator *rotator, bool advancedOnly = false,
                             QWidget *parent = nullptr);
     void showActionFeedback(const QString &message, bool success);
     void refreshStorageInfo();
+    bool confirmLeavingPage();
 
 signals:
     void settingsSaved();
@@ -314,11 +322,14 @@ public slots:
     void updateExpInputStates(const QMap<QString, QVariant> &values);
 
 private slots:
-    void saveSettings();
+    bool saveSettings();
     void deleteOldData();
 
 private:
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+    QMap<QWidget *, QVariant> settingsValues() const;
+    QMap<QWidget *, QVariant> m_savedControlValues;
 
     StorageRotator *m_rotator = nullptr;
     QComboBox *m_controlMode = nullptr;

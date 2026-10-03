@@ -4,8 +4,10 @@
 import importlib.util
 import pathlib
 import struct
+import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 
 SPEC = importlib.util.spec_from_file_location(
@@ -26,6 +28,7 @@ class SimulatorStub:
     def __init__(self, emulate_write_sync=True):
         self.lock = threading.RLock()
         self.emulate_write_sync = emulate_write_sync
+        self.heater_pairs = (1, 2, 3)
         self.logs = []
 
     def log(self, message):
@@ -119,8 +122,37 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(len(transport.writes), 1)
         self.assertEqual(bus.rx, b"")
 
+    def test_current_host_poll_and_expansion_mask_read_write(self):
+        bus, transport = self.make_bus()
+        device = bus.devices[1]
+        device.exp_in = [1, 0, 1, 0, 1]
+        for start, count in ((0, 1), (1, 11), (0x000C, 1), (0x000E, 1),
+                             (0x0031, 1), (0x0033, 1)):
+            bus.handle_rx(read_request(1, start, count))
+            self.assertEqual(transport.writes[-1][1:3], bytes([3, count * 2]))
+        self.assertEqual(device.read_regs(0x000C, 1), [0x15])
+        self.assertEqual(device.read_regs(0x000E, 1), [0])
+        bus.handle_rx(write_request(1, 0x0031, [0x201]))
+        request = simulator.rtu(bytes([1, 6]) + struct.pack(">HH", 0x0033, 0x55))
+        bus.handle_rx(request)
+        self.assertEqual(transport.writes[-1], request)
+        self.assertEqual(device.read_regs(0x0031, 1), [0x201])
+        self.assertEqual(device.read_regs(0x0033, 1), [0x55])
+        self.assertEqual(device.heater_gears(), [1, 0, 0])
+
 
 class DeviceModelTest(unittest.TestCase):
+    def test_heating_tracks_configured_pairs_and_ignores_unused_outputs(self):
+        device = simulator.Device(1, 22.0, (1, 4, 5))
+        device.internal = 22.0
+        device.ot[2] = 1
+        device.tick(10)
+        self.assertAlmostEqual(device.internal, 22.0)
+        device.ot = [1, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+        self.assertEqual(device.heater_gears(), [1, 2, 3])
+        device.tick(10)
+        self.assertGreater(device.internal, 23.7)
+
     def test_physics_uses_elapsed_time_not_tick_count(self):
         one_tick = simulator.Device(1, 22.0)
         many_ticks = simulator.Device(1, 22.0)
@@ -148,11 +180,40 @@ class OperatingScenarioTest(unittest.TestCase):
         sim.lock = threading.RLock()
         sim.log_enabled = False
         sim.emulate_write_sync = True
+        sim.heater_pairs = (1, 2, 3)
+        sim.input_modes = ["unused", "heater_a", "heater_b", "heater_c", "unused"]
         sim.buses = [
             simulator.Bus(0, "P0", [1, 2, 3], MemoryTransport(), sim),
             simulator.Bus(1, "P1", [4, 5], MemoryTransport(), sim),
         ]
         return sim
+
+    def test_config_survives_restart_and_updates_live_wiring(self):
+        sim = self.make_simulator()
+        with tempfile.TemporaryDirectory() as run_dir, patch.object(simulator, "RUN_DIR", run_dir):
+            sim.config_path = simulator.write_run_config("/dev/pts/10", "/dev/pts/11")
+            sim.config_stamp = None
+            config = pathlib.Path(sim.config_path)
+            original = config.read_text()
+            config.write_text(original.replace("heaterAPair=1", "heaterAPair=5")
+                              .replace("expIn2Mode=heater_a", "expIn2Mode=unused")
+                              .replace("expIn5Mode=unused", "expIn5Mode=heater_a"))
+            simulator.write_run_config("/dev/pts/20", "/dev/pts/21")
+            sim.reload_config()
+            self.assertEqual(sim.heater_pairs, (5, 2, 3))
+            self.assertEqual(sim.buses[0].devices[1].heater_pairs, (5, 2, 3))
+            self.assertIn("device=/dev/pts/20", config.read_text())
+            with patch.object(simulator.time, "monotonic", return_value=10):
+                sim.cmd_press(["0:1", "A"])
+            device = sim.buses[0].devices[1]
+            self.assertEqual(device.exp_in, [0, 0, 0, 0, 1])
+            self.assertEqual(device.input_releases, {4: 10.6})
+            with self.assertRaisesRegex(ValueError, "已闭合"):
+                sim.cmd_press(["0:1", "A"])
+            sim.execute("set 0:1 in5 0")
+            self.assertEqual(device.input_releases, {})
+            simulator.write_run_config("/dev/pts/30", "/dev/pts/31", reset=True)
+            self.assertIn("heaterAPair=1", config.read_text())
 
     def test_high_voltage_switch_drives_both_detection_inputs(self):
         sim = self.make_simulator()

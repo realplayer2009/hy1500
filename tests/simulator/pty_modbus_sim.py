@@ -7,13 +7,16 @@
 
 协议 (与 src/rs485device.h 一致):
     Modbus RTU 19200/N/8/1, 0x03 读 / 0x06、0x10 写
+    0x0000 软件版本号
     0x0001 高压输入 0x0002 备用 0x0003 高压传感器电压(×10)
     0x0004~0x0009 温湿度1~3 温度/湿度(×10, INT16)
     0x000A~0x000B PT100-1/2 温度(×10, INT16)
     0x0011~0x001A OT01~OT10 读写 0/1
+    0x000C 外扩 IN1~IN5 位掩码, 0x000E 返回 0 (现场 firmware)
+    0x0031 OT01~OT10 位掩码, 0x0033 外扩 OUT1~OUT7 位掩码
 
 物理模型:
-    OT3 (低功率) / OT4 (高功率) 打开时板内温度按功率上升, 关闭后向
+    三个加热器按配置的 OT 输出对分别贡献低/高功率温升, 关闭后向
     环境温度回落; 外部温湿度探头向板内温度趋近并叠加噪声, 湿度随机
     游走。物理时间使用单调时钟，不会因为主站轮询变快而加速升温。
 
@@ -38,6 +41,7 @@
     trend P:S ℃/分钟              持续升温或降温, 0 停止变化
     set P:S 字段 值               固定字段 (见 status), 偏离物理模型
     expin P:S 掩码                设置外扩 IN1~IN5 (bit0~4, 0~31)
+    press P:S A|B|C|IN1~IN5 [毫秒]  实体按键脉冲 (默认 600 ms, 自动释放)
     auto P:S                      清除固定, 恢复自动模拟
     ambient P:S 温度              设环境温度 ℃
     normal P:S                    恢复正常温度和无高压状态
@@ -56,7 +60,9 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import curses
+import math
 import os
 import random
 import re
@@ -74,8 +80,8 @@ RUN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run")
 
 AMBIENT_DEFAULT = 22.0
 TICK_S = 0.5
-OT3_HEAT = 0.030   # ℃/s 低功率回路
-OT4_HEAT = 0.060   # ℃/s 高功率回路
+LOW_HEAT = 0.030   # ℃/s 每个加热器低功率回路
+HIGH_HEAT = 0.060  # ℃/s 每个加热器高功率回路
 COOL_TAU_S = 400.0
 PT_BIAS = (-0.15, 0.10)
 TH_BIAS = (-0.30, -0.10, 0.20)
@@ -113,12 +119,14 @@ def rtu(payload: bytes) -> bytes:
 class Device:
     """一块 PCB 板从站: 寄存器、输出状态与温度物理模型。"""
 
-    def __init__(self, slave_id: int, ambient: float):
+    def __init__(self, slave_id: int, ambient: float, heater_pairs=(1, 2, 3)):
         self.id = slave_id
         self.ambient = ambient
         self.internal = ambient + random.uniform(-0.5, 0.5)
         self.ot = [0] * 10
+        self.heater_pairs = heater_pairs
         self.regs = {
+            "software_version": 1,
             "hv_input": 1,                       # 现场低电平触发，1 为正常
             "reserved": 0,
             "voltage": 0,                         # 正常时高压传感器无电压
@@ -130,6 +138,7 @@ class Device:
         self.regs["pt2_temp"] = 0
         self.exp_in = [0] * 5   # IN1~IN5 外扩输入 bit0~4
         self.exp_out = [0] * 7  # OUT1~OUT7 外扩输出 bit0~6 (加热器灯等)
+        self.input_releases = {}  # 按键释放的单调时钟截止时间，索引为 0~4
         self.pinned = set()      # set 命令固定、不再被物理模型覆盖的字段
         self.trend_c_per_min = 0.0
         self.tick()
@@ -137,10 +146,13 @@ class Device:
     # ---------- 物理模型 ----------
     def tick(self, elapsed_s: float = TICK_S):
         elapsed_s = max(0.0, elapsed_s)
-        heat = self.ot[2] * OT3_HEAT + self.ot[3] * OT4_HEAT
-        self.internal += (heat + self.trend_c_per_min / 60.0) * elapsed_s
-        self.internal += ((self.ambient - self.internal)
-                          * min(1.0, elapsed_s / COOL_TAU_S))
+        heat = sum(self.ot[(pair - 1) * 2] * LOW_HEAT
+                   + self.ot[(pair - 1) * 2 + 1] * HIGH_HEAT
+                   for pair in self.heater_pairs)
+        # dT/dt = 加热/趋势 + (环境温度 - T)/tau 的解析解。
+        # 同样的真实时间，分成多少次 tick 都得到同样的内部温度。
+        equilibrium = self.ambient + (heat + self.trend_c_per_min / 60.0) * COOL_TAU_S
+        self.internal += (equilibrium - self.internal) * -math.expm1(-elapsed_s / COOL_TAU_S)
         self.internal = max(TEMP_MIN, min(TEMP_MAX, self.internal))
         if "pt1_temp" not in self.pinned:
             self.regs["pt1_temp"] = self._temp10(self.internal + PT_BIAS[0]
@@ -176,6 +188,8 @@ class Device:
         return values
 
     def _reg(self, addr: int) -> int | None:
+        if addr == 0x0000:
+            return self.regs["software_version"]
         if 0x0001 <= addr <= 0x000B:
             idx = addr - 0x0001
             keys = ["hv_input", "reserved", "voltage",
@@ -190,11 +204,7 @@ class Device:
                     mask |= 1 << i
             return mask
         if addr == 0x000E:
-            mask = 0
-            for i, v in enumerate(self.exp_in):
-                if v:
-                    mask |= 1 << i
-            return mask
+            return 0  # 现场 firmware 的文档地址恒为零，不伪装成两个有效地址
         if 0x0011 <= addr <= 0x001A:
             return self.ot[addr - 0x0011] & 0xFFFF
         if addr == 0x0031:
@@ -236,6 +246,10 @@ class Device:
         return None
 
     # ---------- 展示 ----------
+    def heater_gears(self) -> list[int]:
+        return [self.ot[(pair - 1) * 2] + 2 * self.ot[(pair - 1) * 2 + 1]
+                for pair in self.heater_pairs]
+
     def status_line(self, port: int) -> str:
         r = self.regs
         states = []
@@ -252,7 +266,9 @@ class Device:
             f"rh=[{r['th1_humi'] / 10:.0f},{r['th2_humi'] / 10:.0f},{r['th3_humi'] / 10:.0f}] "
             f"pt=[{r['pt1_temp'] / 10:.1f},{r['pt2_temp'] / 10:.1f}] "
             f"OT1-10={''.join(str(x) for x in self.ot)} "
-            f"IN1-5={''.join(str(x) for x in self.exp_in)}"
+            f"加热A/B/C={self.heater_gears()} "
+            f"IN1-5={''.join(str(x) for x in self.exp_in)} "
+            f"OUT1-7={''.join(str(x) for x in self.exp_out)}"
             + ("  状态: " + " ".join(states) if states else "")
         )
 
@@ -266,7 +282,8 @@ class Bus:
         self.name = name
         self.transport = transport        # (fd, close_fn) 或 pyserial 对象
         self.sim = sim
-        self.devices = {sid: Device(sid, AMBIENT_DEFAULT) for sid in slave_ids}
+        self.devices = {sid: Device(sid, AMBIENT_DEFAULT, sim.heater_pairs)
+                        for sid in slave_ids}
         self.bus_off = False
         self.rx = b""
         self.last_rx_at = None
@@ -346,7 +363,8 @@ class Bus:
                 return
             slave_id = frame[0]
             self.sim.log(f"P{self.index} RX S{slave_id} {frame.hex(' ')}")
-            self.respond(frame)
+            with self.sim.lock:
+                self.respond(frame)
 
     def _extract(self) -> bytes | None:
         """按功能码推断帧长, 从缓冲区取一帧; 无完整帧返回 None。"""
@@ -378,17 +396,28 @@ class Bus:
         sel = selectors.DefaultSelector()
         sel.register(self.transport.fileno(), selectors.EVENT_READ)
         while self.running:
-            for key, _ in sel.select(timeout=TICK_S):
+            with self.sim.lock:
+                deadlines = [deadline for dev in self.devices.values()
+                             for deadline in dev.input_releases.values()]
+            timeout = (max(0.0, min(TICK_S, min(deadlines) - time.monotonic()))
+                       if deadlines else TICK_S)
+            for key, _ in sel.select(timeout=timeout):
                 chunk = self.transport.read(512)
                 if chunk:
                     self.handle_rx(chunk)
                 else:
                     time.sleep(0.05)   # 对端关闭: 避免读 EOF 忙转
             now = time.monotonic()
-            if now - self.last_physics_at >= TICK_S:
-                elapsed_s = now - self.last_physics_at
-                self.last_physics_at = now
-                with self.sim.lock:
+            with self.sim.lock:
+                for dev in self.devices.values():
+                    for index, deadline in list(dev.input_releases.items()):
+                        if now >= deadline:
+                            dev.exp_in[index] = 0
+                            del dev.input_releases[index]
+                if now - self.last_physics_at >= TICK_S:
+                    elapsed_s = now - self.last_physics_at
+                    self.last_physics_at = now
+                    self.sim.reload_config()
                     for dev in self.devices.values():
                         dev.tick(elapsed_s)
         sel.close()
@@ -483,6 +512,10 @@ class Simulator:
         self.log_enabled = True
         self.print_lock = threading.Lock()
         self.emulate_write_sync = not args.no_write_sync_quirk
+        self.heater_pairs = (1, 2, 3)
+        self.input_modes = ["unused", "heater_a", "heater_b", "heater_c", "unused"]
+        self.config_path = os.path.join(RUN_DIR, "config", "app.ini")
+        self.config_stamp = None
         self.logfile = open(args.logfile, "a", encoding="utf-8") if args.logfile else None
         transports = []
         for i in range(2):
@@ -495,6 +528,37 @@ class Simulator:
         ]
         self.threads = [threading.Thread(target=b.loop, daemon=True)
                         for b in self.buses]
+
+    def reload_config(self):
+        """跟随上位机保存的接线配置；失败时保留上一份完整配置。"""
+        try:
+            stat = os.stat(self.config_path)
+            stamp = (stat.st_mtime_ns, stat.st_size)
+            if stamp == self.config_stamp:
+                return
+            ini = configparser.ConfigParser(interpolation=None)
+            ini.optionxform = str
+            with open(self.config_path, encoding="utf-8") as f:
+                ini.read_file(f)
+            general = ini["General"]
+            pairs = []
+            for name, default in zip("ABC", (1, 2, 3)):
+                pair = max(1, min(5, int(general.get(f"heater{name}Pair", default))))
+                if pair in pairs:
+                    pair = next(candidate for candidate in range(1, 6) if candidate not in pairs)
+                pairs.append(pair)
+            modes = [general.get(f"expIn{i}Mode", "unused") for i in range(1, 6)]
+            modes = [mode if mode in ("manual_auto", "heater_a", "heater_b",
+                                     "heater_c", "hv_lockout") else "unused" for mode in modes]
+        except (OSError, ValueError, KeyError, configparser.Error) as exc:
+            self.log(f"配置暂不可读，保留原接线: {exc}")
+            return
+        self.config_stamp = stamp
+        self.heater_pairs = tuple(pairs)
+        self.input_modes = modes
+        for bus in self.buses:
+            for dev in bus.devices.values():
+                dev.heater_pairs = self.heater_pairs
 
     # ---------- 日志 ----------
     def log(self, msg: str):
@@ -582,9 +646,11 @@ class Simulator:
             idx = int(field.split("exp_in")[1]) - 1
             if not 0 <= idx < 5:
                 raise ValueError("外扩输入编号为 1~5")
-            dev.exp_in[idx] = int(value) & 1
-            dev.pinned.add(field)
-            self.log(f"{args[0]} {field} = {int(value) & 1} (已固定)")
+            if value not in (0, 1):
+                raise ValueError("外扩输入只能设为 0 或 1")
+            dev.input_releases.pop(idx, None)
+            dev.exp_in[idx] = int(value)
+            self.log(f"{args[0]} {field} = {int(value)}")
             return
         else:
             if not 0 <= value <= 6553.5:
@@ -600,7 +666,32 @@ class Simulator:
         if not 0 <= mask <= 31:
             raise ValueError("外扩输入掩码必须为 0~31")
         dev.exp_in = [(mask >> i) & 1 for i in range(5)]
+        dev.input_releases.clear()
         self.log(f"{args[0]} 外扩输入 = {mask:05b} (IN1~IN5)")
+
+    def cmd_press(self, args):
+        if not 2 <= len(args) <= 3:
+            raise ValueError("用法: press P:S A|B|C|IN1~IN5 [100~60000 毫秒]")
+        dev = self._dev(args[0])
+        self.reload_config()
+        button = args[1].lower()
+        if button in ("a", "b", "c"):
+            mode = f"heater_{button}"
+            if mode not in self.input_modes:
+                raise ValueError(f"加热器{button.upper()} 未分配输入，请在上位机高级设置保存接入配置")
+            index = self.input_modes.index(mode)
+        elif re.fullmatch(r"in[1-5]", button):
+            index = int(button[2:]) - 1
+        else:
+            raise ValueError("按键必须为 A/B/C 或 IN1~IN5")
+        duration_ms = int(args[2]) if len(args) == 3 else 600
+        if not 100 <= duration_ms <= 60000:
+            raise ValueError("按键持续时间必须为 100~60000 毫秒")
+        if dev.exp_in[index]:
+            raise ValueError(f"IN{index + 1} 已闭合，先释放再按，才能产生新的上升沿")
+        dev.exp_in[index] = 1
+        dev.input_releases[index] = time.monotonic() + duration_ms / 1000.0
+        self.log(f"{args[0]} IN{index + 1} 按下，{duration_ms} ms 后释放")
 
     def cmd_auto(self, args):
         dev = self._dev(args[0])
@@ -615,7 +706,7 @@ class Simulator:
         if slave_id in bus.devices:
             raise ValueError(f"从站 {args[0]} 已存在")
         ambient = float(args[1]) if len(args) > 1 else AMBIENT_DEFAULT
-        bus.devices[slave_id] = Device(slave_id, ambient)
+        bus.devices[slave_id] = Device(slave_id, ambient, self.heater_pairs)
         self.log(f"{args[0]} 已接入, 环境温度 {ambient:.1f} ℃")
 
     def cmd_remove(self, args):
@@ -673,6 +764,9 @@ class Simulator:
         dev.trend_c_per_min = 0
         dev.regs["hv_input"] = 1
         dev.regs["voltage"] = 0
+        dev.regs["reserved"] = 0
+        dev.exp_in = [0] * 5
+        dev.input_releases.clear()
         dev.tick(0)
         self.log(f"{args[0]} 已恢复正常")
 
@@ -687,14 +781,14 @@ class Simulator:
             for bus, slave_ids in zip(self.buses, ([1, 2, 3], [4, 5])):
                 bus.devices = {
                     slave_id: (bus.devices[slave_id] if slave_id in bus.devices
-                               else Device(slave_id, AMBIENT_DEFAULT))
+                               else Device(slave_id, AMBIENT_DEFAULT, self.heater_pairs))
                     for slave_id in slave_ids
                 }
         elif name == "crowded":
             for bus in self.buses:
                 bus.devices = {
                     slave_id: (bus.devices[slave_id] if slave_id in bus.devices
-                               else Device(slave_id, AMBIENT_DEFAULT))
+                               else Device(slave_id, AMBIENT_DEFAULT, self.heater_pairs))
                     for slave_id in range(1, 17)
                 }
         elif name not in ("highvoltage", "temperature"):
@@ -744,7 +838,7 @@ class Tui:
         self.stdscr = stdscr
         self.sim = sim
         self.selection = 0            # 展平后的从站序号
-        self.message = "上下选择，左右调温湿度，,/. 调 PT100；h 高压"
+        self.message = "先等待上位机读到初始状态，再按 z/x/c 测试实体加热器按键"
         sim.console_log = False       # 全屏模式下帧日志只写文件
         curses.start_color()
         curses.use_default_colors()
@@ -791,16 +885,40 @@ class Tui:
         if flat:
             self.selection %= len(flat)
         h, _ = self.stdscr.getmaxyx()
-        visible_rows = max(1, h - 7)
+        visible_rows = max(1, h - 15)
         start = max(0, min(self.selection - visible_rows // 2,
                            len(flat) - visible_rows))
-        self._put(3, 0, "   子站     外部温度       PT100       环境/趋势       高压    OT1~10",
+        self._put(3, 0, "   子站     外部温度       PT100       环境/趋势       高压    加热A/B/C",
                   curses.color_pair(2) | curses.A_BOLD)
         for row, (bus, dev) in enumerate(flat[start:start + visible_rows], start=4):
             self.draw_device(row, bus, dev, flat[self.selection] == (bus, dev))
 
-        self._put(h - 2, 0, "[↑↓]选择 [←→]温湿度±1℃ [,/.]PT100±1℃ [s/p]设温 [v]升/降温 "
-                            "[h]高压 [a/r]增/减子站 [b]总线 [n]恢复",
+        if flat:
+            bus, dev = flat[self.selection]
+            self._put(h - 11, 0, f"当前 P{bus.index}:S{dev.id}  " + "  ".join(
+                f"{name} OT{(pair - 1) * 2 + 1}/{pair * 2}:{gear}档"
+                for name, pair, gear in zip("ABC", dev.heater_pairs, dev.heater_gears())),
+                curses.color_pair(2))
+            names = {"unused": "未使用", "heater_a": "加热A", "heater_b": "加热B",
+                     "heater_c": "加热C", "manual_auto": "手自动", "hv_lockout": "高压闭锁"}
+            inputs = [f"IN{i + 1}({names[mode]})={'闭合' if value else '断开'}"
+                      for i, (mode, value) in enumerate(zip(sim.input_modes, dev.exp_in))]
+            self._put(h - 10, 0, "  ".join(inputs[:3]))
+            self._put(h - 9, 0, "  ".join(inputs[3:]) + f"  备用输入={dev.regs['reserved']}")
+            self._put(h - 8, 0, "回读 OUT1~3 工作灯 A/B/C="
+                      + "/".join(str(value) for value in dev.exp_out[:3])
+                      + f"  OUT4 备用={dev.exp_out[3]}")
+            self._put(h - 7, 0, f"OUT5 提示蜂鸣器={dev.exp_out[4]}  OUT6 扩展灯={dev.exp_out[5]}"
+                      + f"  OUT7 扩展蜂鸣器={dev.exp_out[6]}")
+            self._put(h - 6, 0, f"OT1~10={''.join(str(value) for value in dev.ot)}"
+                      + "  灯/蜂鸣器由上位机驱动；手自动/高压闭锁仅监视", curses.A_DIM)
+        self._put(h - 5, 0, "[↑↓]选子站 [←→]温湿度±1℃ [,/.]PT100±1℃ [s/p]设温 [v]温度趋势",
+                  curses.A_DIM)
+        self._put(h - 4, 0, "[z/x/c]加热A/B/C实体按键(600ms) [F1~F5]对应IN保持/释放",
+                  curses.A_DIM)
+        self._put(h - 3, 0, "[h]高压 [e]备用输入 [a/r]增/减子站 [b]总线 [n]恢复 [u]恢复温度模型",
+                  curses.A_DIM)
+        self._put(h - 2, 0, "接线映射跟随上位机高级设置；轮询慢时用 F 键保持闭合，回读后释放",
                   curses.A_DIM)
         self._put(h - 1, 0, self.message, curses.color_pair(4) | curses.A_BOLD)
         self.stdscr.refresh()
@@ -814,7 +932,7 @@ class Tui:
                    f"{r['pt1_temp'] / 10:5.1f}/{r['pt2_temp'] / 10:5.1f}℃   "
                    f"{dev.ambient:5.1f}℃ {trend:>9}   "
                    f"{'报警' if high_voltage else '正常':4}   "
-                   f"{''.join(str(x) for x in dev.ot)}")
+                   f"{'/'.join(str(gear) for gear in dev.heater_gears())}")
         marker = ">" if selected else " "
         attr = curses.color_pair(5) if selected else 0
         if high_voltage and not selected:
@@ -864,6 +982,30 @@ class Tui:
             active = dev.regs["hv_input"] == 0 or dev.regs["voltage"] > 50
             sim.execute(f"highvoltage {ps} {'off' if active else 'on'}")
             self.message = f"{ps} 高压报警已{'解除' if active else '出现'}"
+        elif key in map(ord, "zxc"):
+            with sim.lock:
+                sim.reload_config()
+            name = "abc"["zxc".index(chr(key))]
+            mode = f"heater_{name}"
+            if mode not in sim.input_modes:
+                self.message = f"加热器{name.upper()} 未分配输入，请在上位机高级设置保存接入配置"
+            else:
+                index = sim.input_modes.index(mode)
+                if dev.exp_in[index]:
+                    self.message = f"IN{index + 1} 已闭合，先用 F{index + 1} 释放再按"
+                else:
+                    sim.execute(f"press {ps} {name}")
+                    self.message = f"{ps} 加热器{name.upper()} 实体按键已按下，600 ms 后释放"
+        elif curses.KEY_F1 <= key <= curses.KEY_F5:
+            index = key - curses.KEY_F1
+            sim.execute(f"set {ps} in{index + 1} {1 - dev.exp_in[index]}")
+            self.message = f"{ps} IN{index + 1} 已{'闭合' if dev.exp_in[index] else '释放'}"
+        elif key == ord("e"):
+            sim.execute(f"set {ps} reserved {1 - dev.regs['reserved']}")
+            self.message = f"{ps} 备用输入 = {dev.regs['reserved']} (联锁行为取决于上位机配置)"
+        elif key == ord("u"):
+            sim.execute(f"auto {ps}")
+            self.message = f"{ps} 温湿度/PT100 已恢复随加热变化，外扩开关保留当前状态"
         elif key == ord("v"):
             rates = (0.0, 3.0, -3.0)
             try:
@@ -920,7 +1062,8 @@ class Tui:
 
     def loop(self):
         while True:
-            self.draw()
+            with self.sim.lock:
+                self.draw()
             key = self.stdscr.getch()
             if key == -1:
                 time.sleep(0.05)
@@ -943,54 +1086,33 @@ def parse_ids(text: str) -> list[int]:
     return ids
 
 
-def write_run_config(port0: str, port1: str):
-    """生成指向模拟串口的 config/app.ini, 与主程序配置键保持一致。"""
+def write_run_config(port0: str, port1: str, reset=False):
+    """保留联调参数，从项目配置补齐缺失项，刷新串口和隔离的数据路径。"""
     cfg_dir = os.path.join(RUN_DIR, "config")
     os.makedirs(cfg_dir, exist_ok=True)
-    template = f"""; 模拟器自动生成: 端口指向 PTY 符号链接, 数据目录隔离在 run/ 下
-[General]
-dataPath=data/logs
-brightnessPercent=100
-displayTheme=graphite
-idleDimMinutes=10
-idleDimPercent=0
-recordIntervalMs=1000
-highVoltageDetectionMode=analog
-highVoltageDigitalTrigger=0
-highVoltageThreshold=5
-interSlaveDelayMs=10
-maxStorageMB=12288
-modbusTimeoutMs=500
-pollIntervalMs=100
-relaySwitchIntervalSec=10
-reservedInputMode=monitor
-temperatureControlMode=threshold
-temperatureTarget=25
-temperatureTargetSource=pt100
-
-[Port0]
-baudRate=19200
-dataBits=8
-device={port0}
-enabled=true
-frameDelayMs=2
-name=RS485-A
-parity=N
-stopBits=1
-
-[Port1]
-baudRate=19200
-dataBits=8
-device={port1}
-enabled=true
-frameDelayMs=2
-name=RS485-B
-parity=N
-stopBits=1
-"""
     path = os.path.join(cfg_dir, "app.ini")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(template)
+    source = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "..", "..", "config", "app.ini")
+    ini = configparser.ConfigParser(interpolation=None)
+    ini.optionxform = str
+    with open(source, encoding="utf-8") as f:
+        ini.read_file(f)
+    if os.path.exists(path) and not reset:
+        with open(path, encoding="utf-8") as f:
+            ini.read_file(f)
+    if not ini.has_section("General"):
+        ini.add_section("General")
+    ini["General"]["dataPath"] = "data/logs"
+    for index, port in enumerate((port0, port1)):
+        section = f"Port{index}"
+        if not ini.has_section(section):
+            ini.add_section(section)
+        ini[section].update(device=port, enabled="true", baudRate="19200",
+                            dataBits="8", parity="N", stopBits="1", frameDelayMs="2")
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write("; 模拟器配置：串口自动刷新，界面保存的参数跨重启保留\n")
+        ini.write(f, space_around_delimiters=False)
+    os.replace(path + ".tmp", path)
     return path
 
 
@@ -1024,6 +1146,8 @@ def main():
                         help="总线 0 从站地址, 逗号分隔 (默认 1,2,3)")
     parser.add_argument("--devices1", default="4,5",
                         help="总线 1 从站地址, 逗号分隔 (默认 4,5)")
+    parser.add_argument("--reset-config", action="store_true",
+                        help="用项目 config/app.ini 重置模拟配置 (默认保留界面保存的参数)")
     parser.add_argument("--script", help="启动时执行的命令文件 (每行一条)")
     parser.add_argument("--no-interactive", action="store_true",
                         help="不读 stdin, 纯后台运行 (自动化)")
@@ -1067,7 +1191,8 @@ def main():
     else:
         link0 = sim.buses[0].transport.config_path
         link1 = sim.buses[1].transport.config_path
-    cfg = write_run_config(link0, link1)
+    cfg = write_run_config(link0, link1, args.reset_config)
+    sim.reload_config()
 
     launcher = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_app.sh")
     print("=" * 64)
@@ -1081,10 +1206,10 @@ def main():
         print(f"  串口 1 (RS485-B): {link1}")
     print(f"  从站: P0 {parse_ids(args.devices0)} / P1 {parse_ids(args.devices1)}")
     print(f"  已生成主程序配置: {cfg}")
-    if launch_app is None:
-        print("  启动主程序: python3 " + launcher
+    if not launch_app:
+        print("  启动主程序: sh " + launcher
               + "   (或去掉 --no-launch-app 自动启动)")
-    print("  全屏控制台: 左右调温湿度, ,/. 调 PT100, h 高压, a/r 增减子站")
+    print("  全屏控制台: z/x/c 按加热器 A/B/C, F1~F5 切换外扩输入")
     print("  命令行模式 (--cli): 输入 help 查看命令")
     print("=" * 64, flush=True)
 
@@ -1123,8 +1248,9 @@ def main():
         pass
     finally:
         stop_host_app(app_proc)
-
-    sim.stop()
+        sim.stop()
+        if sim.logfile:
+            sim.logfile.close()
     print("模拟器已退出", flush=True)
 
 
