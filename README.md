@@ -125,6 +125,8 @@ python3 tests/simulator/test_pty_modbus_sim.py
 
 | 文档 | 内容 |
 | --- | --- |
+| [客户使用说明书 PDF](docs/客户使用说明书.pdf) / [Word](docs/客户使用说明书.docx) / [Markdown](docs/客户使用说明书.md) | 现场操作图解，包含主要功能入口、手自动控制、联锁处理、接口设置和历史管理 |
+| [docs/产品简介.pdf](docs/产品简介.pdf) / [文案](docs/产品简介.md) | 盒内产品宣传册，介绍核心功能与产品价值 |
 | [docs/BUILD_LINUX.md](docs/BUILD_LINUX.md) | 依赖安装、命令行编译、RK3568 部署 |
 | [docs/DEVICE_PANEL_PA0715N.md](docs/DEVICE_PANEL_PA0715N.md) | 现场屏（PA0715-N）硬件规格与程序相关要点 |
 | [docs/CONTROL_AND_SAFETY_DESIGN.md](docs/CONTROL_AND_SAFETY_DESIGN.md) | 自检、温控、联锁与备用引脚设计 |
