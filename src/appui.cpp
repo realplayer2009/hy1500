@@ -6,6 +6,7 @@
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QDateEdit>
+#include <QDialog>
 #include <QDoubleSpinBox>
 #include <QEvent>
 #include <QFrame>
@@ -413,6 +414,9 @@ QString applicationStyleSheet(const QString &themeName)
     const QString base = QString::fromUtf8(R"(
         * { font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
         QMainWindow, QWidget#appRoot, QMessageBox { background: white; color: #202020; }
+        QDialog#unsavedPrompt { background: white; color: #202020; border: 1px solid #cccccc; }
+        QLabel#unsavedTitle { color: #202020; font-size: 18px; font-weight: 700; }
+        QLabel#unsavedMessage { color: #555555; font-size: 15px; }
         QFrame#sideBar { background: #202020; border: none; }
         QLabel#brandTitle { color: white; font-size: 19px; font-weight: 700; }
         QPushButton#navButton { color: #dddddd; background: transparent; border: none;
@@ -510,6 +514,9 @@ QString applicationStyleSheet(const QString &themeName)
 
     const QString standard = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: #edf2f5; color: #182832; }
+        QDialog#unsavedPrompt { background: #edf2f5; color: #182832; border-color: #b8c9d3; }
+        QLabel#unsavedTitle { color: #182832; }
+        QLabel#unsavedMessage { color: #405663; }
         QFrame#sideBar { background: #172c3b; }
         QPushButton#navButton:hover { background: #244154; }
         QPushButton#navButton:checked { background: #146b97; border-left-color: #7ad2ff; }
@@ -521,6 +528,9 @@ QString applicationStyleSheet(const QString &themeName)
     )");
     const QString lowLight = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: #10181e; color: #eef3f5; }
+        QDialog#unsavedPrompt { background: #17232b; color: #eef3f5; border-color: #4b5c66; }
+        QLabel#unsavedTitle { color: #f1f5f7; }
+        QLabel#unsavedMessage { color: #b2c0c8; }
         QLabel { color: #eef3f5; }
         QFrame#sideBar { background: #080d11; }
         QLabel#brandTitle { color: #f4f8fa; }
@@ -572,6 +582,8 @@ QString applicationStyleSheet(const QString &themeName)
     )");
     const QString highContrast = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: white; color: black; }
+        QDialog#unsavedPrompt { background: white; color: black; border: 2px solid black; }
+        QLabel#unsavedTitle, QLabel#unsavedMessage { color: black; }
         QFrame#sideBar { background: black; }
         QPushButton#navButton { color: white; }
         QPushButton#navButton:hover { background: #222222; }
@@ -613,6 +625,9 @@ QString applicationStyleSheet(const QString &themeName)
             background: #F5F7FA;
             color: #1D1D1F;
         }
+        QDialog#unsavedPrompt { background: #F5F7FA; color: #1D1D1F; border-color: #E0E0E0; }
+        QLabel#unsavedTitle { color: #1D1D1F; }
+        QLabel#unsavedMessage { color: #6B6B6B; }
         QFrame#sideBar {
             background: #FFFFFF;
             border: none;
@@ -998,6 +1013,9 @@ QString applicationStyleSheet(const QString &themeName)
 
     const QString graphite = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: #1f1f21; color: #f5f5f7; }
+        QDialog#unsavedPrompt { background: #2a2a2c; color: #f5f5f7; border-color: #48484a; }
+        QLabel#unsavedTitle { color: #ffffff; }
+        QLabel#unsavedMessage { color: #c7c7cc; }
         QLabel { color: #f5f5f7; }
         QFrame#sideBar { background: #151516; }
         QLabel#brandTitle { color: #ffffff; }
@@ -4478,12 +4496,30 @@ bool SettingsWidget::confirmLeavingPage()
     if (settingsValues() == m_savedControlValues)
         return true;
 
-    QMessageBox prompt(QMessageBox::Question, QString::fromUtf8("配置尚未保存"),
-        QString::fromUtf8("当前页面有未保存的配置，是否保存并应用后切换？"),
-        QMessageBox::NoButton, this);
-    auto *save = prompt.addButton(QString::fromUtf8("保存并切换"), QMessageBox::AcceptRole);
-    auto *discard = prompt.addButton(QString::fromUtf8("不保存"), QMessageBox::NoRole);
-    auto *cancel = prompt.addButton(QString::fromUtf8("取消"), QMessageBox::RejectRole);
+    QDialog prompt(this);
+    prompt.setObjectName("unsavedPrompt");
+    prompt.setWindowTitle(QString::fromUtf8("配置尚未保存"));
+    prompt.setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+    prompt.setModal(true);
+    auto *layout = new QVBoxLayout(&prompt);
+    layout->setContentsMargins(24, 22, 24, 20);
+    layout->setSpacing(12);
+    auto *title = new QLabel(QString::fromUtf8("配置尚未保存"), &prompt);
+    title->setObjectName("unsavedTitle");
+    auto *message = new QLabel(QString::fromUtf8("当前页面有未保存的配置，是否保存并应用后切换？"), &prompt);
+    message->setObjectName("unsavedMessage");
+    message->setWordWrap(true);
+    layout->addWidget(title);
+    layout->addWidget(message);
+    auto *buttonRow = new QHBoxLayout;
+    buttonRow->addStretch();
+    auto *save = new QPushButton(QString::fromUtf8("保存并切换"), &prompt);
+    auto *discard = new QPushButton(QString::fromUtf8("不保存"), &prompt);
+    auto *cancel = new QPushButton(QString::fromUtf8("取消"), &prompt);
+    buttonRow->addWidget(save);
+    buttonRow->addWidget(discard);
+    buttonRow->addWidget(cancel);
+    layout->addLayout(buttonRow);
     save->setObjectName("primaryButton");
     for (QPushButton *button : { save, discard, cancel }) {
         if (button != save)
@@ -4491,17 +4527,21 @@ bool SettingsWidget::confirmLeavingPage()
         button->setMinimumSize(120, 44);
         refreshDynamicStyle(button);
     }
-    prompt.setDefaultButton(cancel);
-    prompt.setEscapeButton(cancel);
+    cancel->setDefault(true);
+    QPushButton *chosen = nullptr;
+    QObject::connect(save, &QPushButton::clicked, &prompt, [&] { chosen = save; prompt.accept(); });
+    QObject::connect(discard, &QPushButton::clicked, &prompt, [&] { chosen = discard; prompt.accept(); });
+    QObject::connect(cancel, &QPushButton::clicked, &prompt, &QDialog::reject);
+    prompt.resize(560, 190);
     prompt.exec();
-    if (!prompt.clickedButton() || prompt.clickedButton() == cancel)
+    if (prompt.result() != QDialog::Accepted || !chosen)
         return false;
-    if (prompt.clickedButton() == save && !saveSettings()) {
+    if (chosen == save && !saveSettings()) {
         QMessageBox::warning(this, QString::fromUtf8("无法切换页面"),
                              m_actionFeedback->text());
         return false;
     }
-    if (prompt.clickedButton() == discard) {
+    if (chosen == discard) {
         // 恢复控件时保留值变化信号，同步计算说明、联动选项和亮度预览。
         for (auto it = m_savedControlValues.constBegin();
              it != m_savedControlValues.constEnd(); ++it) {

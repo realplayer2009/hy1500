@@ -28,6 +28,18 @@
 - 解决方案选择：给作为桌面启动入口且声明 MAIN/LAUNCHER intent-filter 的 `MainActivity` 设置 `android:exported="true"`。
 - 解释：系统启动器需要能够从应用外启动该 Activity；显式声明满足 Android 12+ 安装要求并保留应用图标启动能力。
 
+- 问题：PA0715-N 一台设备通过 ADB 流式覆盖安装后，APK 内正常的 `libc++_shared.so` 在应用目录中被提取成全零内容，启动时因 ELF magic 为 `00000000` 闪退；同一 APK 改用非流式覆盖安装后库文件恢复正常并可启动。
+- 解决方案选择：原生 APK 的安装入口统一使用 `adb install --no-streaming -r`。
+- 解释：牺牲流式安装的少量传输便利，确保这类设备完整落盘 native 库；保留 `-r` 以继续升级应用并保留现场配置和历史数据。
+
+- 问题：PA0715-N 一台已有设备所有者的屏覆盖安装后，设备所有者记录仍存在，但 `KioskAdminReceiver` 未出现在活动管理员列表；Activity 恢复时调用 `setLockTaskPackages` 因 UID 不匹配而抛出 `SecurityException` 并闪退。
+- 解决方案选择：Kiosk 安装流程在确认或设置设备所有者后，显式执行 `dpm set-active-admin --user 0 com.rs485.control/.KioskAdminReceiver`。
+- 解释：重新激活同一管理组件即可恢复导航锁调用，不删除设备所有者、不清除现场应用数据。
+
+- 问题：Android 默认 HOME 和 PA0715-N 厂商开机自启/守护由两套机制控制，只设置其中一处会出现按 Home 或开机启动行为不完整。
+- 解决方案选择：Kiosk 安装统一将 `com.rs485.control/.MainActivity` 设为 Android HOME，并通过厂商工程设置将 `xzjh_auto_boot_package_name`、`xzjh_daemon_package_name` 都设为 `com.rs485.control`。
+- 解释：Android HOME 负责桌面选择，厂商工程项负责开机拉起和守护；两者同时设置，重启和按 Home 都进入控制软件。
+
 - 问题：原生 APK 未携带现场配置，启动工作目录也不保证可写，空白屏安装后界面可显示但串口列表为空。
 - 解决方案选择：打包共享 `config/app.ini` 与提示音，原生 Android 启动时在应用私有 files 目录中仅首次复制，后续配置和日志都使用该可写工作目录；仅 APK 工程定义 `RS485_NATIVE_ANDROID` 开启该路径。
 - 解释：APK assets 只读，不能作为保存路径；升级保留现场已有配置，桌面 Linux 与 Termux 的配置查找规则不变。Termux 同样运行于 Android，不能只用 `Q_OS_ANDROID` 区分两条部署路线。私有数据在卸载/清除应用数据时会删除，升级用 `install -r`。

@@ -17,7 +17,7 @@ adb connect $DeviceAddr
 if ($LASTEXITCODE -ne 0) { throw 'ADB connection failed.' }
 
 Write-Host 'Installing native RS485Control APK ...'
-adb -s $DeviceAddr install -r $ApkPath
+adb -s $DeviceAddr install --no-streaming -r $ApkPath
 if ($LASTEXITCODE -ne 0) { throw 'Native APK installation failed.' }
 
 if ($Kiosk) {
@@ -28,9 +28,16 @@ if ($Kiosk) {
         adb -s $DeviceAddr shell dpm set-device-owner --user 0 com.rs485.control/.KioskAdminReceiver
         if ($LASTEXITCODE -ne 0) { throw 'Failed to configure the device owner. Resolve the reported account/owner conflict without clearing device data.' }
     }
+    adb -s $DeviceAddr shell dpm set-active-admin --user 0 com.rs485.control/.KioskAdminReceiver
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to activate the kiosk device admin.' }
     Write-Host 'Setting RS485Control as the default Home ...'
     adb -s $DeviceAddr shell cmd package set-home-activity --user 0 com.rs485.control/.MainActivity
     if ($LASTEXITCODE -ne 0) { throw 'Failed to set the default Home.' }
+    Write-Host 'Configuring the panel engineering auto-start and watchdog ...'
+    adb -s $DeviceAddr shell settings put system xzjh_auto_boot_package_name com.rs485.control
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to configure panel auto-start.' }
+    adb -s $DeviceAddr shell settings put system xzjh_daemon_package_name com.rs485.control
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to configure panel watchdog.' }
 }
 
 adb -s $DeviceAddr shell am force-stop com.rs485.control
