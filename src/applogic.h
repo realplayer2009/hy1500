@@ -78,9 +78,12 @@ public:
         QString pidFirstStageOutput = "ot3";
         QString spareOt01Mode = "off";
         QString spareOt02Mode = "off";
+        QString spareOt03Mode = "off";
+        QString spareOt04Mode = "off";
         QString spareOt05Mode = "off";
         QString spareOt06Mode = "off";
-        QString reservedInputMode = "monitor";
+        QString spareOt07Mode = "off";
+        QString spareOt08Mode = "off";
         QString highVoltageDetectionMode = "analog";
         int highVoltageDigitalTrigger = 1;
         double highVoltageThreshold = 1.0;
@@ -97,7 +100,7 @@ public:
         QString expIn3Mode = "unused";
         QString expIn4Mode = "unused";
         QString expIn5Mode = "unused";
-        // 加热器输出映射: 1=OT1+OT2, 2=OT3+OT4, 3=OT5+OT6, 4=OT7+OT8, 5=OT9+OT10
+        // 加热器输出映射: 0=未配置, 1=OT1+OT2, 2=OT3+OT4, 3=OT5+OT6, 4=OT7+OT8, 5=OT9+OT10
         // 每对继电器的低位=1档, 高位=2档, 同开=3档
         int heaterAPair = 1;
         int heaterBPair = 2;
@@ -189,7 +192,7 @@ private:
  * @brief 数据存储: 按日期分文件的 CSV
  *
  * 文件格式: logs/YYYY-MM-DD.csv
- * 新文件只保留设备身份、必要测量值、备用输入和 OT1～OT6 状态。
+ * 新文件只保留设备身份、必要测量值和 OT1～OT6 状态。
  * 不使用数据库，保持 RK3568 上的低内存占用。
  */
 class DataLogger : public QObject
@@ -230,6 +233,7 @@ private:
     QFile m_file;
     QDate m_fileDate;
     bool m_fileLegacySchema = false;
+    bool m_fileReservedColumn = false;
     qint64 m_lastRecordTimePersistedMs = 0;
     QDate m_lastRecordTimePersistedDate;
 };

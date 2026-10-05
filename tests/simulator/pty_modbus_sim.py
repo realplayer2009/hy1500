@@ -148,7 +148,7 @@ class Device:
         elapsed_s = max(0.0, elapsed_s)
         heat = sum(self.ot[(pair - 1) * 2] * LOW_HEAT
                    + self.ot[(pair - 1) * 2 + 1] * HIGH_HEAT
-                   for pair in self.heater_pairs)
+                   for pair in self.heater_pairs if pair != 0)
         # dT/dt = 加热/趋势 + (环境温度 - T)/tau 的解析解。
         # 同样的真实时间，分成多少次 tick 都得到同样的内部温度。
         equilibrium = self.ambient + (heat + self.trend_c_per_min / 60.0) * COOL_TAU_S
@@ -248,7 +248,7 @@ class Device:
     # ---------- 展示 ----------
     def heater_gears(self) -> list[int]:
         return [self.ot[(pair - 1) * 2] + 2 * self.ot[(pair - 1) * 2 + 1]
-                for pair in self.heater_pairs]
+                if pair != 0 else 0 for pair in self.heater_pairs]
 
     def status_line(self, port: int) -> str:
         r = self.regs
@@ -543,8 +543,8 @@ class Simulator:
             general = ini["General"]
             pairs = []
             for name, default in zip("ABC", (1, 2, 3)):
-                pair = max(1, min(5, int(general.get(f"heater{name}Pair", default))))
-                if pair in pairs:
+                pair = max(0, min(5, int(general.get(f"heater{name}Pair", default))))
+                if pair != 0 and pair in pairs:
                     pair = next(candidate for candidate in range(1, 6) if candidate not in pairs)
                 pairs.append(pair)
             modes = [general.get(f"expIn{i}Mode", "unused") for i in range(1, 6)]
@@ -896,7 +896,8 @@ class Tui:
         if flat:
             bus, dev = flat[self.selection]
             self._put(h - 11, 0, f"当前 P{bus.index}:S{dev.id}  " + "  ".join(
-                f"{name} OT{(pair - 1) * 2 + 1}/{pair * 2}:{gear}档"
+                (f"{name} OT{(pair - 1) * 2 + 1}/{pair * 2}:{gear}档"
+                 if pair != 0 else f"{name} 未配置")
                 for name, pair, gear in zip("ABC", dev.heater_pairs, dev.heater_gears())),
                 curses.color_pair(2))
             names = {"unused": "未使用", "heater_a": "加热A", "heater_b": "加热B",
@@ -904,7 +905,7 @@ class Tui:
             inputs = [f"IN{i + 1}({names[mode]})={'闭合' if value else '断开'}"
                       for i, (mode, value) in enumerate(zip(sim.input_modes, dev.exp_in))]
             self._put(h - 10, 0, "  ".join(inputs[:3]))
-            self._put(h - 9, 0, "  ".join(inputs[3:]) + f"  备用输入={dev.regs['reserved']}")
+            self._put(h - 9, 0, "  ".join(inputs[3:]))
             self._put(h - 8, 0, "回读 OUT1~3 工作灯 A/B/C="
                       + "/".join(str(value) for value in dev.exp_out[:3])
                       + f"  OUT4 备用={dev.exp_out[3]}")
@@ -916,7 +917,7 @@ class Tui:
                   curses.A_DIM)
         self._put(h - 4, 0, "[z/x/c]加热A/B/C实体按键(600ms) [F1~F5]对应IN保持/释放",
                   curses.A_DIM)
-        self._put(h - 3, 0, "[h]高压 [e]备用输入 [a/r]增/减子站 [b]总线 [n]恢复 [u]恢复温度模型",
+        self._put(h - 3, 0, "[h]高压 [a/r]增/减子站 [b]总线 [n]恢复 [u]恢复温度模型",
                   curses.A_DIM)
         self._put(h - 2, 0, "接线映射跟随上位机高级设置；轮询慢时用 F 键保持闭合，回读后释放",
                   curses.A_DIM)
@@ -1000,9 +1001,6 @@ class Tui:
             index = key - curses.KEY_F1
             sim.execute(f"set {ps} in{index + 1} {1 - dev.exp_in[index]}")
             self.message = f"{ps} IN{index + 1} 已{'闭合' if dev.exp_in[index] else '释放'}"
-        elif key == ord("e"):
-            sim.execute(f"set {ps} reserved {1 - dev.regs['reserved']}")
-            self.message = f"{ps} 备用输入 = {dev.regs['reserved']} (联锁行为取决于上位机配置)"
         elif key == ord("u"):
             sim.execute(f"auto {ps}")
             self.message = f"{ps} 温湿度/PT100 已恢复随加热变化，外扩开关保留当前状态"

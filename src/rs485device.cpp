@@ -11,7 +11,7 @@
 
 // ============================================================
 // DeviceProfile: PCB 板寄存器映射与解析
-// 协议: Modbus 地址表 [26.08.17]
+// 协议: Modbus 地址表 V1.2 [26.09.17]
 // ============================================================
 
 QString DeviceProfile::deviceTypeToString(DeviceType t)
@@ -230,7 +230,7 @@ QString DeviceProfile::fieldDisplayName(const QString &field)
     static const QMap<QString, QString> names = {
         { "software_version", QString::fromUtf8("软件版本号") },
         { "hv_input",      QString::fromUtf8("高压通电输入状态") },
-        { "reserved",      QString::fromUtf8("备用输入") },
+        { "reserved",      QString::fromUtf8("预留寄存器") },
         { "external_voltage", QString::fromUtf8("外部电压采样输入值") },
         { "pt1_temp",      QString::fromUtf8("PT100-1 温度") },
         { "pt2_temp",      QString::fromUtf8("PT100-2 温度") },

@@ -33,10 +33,17 @@ Qt 5.15.2 Android 的 arm64-v8a 工具链。
 
 当前 APK 包含 RS485Control Qt 界面和全屏 Activity，入口源码为
 `package/src/com/rs485/control/MainActivity.java`，运行时不需要 Termux/X11。
+首次启动把内置配置复制到应用私有可写目录，升级保留已有配置。
+Activity 提供 HOME 入口；安装脚本加 `-Kiosk` 设置设备所有者及默认桌面，
+进入应用后启用锁定任务模式，禁用 Android 系统导航。ADB 维护开关见批量指南。
 GitHub Actions 的 `Native Android APK Build` 只构建这条路线，产物名为
 `RS485Control-native-arm64-v8a`。
 
 ## 安装入口
+
+十多台同型号原生屏的安装顺序、批量命令和开机画面见
+[`批量安装指南`](../docs/批量安装指南.md)。安装电脑只需 ADB 和现成 APK，
+无需 Qt/NDK/Java；全部设备使用同一份已验收产物。
 
 - 原生 APK：`powershell -File android/provision_apk.ps1 -DeviceAddr <设备IP>:<端口>`。
 - Termux 启动器：`powershell -File android/provision.ps1 -DeviceAddr <设备IP>:<端口> -LauncherApk <已有启动器.apk>`。设备须已配置 Termux/X11、Qt 依赖、业务程序与启动脚本。

@@ -17,6 +17,10 @@
 #include <QMetaObject>
 #include <QStorageInfo>
 #include <algorithm>
+#ifdef RS485_NATIVE_ANDROID
+#include <QtAndroid>
+#include <QAndroidJniObject>
+#endif
 
 // ============================================================
 // AppConfig: app.ini 配置加载/保存
@@ -57,13 +61,15 @@ bool AppConfig::load(const QString &iniPath)
         qBound(0, ini.value("idleDimMinutes", 10).toInt(), 1440);
     m_general.idleDimPercent =
         qBound(0, ini.value("idleDimPercent", 0).toInt(), 100);
-    // 加热器输出映射: 1=OT1+OT2 ... 5=OT9+OT10, 非法值回落 1
-    m_general.heaterAPair = qBound(1, ini.value("heaterAPair", 1).toInt(), 5);
-    m_general.heaterBPair = qBound(1, ini.value("heaterBPair", 2).toInt(), 5);
-    m_general.heaterCPair = qBound(1, ini.value("heaterCPair", 3).toInt(), 5);
+    // 加热器输出映射: 0=未配置, 1=OT1+OT2 ... 5=OT9+OT10
+    m_general.heaterAPair = qBound(0, ini.value("heaterAPair", 1).toInt(), 5);
+    m_general.heaterBPair = qBound(0, ini.value("heaterBPair", 2).toInt(), 5);
+    m_general.heaterCPair = qBound(0, ini.value("heaterCPair", 3).toInt(), 5);
     QSet<int> usedHeaterPairs;
     for (int *pair : { &m_general.heaterAPair, &m_general.heaterBPair,
                        &m_general.heaterCPair }) {
+        if (*pair == 0)
+            continue;
         if (usedHeaterPairs.contains(*pair)) {
             for (int candidate = 1; candidate <= 5; ++candidate) {
                 if (!usedHeaterPairs.contains(candidate)) {
@@ -161,25 +167,28 @@ bool AppConfig::load(const QString &iniPath)
         ini.value("pidFirstStageOutput", "ot3").toString().toLower();
     if (m_general.pidFirstStageOutput != "ot4")
         m_general.pidFirstStageOutput = "ot3";
-    auto validSpareMode = [](const QString &mode) {
+    auto validSpareMode = [](const QString &mode, bool allowStatus) {
         return mode == "off" || mode == "manual"
             || mode == "auto" || mode == "alarm"
-            || mode == "follow_ot3" || mode == "follow_ot4";
+            || mode == "follow_ot3" || mode == "follow_ot4"
+            || (allowStatus && mode == "status");
     };
     m_general.spareOt01Mode = ini.value("spareOt01Mode", "off").toString();
     m_general.spareOt02Mode = ini.value("spareOt02Mode", "off").toString();
+    m_general.spareOt03Mode = ini.value("spareOt03Mode", "off").toString();
+    m_general.spareOt04Mode = ini.value("spareOt04Mode", "off").toString();
     m_general.spareOt05Mode = ini.value("spareOt05Mode", "off").toString();
     m_general.spareOt06Mode = ini.value("spareOt06Mode", "off").toString();
+    m_general.spareOt07Mode = ini.value("spareOt07Mode", "off").toString();
+    m_general.spareOt08Mode = ini.value("spareOt08Mode", "off").toString();
     for (QString *mode : { &m_general.spareOt01Mode, &m_general.spareOt02Mode,
-                           &m_general.spareOt05Mode, &m_general.spareOt06Mode }) {
-        if (!validSpareMode(*mode))
+                           &m_general.spareOt03Mode, &m_general.spareOt04Mode,
+                           &m_general.spareOt05Mode, &m_general.spareOt06Mode,
+                           &m_general.spareOt07Mode, &m_general.spareOt08Mode }) {
+        if (!validSpareMode(*mode, mode == &m_general.spareOt07Mode
+                                  || mode == &m_general.spareOt08Mode))
             *mode = "off";
     }
-    m_general.reservedInputMode =
-        ini.value("reservedInputMode", "monitor").toString();
-    if (m_general.reservedInputMode != "interlock_high"
-        && m_general.reservedInputMode != "interlock_low")
-        m_general.reservedInputMode = "monitor";
     m_general.highVoltageDetectionMode =
         ini.value("highVoltageDetectionMode", "analog").toString().toLower();
     if (m_general.highVoltageDetectionMode != "digital")
@@ -285,9 +294,13 @@ bool AppConfig::save(const QString &iniPath) const
     ini.setValue("pidFirstStageOutput", m_general.pidFirstStageOutput);
     ini.setValue("spareOt01Mode", m_general.spareOt01Mode);
     ini.setValue("spareOt02Mode", m_general.spareOt02Mode);
+    ini.setValue("spareOt03Mode", m_general.spareOt03Mode);
+    ini.setValue("spareOt04Mode", m_general.spareOt04Mode);
     ini.setValue("spareOt05Mode", m_general.spareOt05Mode);
     ini.setValue("spareOt06Mode", m_general.spareOt06Mode);
-    ini.setValue("reservedInputMode", m_general.reservedInputMode);
+    ini.setValue("spareOt07Mode", m_general.spareOt07Mode);
+    ini.setValue("spareOt08Mode", m_general.spareOt08Mode);
+    ini.remove("reservedInputMode");
     ini.setValue("highVoltageDetectionMode", m_general.highVoltageDetectionMode);
     ini.setValue("highVoltageDigitalTrigger", m_general.highVoltageDigitalTrigger);
     ini.setValue("highVoltageThreshold", m_general.highVoltageThreshold);
@@ -444,7 +457,7 @@ void DataLogger::ensureHeader(QTextStream &out, const QString &filePath)
     out << "timestamp,port,slave_id,device_name,"
            "th1_temp_c,th1_humi_pct,th2_temp_c,th2_humi_pct,"
            "th3_temp_c,th3_humi_pct,pt1_temp_c,pt2_temp_c,"
-           "external_voltage_v,reserved_input,"
+           "external_voltage_v,"
            "ot01,ot02,ot03,ot04,ot05,ot06\n";
 }
 
@@ -468,8 +481,10 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
     }
 
     QJsonObject json;
-    for (auto it = values.constBegin(); it != values.constEnd(); ++it)
-        json[it.key()] = QJsonValue::fromVariant(it.value());
+    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
+        if (it.key() != "reserved")
+            json[it.key()] = QJsonValue::fromVariant(it.value());
+    }
 
     auto engineering = [&values](const QString &field) {
         return values.contains(field)
@@ -489,7 +504,10 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
             << engineering("th2_temp") << engineering("th2_humi")
             << engineering("th3_temp") << engineering("th3_humi")
             << engineering("pt1_temp") << engineering("pt2_temp")
-            << engineering("external_voltage") << raw("reserved");
+            << engineering("external_voltage");
+    // 当天旧表头仍有该列时留空占位，保持后续输出列的位置。
+    if (m_fileReservedColumn)
+        columns << QString();
     for (int i = 1; i <= 6; ++i)
         columns << raw(QString("ot%1").arg(i, 2, 10, QChar('0')));
     QString line;
@@ -531,6 +549,7 @@ void DataLogger::closeCurrentFile()
         m_file.close();
     m_fileDate = QDate();
     m_fileLegacySchema = false;
+    m_fileReservedColumn = false;
 }
 
 bool DataLogger::openFileForDate(const QDate &date)
@@ -546,6 +565,7 @@ bool DataLogger::openFileForDate(const QDate &date)
 
     m_fileDate = date;
     m_fileLegacySchema = false;
+    m_fileReservedColumn = false;
     if (existingSize > 0) {
         // 当天已有旧版 CSV 时继续按旧表头写, 避免混合表头
         QFile existing(filePath);
@@ -553,6 +573,7 @@ bool DataLogger::openFileForDate(const QDate &date)
             const QString header = QString::fromUtf8(existing.readLine()).trimmed();
             m_fileLegacySchema =
                 header == "timestamp,port,slave_id,device_name,device_type,data";
+            m_fileReservedColumn = header.split(',').contains("reserved_input");
         }
     } else {
         QTextStream out(&m_file);
@@ -729,8 +750,10 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFileMode(
             const QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
             if (doc.isObject()) {
                 const QJsonObject obj = doc.object();
-                for (auto it = obj.constBegin(); it != obj.constEnd(); ++it)
-                    rec.values[it.key()] = it.value().toVariant();
+                for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+                    if (it.key() != "reserved")
+                        rec.values[it.key()] = it.value().toVariant();
+                }
             }
         } else {
             const QStringList columns = line.split(',');
@@ -772,7 +795,7 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFileMode(
                     rec.values[it.value()] = qRound(columns.at(column).toDouble() * 10.0);
             }
             const QStringList rawFields = {
-                "hv_input", "reserved_input",
+                "hv_input",
                 "ot01", "ot02", "ot03", "ot04", "ot05", "ot06"
             };
             for (const QString &columnName : rawFields) {
@@ -780,9 +803,7 @@ QVector<HistoryQuery::Record> HistoryQuery::parseFileMode(
                 if (column < 0 || column >= columns.size()
                     || columns.at(column).isEmpty())
                     continue;
-                const QString valueField =
-                    columnName == "reserved_input" ? "reserved" : columnName;
-                rec.values[valueField] = columns.at(column).toInt();
+                rec.values[columnName] = columns.at(column).toInt();
             }
         }
 
@@ -1322,6 +1343,27 @@ void BrightnessController::writeBrightness(int percent)
     const int clamped = qBound(0, percent, 100);
     if (m_currentPercent == clamped)
         return;
+#ifdef RS485_NATIVE_ANDROID
+    // 原生 APK 直接调整本应用窗口，无需写系统设置，也不阻塞 Qt 界面线程。
+    if (!QtAndroid::androidActivity().isValid())
+        return;
+    QtAndroid::runOnAndroidThread([clamped]() {
+        const QAndroidJniObject activity = QtAndroid::androidActivity();
+        const QAndroidJniObject window = activity.callObjectMethod(
+            "getWindow", "()Landroid/view/Window;");
+        if (!window.isValid())
+            return;
+        QAndroidJniObject attributes = window.callObjectMethod(
+            "getAttributes", "()Landroid/view/WindowManager$LayoutParams;");
+        if (!attributes.isValid())
+            return;
+        attributes.setField<jfloat>("screenBrightness", clamped / 100.0f);
+        window.callMethod<void>("setAttributes",
+            "(Landroid/view/WindowManager$LayoutParams;)V", attributes.object());
+    });
+    m_currentPercent = clamped;
+    return;
+#endif
     detectBackend();
 
     bool applied = false;

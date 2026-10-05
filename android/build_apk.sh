@@ -91,6 +91,12 @@ cp "$ANDROID_DIR/package/AndroidManifest.xml" "$DEPLOY_DIR/AndroidManifest.xml"
     --android-platform android-33 \
     --jdk "$JAVA_ROOT" \
     --aux-mode
+
+# Bundle the shared defaults; the app copies them to writable storage only once.
+mkdir -p "$DEPLOY_DIR/assets/config" "$DEPLOY_DIR/assets/assets"
+cp "$PROJECT_DIR/config/app.ini" "$DEPLOY_DIR/assets/config/app.ini"
+cp "$PROJECT_DIR/assets/click.wav" "$DEPLOY_DIR/assets/assets/click.wav"
+cp -R "$ANDROID_DIR/package/res/." "$DEPLOY_DIR/res/"
 python3 - "$DEPLOY_DIR/AndroidManifest.xml" <<'PY'
 from pathlib import Path
 import sys
@@ -109,8 +115,8 @@ PY
 # Remove the old package's generated Activity when reusing a previous build.
 rm -f "$DEPLOY_DIR/src/com/rs485/launcher/MainActivity.java"
 mkdir -p "$DEPLOY_DIR/src/com/rs485/control"
-cp "$ANDROID_DIR/package/src/com/rs485/control/MainActivity.java" \
-    "$DEPLOY_DIR/src/com/rs485/control/MainActivity.java"
+cp "$ANDROID_DIR/package/src/com/rs485/control/"*.java \
+    "$DEPLOY_DIR/src/com/rs485/control/"
 
 # Gradle 5.6 reads gradle.properties as ISO-8859-1. Escape UTF-8 project paths
 # as Java properties Unicode sequences so Qt paths remain valid on non-ASCII mounts.

@@ -376,14 +376,12 @@ private:
     QSpinBox *m_deleteAge = nullptr;
     QComboBox *m_deleteAgeUnit = nullptr;
     QMap<int, QComboBox *> m_spareOutputModes;
-    QComboBox *m_reservedInputMode = nullptr;
     QLabel *m_storageSummary = nullptr;
     QLabel *m_deleteDateReference = nullptr;
     QLabel *m_formula = nullptr;
     QLabel *m_actionFeedback = nullptr;
     QTimer *m_feedbackTimer = nullptr;
     bool m_advancedOnly = false;
-    bool m_themePopupPressed = false;
 
     QDate deleteCutoffDate() const;
 };
@@ -441,11 +439,6 @@ private:
                                    const QMap<QString, QVariant> &currentValues =
                                        QMap<QString, QVariant>(),
                                    bool initializeManual = false) const;
-    void evaluateReservedInput(const DeviceProfile::DeviceKey &key,
-                               const DeviceState &state);
-    void enterReservedInputInterlock(const DeviceProfile::DeviceKey &key,
-                                     int value);
-    void leaveReservedInputInterlock(const DeviceProfile::DeviceKey &key);
     void refreshSystemState();
     void checkSystemTimeAnomaly();
     /** 操作确认音: 接在 OUT5 上的蜂鸣器闭合 0.2 秒; 无子板时回退软件音 */
@@ -500,7 +493,6 @@ private:
     QMap<int, int> m_lastLampGear;
     QMap<int, int> m_sensorRecoveryCounts;
     QSet<int> m_sensorHealthyDevices;
-    QMap<int, QString> m_reservedInputInterlocks;
     QSet<int> m_initializedDevices;
 };
 

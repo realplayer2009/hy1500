@@ -153,6 +153,18 @@ class DeviceModelTest(unittest.TestCase):
         device.tick(10)
         self.assertGreater(device.internal, 23.7)
 
+    def test_missing_heaters_do_not_use_negative_output_indices(self):
+        device = simulator.Device(1, 22.0, (0, 2, 0))
+        device.internal = device.ambient
+        device.ot[8] = device.ot[9] = 1
+        self.assertEqual(device.heater_gears(), [0, 0, 0])
+        device.tick(10)
+        self.assertAlmostEqual(device.internal, device.ambient)
+        device.ot[2] = 1
+        self.assertEqual(device.heater_gears(), [0, 1, 0])
+        device.tick(10)
+        self.assertGreater(device.internal, device.ambient)
+
     def test_physics_uses_elapsed_time_not_tick_count(self):
         one_tick = simulator.Device(1, 22.0)
         many_ticks = simulator.Device(1, 22.0)
@@ -214,6 +226,19 @@ class OperatingScenarioTest(unittest.TestCase):
             self.assertEqual(device.input_releases, {})
             simulator.write_run_config("/dev/pts/30", "/dev/pts/31", reset=True)
             self.assertIn("heaterAPair=1", config.read_text())
+
+    def test_missing_heaters_remain_unassigned_after_config_reload(self):
+        sim = self.make_simulator()
+        with tempfile.TemporaryDirectory() as run_dir, patch.object(simulator, "RUN_DIR", run_dir):
+            sim.config_path = simulator.write_run_config("/dev/pts/10", "/dev/pts/11")
+            sim.config_stamp = None
+            config = pathlib.Path(sim.config_path)
+            original = config.read_text()
+            config.write_text(original.replace("heaterAPair=1", "heaterAPair=0")
+                              .replace("heaterBPair=2", "heaterBPair=0"))
+            sim.reload_config()
+            self.assertEqual(sim.heater_pairs, (0, 0, 3))
+            self.assertEqual(sim.buses[0].devices[1].heater_pairs, (0, 0, 3))
 
     def test_high_voltage_switch_drives_both_detection_inputs(self):
         sim = self.make_simulator()

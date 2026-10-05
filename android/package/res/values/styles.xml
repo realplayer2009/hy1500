@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="RS485ThemeBase" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">#202329</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="RS485Theme" parent="RS485ThemeBase"/>
+</resources>
