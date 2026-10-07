@@ -27,16 +27,7 @@ def text_runs(paragraph, value):
 
 
 def add_table(document, rows):
-    if len(rows[0]) == 2:
-        widths = [4.0, 12.8]
-    elif rows[0][0] == "操作":
-        widths = [6.0, 9.3, 1.5]
-    elif rows[0][0] == "参数":
-        widths = [4.7, 3.7, 8.4]
-    elif rows[0][0] == "提示":
-        widths = [3.2, 7.2, 6.4]
-    else:
-        widths = [3.3, 6.8, 6.7]
+    widths = [3.2, 11.0] if len(rows[0]) == 2 else [14.2 / len(rows[0])] * len(rows[0])
     table = document.add_table(rows=1, cols=len(rows[0]))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = False
@@ -76,7 +67,7 @@ def add_table(document, rows):
                 paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             text_runs(paragraph, value)
             for run in paragraph.runs:
-                run.font.size = Pt(9.5)
+                run.font.size = Pt(10)
                 run.bold = index == 0
     paragraph = document.add_paragraph()
     paragraph.paragraph_format.space_after = Pt(2)
@@ -86,10 +77,10 @@ def add_table(document, rows):
 
 source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / "docs/客户使用说明书.md"
 
-# 图示只说明软件关系与操作顺序，不代表现场物理接线。
+# 图示按开发资料绘制板端关系；不替代整箱端子图和扩展板接线资料。
 font_path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
-diagram_font = ImageFont.truetype(font_path, 34)
-diagram_small = ImageFont.truetype(font_path, 27)
+diagram_font = ImageFont.truetype(font_path, 42)
+diagram_small = ImageFont.truetype(font_path, 36)
 diagram_large = ImageFont.truetype(font_path, 48)
 
 
@@ -112,75 +103,98 @@ def heater(draw, x, y, title):
 
 image_dir = source.parent / "客户使用说明书插图"
 image_dir.mkdir(exist_ok=True)
-canvas = Image.new("RGB", (1600, 960), "white")
+# 分体式控制箱、加热器与探头的关系，不标注未确认的实物尺寸。
+canvas = Image.new("RGB", (1600, 820), "white")
 draw = ImageDraw.Draw(canvas)
-# 面板、总线与单块子板的关系示意。
-draw.rounded_rectangle((400, 45, 1200, 400), radius=22, outline="black", width=5)
-draw.rectangle((455, 85, 1145, 345), outline="black", width=3)
-draw.line(((635, 400), (610, 450), (990, 450), (965, 400)), fill="black", width=5)
-label(draw, (800, 150), "裕泰通加热器", diagram_large)
-for i, title in enumerate(("A", "B", "C")):
-    x = 580 + i * 155
-    draw.rectangle((x, 215, x + 130, 305), outline="black", width=3)
-    label(draw, (x + 65, 260), title)
-draw.line(((800, 450), (800, 530)), fill="black", width=4)
-label(draw, (1020, 490), "RS485 两路总线", diagram_small)
-draw.rounded_rectangle((650, 530, 950, 650), radius=8, outline="black", width=4)
-label(draw, (800, 590), "控制子板")
-draw.line(((800, 650), (800, 695), (430, 695), (1170, 695)), fill="black", width=4)
-for x, title in ((360, "加热器 A"), (730, "加热器 B"), (1100, "加热器 C")):
-    draw.line(((x + 70, 695), (x + 70, 735)), fill="black", width=4)
-    heater(draw, x, 735, title)
+draw.rounded_rectangle((490, 50, 1110, 350), radius=18, outline="black", width=5)
+draw.rectangle((550, 95, 1050, 240), outline="black", width=3)
+label(draw, (800, 165), "加热器控制系统", diagram_large)
+for x in (655, 800, 945):
+    draw.ellipse((x - 20, 270, x + 20, 310), outline="black", width=3)
+label(draw, (800, 405), "控制箱")
+draw.line(((800, 445), (800, 505), (310, 505), (1290, 505)), fill="black", width=4)
+for x, title in ((240, "加热器 A"), (730, "加热器 B"), (1220, "加热器 C")):
+    draw.line(((x + 70, 505), (x + 70, 565)), fill="black", width=4)
+    heater(draw, x, 565, title)
 canvas.save(image_dir / "system.png")
 
-canvas = Image.new("RGB", (1600, 240), "white")
+canvas = Image.new("RGB", (1600, 1000), "white")
 draw = ImageDraw.Draw(canvas)
-for i, title in enumerate(("关闭", "1 档", "2 档", "3 档")):
-    x = 70 + i * 400
-    label(draw, (x + 100, 36), title)
-    for j in range(3):
-        left = x + j * 68
-        draw.rectangle((left, 78, left + 50, 128), outline="black", width=3,
-                       fill="black" if j < i else "white")
-        if i == 0:
-            draw.line(((left + 12, 90), (left + 38, 116)), fill="black", width=3)
-            draw.line(((left + 12, 116), (left + 38, 90)), fill="black", width=3)
-    if i < 3:
-        arrow(draw, (x + 230, 104), (x + 340, 104))
-draw.line(((1370, 157), (1370, 210), (170, 210), (170, 157)), fill="black", width=3)
-draw.line(((160, 170), (170, 157), (180, 170)), fill="black", width=3)
-label(draw, (790, 184), "再按一次回到关闭", diagram_small)
-canvas.save(image_dir / "stages.png")
+draw.rectangle((550, 70, 1510, 850), outline="black", width=5)
+label(draw, (1030, 120), "变压器箱体")
+draw.rectangle((70, 210, 410, 600), outline="black", width=5)
+draw.rectangle((110, 265, 370, 405), outline="black", width=3)
+label(draw, (240, 335), "控制屏")
+label(draw, (240, 530), "控制箱")
+label(draw, (240, 675), "便于观察操作", diagram_small)
+draw.line(((410, 510), (500, 510), (500, 780), (630, 780)), fill="black", width=4)
+label(draw, (360, 800), "连接线缆", diagram_small)
+for x, title in ((660, "加热器 A"), (970, "加热器 B"), (1280, "加热器 C")):
+    heater(draw, x, 555, title)
+    draw.line(((x + 70, 490), (x + 70, 400)), fill="black", width=3)
+    draw.line(((x + 56, 425), (x + 70, 400), (x + 84, 425)), fill="black", width=3)
+label(draw, (1040, 350), "保持进出风通畅")
+draw.ellipse((665, 195, 725, 255), outline="black", width=3)
+label(draw, (1010, 225), "温湿度探头避开出风口")
+label(draw, (800, 930), "位置关系示意  实际固定与走线由供方确定", diagram_small)
+canvas.save(image_dir / "installation.png")
 
-canvas = Image.new("RGB", (1600, 240), "white")
+canvas = Image.new("RGB", (1600, 1120), "white")
 draw = ImageDraw.Draw(canvas)
-for i, title in enumerate(("记录来源", "排除故障", "确认关闭", "重新启动")):
-    x = 60 + i * 405
-    draw.ellipse((x + 65, 15, x + 155, 105), outline="black", width=4)
-    label(draw, (x + 110, 60), str(i + 1), diagram_large)
-    label(draw, (x + 110, 165), title)
-    if i < 3:
-        arrow(draw, (x + 240, 60), (x + 345, 60))
-canvas.save(image_dir / "alarm_flow.png")
+draw.rectangle((70, 100, 610, 1080), outline="black", width=4)
+label(draw, (340, 155), "主板接口")
+for y, terminals, target, detail in (
+    (280, "A1+ / B1−", "控制屏 RS485", "按 + / − 极性对应"),
+    (470, "A2+ / B2−", "温湿度探头 RS485", "探头供电按额定值与随箱图连接"),
+    (660, "A3+ / B3−", "PT100 采集模块 RS485", "模块再接 PT100 探头"),
+    (880, "+V / 0V", "板卡直流电源", "正极接 +V，负极接 0V"),
+):
+    label(draw, (340, y), terminals)
+    draw.rectangle((880, y - 60, 1540, y + 60), outline="black", width=3)
+    label(draw, (1210, y), target)
+    arrow(draw, (610, y), (880, y))
+    label(draw, (1195, y + 105), detail, diagram_small)
+label(draw, (340, 1020), "板端标识供核对", diagram_small)
+canvas.save(image_dir / "wiring.png")
+
+canvas = Image.new("RGB", (1600, 850), "white")
+draw = ImageDraw.Draw(canvas)
+label(draw, (800, 45), "加热器控制回路")
+for y, title in ((150, "A"), (270, "B"), (390, "C")):
+    for left, right, value in ((60, 440, "OT 控制信号"), (610, 1050, "外接继电器回路"), (1240, 1540, "加热器 " + title)):
+        draw.rectangle((left, y - 45, right, y + 45), outline="black", width=3)
+        label(draw, ((left + right) // 2, y), value, diagram_small)
+    arrow(draw, (440, y), (610, y))
+    arrow(draw, (1050, y), (1240, y))
+label(draw, (800, 480), "OT 对地导通控制  负载由独立供电及保护回路供电", diagram_small)
+label(draw, (800, 565), "高压检测接口")
+for y, value, port in ((655, "适配后的模拟检测信号", "Vin / GND"), (775, "按验收接法的数字检测信号", "输入 / GND")):
+    draw.rectangle((60, y - 42, 800, y + 42), outline="black", width=3)
+    label(draw, (430, y), value, diagram_small)
+    draw.rectangle((1060, y - 42, 1540, y + 42), outline="black", width=3)
+    label(draw, (1300, y), port)
+    arrow(draw, (800, y), (1060, y))
+canvas.save(image_dir / "heater_wiring.png")
 
 document = Document()
 section = document.sections[0]
-section.page_width, section.page_height = Cm(21), Cm(29.7)
-section.left_margin = section.right_margin = Cm(2.1)
-section.top_margin = section.bottom_margin = Cm(1.65)
+section.page_width, section.page_height = Cm(17), Cm(24)
+section.left_margin = section.right_margin = Cm(1.4)
+section.top_margin = section.bottom_margin = Cm(1.2)
 section.footer_distance = Cm(0.65)
 for grid in section._sectPr.findall(qn("w:docGrid")):
     section._sectPr.remove(grid)
 for border in document.styles.element.xpath(".//w:pBdr"):
     border.getparent().remove(border)
-for name, size in (("Normal", 10.5), ("Title", 28), ("Subtitle", 10), ("Heading 1", 19), ("Heading 2", 12), ("List Bullet", 10.5), ("Caption", 9)):
+for name, size in (("Normal", 11), ("Title", 22), ("Subtitle", 10), ("Heading 1", 17), ("Heading 2", 12), ("List Bullet", 11), ("Caption", 9)):
     style = document.styles[name]
     style.font.name = "Noto Sans CJK SC"
     style.font.size = Pt(size)
+    style.font.italic = False
     style.font.color.rgb = RGBColor.from_string("000000")
     style.element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), "Noto Sans CJK SC")
     style.paragraph_format.space_after = Pt(7)
-    style.paragraph_format.line_spacing = Pt(16)
+    style.paragraph_format.line_spacing = Pt(17)
     style.paragraph_format.widow_control = True
     style.paragraph_format.keep_together = True
     snap = OxmlElement("w:snapToGrid")
@@ -191,12 +205,12 @@ for name, size in (("Normal", 10.5), ("Title", 28), ("Subtitle", 10), ("Heading 
             color.attrib.pop(qn("w:" + attr), None)
     if name == "Title":
         style.font.bold = True
-        style.paragraph_format.line_spacing = Pt(39)
-        style.paragraph_format.space_before = Pt(20)
+        style.paragraph_format.line_spacing = Pt(30)
+        style.paragraph_format.space_before = Pt(6)
         style.paragraph_format.space_after = Pt(16)
     elif name.startswith("Heading"):
         style.font.bold = True
-        style.paragraph_format.line_spacing = Pt(37 if name == "Heading 1" else 18)
+        style.paragraph_format.line_spacing = Pt(26 if name == "Heading 1" else 18)
         style.paragraph_format.space_before = Pt(8 if name == "Heading 2" else 0)
         style.paragraph_format.space_after = Pt(6)
         style.paragraph_format.keep_with_next = True
@@ -210,7 +224,7 @@ for name, size in (("Normal", 10.5), ("Title", 28), ("Subtitle", 10), ("Heading 
 
 footer = section.footer.paragraphs[0]
 footer.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-run = footer.add_run("RS485Control    ")
+run = footer.add_run("裕泰通加热器控制系统    ")
 run.font.size = Pt(8)
 field = OxmlElement("w:fldSimple")
 field.set(qn("w:instr"), "PAGE")
@@ -243,25 +257,25 @@ while index < len(lines):
     if image_match:
         paragraph = document.add_paragraph()
         paragraph.paragraph_format.line_spacing = 1.0
-        paragraph.paragraph_format.keep_with_next = image_match[2].split("/")[-1] != "system.png"
+        paragraph.paragraph_format.keep_with_next = True
         paragraph.paragraph_format.space_after = Pt(3)
-        picture = paragraph.add_run().add_picture(str(source.parent / image_match[2]), width=Cm(16.8))
+        picture = paragraph.add_run().add_picture(str(source.parent / image_match[2]), width=Cm(14.2))
         picture._inline.docPr.set("descr", image_match[1])
         continue
     if line.startswith("# "):
         paragraph = document.add_paragraph(line[2:], "Title")
     elif line.startswith("## "):
         paragraph = document.add_paragraph(style="Heading 1")
-        number = re.match(r"^(\d{2}) (.*)", line[3:])
+        number = re.match(r"^(\d+) (.*)", line[3:])
         if number:
             run = paragraph.add_run(number[1] + "  ")
-            run.font.size = Pt(30)
+            run.font.size = Pt(20)
             paragraph.add_run(number[2])
         else:
             paragraph.add_run(line[3:])
     elif line.startswith("### "):
         paragraph = document.add_paragraph(line[4:], "Heading 2")
-    elif line.startswith("RS485Control "):
+    elif line == "客户使用说明书":
         paragraph = document.add_paragraph(line, "Subtitle")
     elif line.startswith("图 "):
         paragraph = document.add_paragraph(line, "Caption")
@@ -274,18 +288,18 @@ while index < len(lines):
             paragraph.paragraph_format.tab_stops.add_tab_stop(Cm(0.85))
             run = paragraph.add_run(step[1] + "\t")
             run.bold = True
-            run.font.size = Pt(15)
+            run.font.size = Pt(11)
             text_runs(paragraph, step[2])
-            paragraph.paragraph_format.line_spacing = Pt(18)
-            paragraph.paragraph_format.space_after = Pt(9)
+            paragraph.paragraph_format.line_spacing = Pt(16)
+            paragraph.paragraph_format.space_after = Pt(7)
         else:
             text_runs(paragraph, line[2:] if line.startswith("- ") else line)
     if page_break_pending:
         paragraph.paragraph_format.page_break_before = True
         page_break_pending = False
 
-document.core_properties.title = "裕泰通加热器控制软件使用说明书"
-document.core_properties.subject = "现场操作图解"
+document.core_properties.title = "裕泰通加热器控制系统客户使用说明书"
+document.core_properties.subject = "接线与基本使用"
 document.core_properties.author = ""
 document.core_properties.comments = ""
 output = source.with_suffix(".docx")
