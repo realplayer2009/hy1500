@@ -1,0 +1,11 @@
+{
+  "name": "probe-tool",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd electron && npm run dev",
+    "build": "cd electron && npm run build",
+    "dist": "cd electron && npm run dist",
+    "bridge": "python3 -u backend/serial_bridge.py"
+  }
+}

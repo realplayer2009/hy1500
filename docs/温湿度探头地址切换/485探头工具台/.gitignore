@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+__pycache__/
+*.pyc
+
+# 构建产物（可用 pnpm dist 重新生成）
+electron/dist/
+electron/release/
+*.tsbuildinfo
+
+# 交付物二进制（.app 内 Electron 框架 143MB，超出 GitHub 单文件 100MB 限制，无法入库；
+# DMG 可由源码一键重建，见 deliverables/README.md）
+deliverables/*.app
+deliverables/*.dmg
+legacy/*.app
+legacy/*.dmg
+
+# 系统垃圾
+.DS_Store
