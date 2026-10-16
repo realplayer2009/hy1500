@@ -83,6 +83,21 @@ cp "$DEPLOY_DIR/libRS485Control_arm64-v8a.so" \
     "$DEPLOY_DIR/libs/arm64-v8a/libRS485Control_arm64-v8a.so"
 
 OUTPUT_APK="$APK_DIR/RS485Control-arm64-v8a-debug.apk"
+# --aux-mode 只"更新"输出目录里已有的工程文件, 不会复制模板:
+#   main.cpp: if (options.build && !options.auxMode) { copyAndroidTemplate(...); }
+# 因此干净检出时 res/values/libs.xml 不存在, updateLibsXml 直接报
+# "Cannot find ... in prepared packaged. This file is required." 并退出 12,
+# 后续 ./gradlew 也没有 build.gradle/gradlew 可用。这里按 copyAndroidTemplate
+# 的做法(纯递归拷贝)先把 Qt 自带的 Gradle 与 Android 模板铺到输出目录,
+# 让 aux-mode 与 gradlew 都能工作; 之后再用我们自己的清单覆盖模板里的那份。
+for TPL in "src/3rdparty/gradle" "src/android/templates"; do
+    if [[ ! -d "$QT_ROOT/$TPL" ]]; then
+        printf 'Qt template directory missing: %s\n' "$QT_ROOT/$TPL" >&2
+        printf 'The Qt Android package must ship src/3rdparty/gradle and src/android/templates.\n' >&2
+        exit 1
+    fi
+    cp -R "$QT_ROOT/$TPL/." "$DEPLOY_DIR/"
+done
 # aux-mode expects a manifest in place; refresh it from our package source.
 cp "$ANDROID_DIR/package/AndroidManifest.xml" "$DEPLOY_DIR/AndroidManifest.xml"
 "$QT_ROOT/bin/androiddeployqt" \
