@@ -21,10 +21,11 @@ jobs:
           java-version: 11
 
       - name: Set up Qt 5.15 for Android
-        uses: actions/setup-qt@v4
+        uses: jurplel/install-qt-action@v4
         with:
-          qt-version: 5.15.2
+          version: 5.15.2
           target: android
+          arch: android
           modules: qtandroidextras qtserialport
 
       - name: Install Android build dependencies
