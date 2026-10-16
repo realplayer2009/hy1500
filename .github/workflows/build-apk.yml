@@ -25,8 +25,12 @@ jobs:
         with:
           version: 5.15.2
           target: android
+          # Qt 5.15 的 android 包是单个 Android_ANY-Multi 包 (含全部 ABI),
+          # qtbase/qtserialport/qtandroidextras 都是该包内的 archive 而非独立
+          # module, 因此不能用 modules 输入 (aqt 会报 packages not found)。
+          # 不指定 modules 时安装整个基础包, 已含 core/gui/widgets/serialport/
+          # androidextras; arm64 由 build_apk.sh 的 ANDROID_ABIS 选出。
           arch: android
-          modules: qtandroidextras qtserialport
 
       - name: Install Android build dependencies
         run: |
