@@ -37,9 +37,16 @@ jobs:
 
       - name: Install Android build dependencies
         run: |
-          set -euo pipefail
+          set -uo pipefail
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}"
+          echo "=== 安装前磁盘 ==="
+          df -h / | tail -2
+          echo "--- Qt 占用 ---"
+          du -sh "$GITHUB_WORKSPACE/Qt" 2>/dev/null || true
+          echo "--- Android SDK 已占用 ---"
+          du -sh "$ANDROID_HOME"/* 2>/dev/null | sort -h | tail -5 || true
+          sudo apt-get clean >/dev/null 2>&1 || true
           # runner 镜像里 sdkmanager 不在 PATH, 位于 cmdline-tools/latest/bin 下
           SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMGR" ]; then
@@ -52,8 +59,21 @@ jobs:
           fi
           echo "Using sdkmanager: $SDKMGR"
           java -version
-          yes | "$SDKMGR" --sdk_root="$ANDROID_HOME" \
-            "platforms;android-33" "build-tools;28.0.3" "build-tools;34.0.0" "ndk;21.4.7075529"
+          # 逐个安装, 任一步失败即报出是哪个包以及当时的磁盘余量
+          for PKG in "platforms;android-33" "build-tools;28.0.3" "build-tools;34.0.0" "ndk;21.4.7075529"; do
+            echo "::group::Installing $PKG"
+            yes | "$SDKMGR" --sdk_root="$ANDROID_HOME" "$PKG"
+            RC=$?
+            echo "::endgroup::"
+            echo "=== $PKG -> exit $RC; 剩余磁盘: $(df -h / | awk 'NR==2{print $4}') ==="
+            if [ $RC -ne 0 ]; then
+              echo "::error::failed to install $PKG (exit $RC)"
+              exit $RC
+            fi
+          done
+          echo "=== 安装后磁盘 ==="
+          df -h / | tail -2
+          du -sh "$ANDROID_HOME"/* 2>/dev/null | sort -h | tail -5 || true
 
       # Gradle 5.6.4 不支持 JDK 17, 编译前切回 11
       - name: Set up JDK 11 (for Gradle 5.6.4)
