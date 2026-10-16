@@ -220,15 +220,15 @@ path.write_text(
 )
 PY
 
-# AGP 用 $ANDROID_USER_HOME/.android/debug.keystore 给 debug 包签名。该目录固定
-# 指向 .android-toolchain(被 gitignore), 干净环境——尤其是 CI 的全新检出——里
-# 这个文件不存在, AGP 会现场生成一个新的 debug 密钥, 于是每轮产物签名都不同,
-# 面板上已安装的应用永远无法覆盖升级(INSTALL_FAILED_UPDATE_INCOMPATIBLE)。
-# 这里用仓库里的 rs485.keystore 播种, 保证任何机器、任何一轮构建的签名一致。
+# AGP 给 debug 包签名用的 debug.keystore 在干净环境里不存在时会现场生成一个新的,
+# 于是每轮产物签名都不同, 面板上已安装的应用永远无法覆盖升级
+# (INSTALL_FAILED_UPDATE_INCOMPATIBLE)。这里用仓库里的 rs485.keystore 播种。
+# 注意 AGP 3.6.0 实测**不读** $ANDROID_USER_HOME 下的那个(它会另生成一个,
+# 播种后产物签名仍是新的), 因此把它播种到它可能查找的各个位置; 构建后再核对
+# 成品证书指纹, 不匹配就直接失败, 避免产出装不到面板上的包。
 # 别名/口令沿用 Android debug 密钥的惯例(androiddebugkey/android), 这正是 AGP
 # 自己假定的默认值, 因此不需要改 build.gradle 的 signingConfigs。
 KEYSTORE_SRC="$ANDROID_DIR/rs485.keystore"
-KEYSTORE_DIR="$ANDROID_USER_HOME/.android"
 if [[ ! -s "$KEYSTORE_SRC" ]]; then
     printf 'Android signing keystore missing: %s\n' "$KEYSTORE_SRC" >&2
     printf 'Generate it with keytool and commit it as the project signing key.\n' >&2
@@ -240,11 +240,16 @@ if ! "$JAVA_ROOT/bin/keytool" -list -keystore "$KEYSTORE_SRC" -storepass android
         "$KEYSTORE_SRC" >&2
     exit 1
 fi
-mkdir -p "$KEYSTORE_DIR"
-cp "$KEYSTORE_SRC" "$KEYSTORE_DIR/debug.keystore"
 printf 'Signing key: %s (alias androiddebugkey)\n' "$KEYSTORE_SRC"
 "$JAVA_ROOT/bin/keytool" -list -v -keystore "$KEYSTORE_SRC" -storepass android 2>/dev/null \
     | grep -m1 'SHA256:' | sed 's/^[[:space:]]*/  /' || true
+for seed_root in "$ANDROID_USER_HOME" "$HOME"; do
+    [[ -n "$seed_root" ]] || continue
+    seed_dir="$seed_root/.android"
+    mkdir -p "$seed_dir"
+    cp "$KEYSTORE_SRC" "$seed_dir/debug.keystore"
+    printf '  seeded %s\n' "$seed_dir/debug.keystore"
+done
 
 cd "$DEPLOY_DIR"
 ./gradlew assembleDebug
@@ -254,6 +259,36 @@ if [[ ! -s "$BUILT_APK" ]]; then
     printf 'Gradle did not produce an APK: %s\n' "$BUILT_APK" >&2
     exit 1
 fi
+# 核对成品 APK 的签名证书就是仓库密钥: 面板只能接受同一密钥的覆盖升级, 签名不一致
+# 时装不上(INSTALL_FAILED_UPDATE_INCOMPATIBLE), 必须在这里失败而不是静默产出。
+python3 - "$BUILT_APK" "$KEYSTORE_SRC" "$JAVA_ROOT/bin/keytool" <<'PY'
+import re
+import subprocess
+import sys
+
+apk, keystore, keytool = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def fingerprint(args):
+    out = subprocess.run(args, capture_output=True, text=True).stdout
+    match = re.search(r"SHA256:\s*([0-9A-Fa-f:]+)", out)
+    return match.group(1).upper() if match else None
+
+apk_fp = fingerprint([keytool, "-printcert", "-jarfile", apk])
+key_fp = fingerprint([keytool, "-list", "-v", "-keystore", keystore, "-storepass", "android"])
+if not apk_fp or not key_fp:
+    print("warning: cannot read certificate fingerprints to verify signing", file=sys.stderr)
+    sys.exit(0)
+if apk_fp != key_fp:
+    print(
+        "APK was signed with an unexpected certificate; it cannot be installed "
+        "over an existing build on the panel.",
+        file=sys.stderr,
+    )
+    print(f"  APK:      {apk_fp}", file=sys.stderr)
+    print(f"  Keystore: {key_fp}", file=sys.stderr)
+    sys.exit(1)
+print(f"APK signature verified against the project keystore: {apk_fp}")
+PY
 if ! "$SDK_ROOT/build-tools/34.0.0/aapt" dump badging "$BUILT_APK" \
     | grep -q "^package: name='com.rs485.control' "; then
     printf 'Refusing to publish an APK with an unexpected package name: %s\n' "$BUILT_APK" >&2
