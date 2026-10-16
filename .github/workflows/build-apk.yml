@@ -92,6 +92,30 @@ jobs:
           distribution: temurin
           java-version: '11'
 
+      - name: Pin Android NDK to 21.4.7075529
+        run: |
+          set -euo pipefail
+          # runner 镜像预装了多个 NDK (含 NDK 30)。Qt 5.15.2 模板的 build.gradle
+          # 不设 android.ndkVersion, AGP 3.6.0 会回退到"SDK 里最新的 NDK",
+          # 于是 :stripDebugDebugSymbols 用了 NDK 30: 其 meta/abis.json 含
+          # AGP 3.6 不认识的 riscv64, 且该版本的 strip 工具起不来, 构建失败。
+          # 本机 .android-toolchain/sdk 通常只有 21.4.7075529 一个 NDK, 因此
+          # 只在 CI 这类预装多版本的环境处理。CI runner 是一次性环境, 这里把
+          # 多余的 NDK 移到 /tmp 暂存(同一文件系统, 瞬间完成, 可恢复)。
+          NDK_DIR="$ANDROID_HOME/ndk"
+          KEEP="21.4.7075529"
+          echo "现有 NDK:"; ls -1 "$NDK_DIR" 2>/dev/null || true
+          mkdir -p /tmp/ndk-stash
+          for d in "$NDK_DIR"/*; do
+            [ -d "$d" ] || continue
+            if [ "$(basename "$d")" != "$KEEP" ]; then
+              echo "暂存 $(basename "$d")"
+              mv "$d" /tmp/ndk-stash/
+            fi
+          done
+          echo "保留后:"; ls -1 "$NDK_DIR"
+          [ -d "$NDK_DIR/$KEEP" ] || { echo "::error::NDK $KEEP missing"; exit 1; }
+
       - name: Build APK
         run: |
           set -euo pipefail
