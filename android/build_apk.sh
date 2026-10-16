@@ -220,6 +220,32 @@ path.write_text(
 )
 PY
 
+# AGP 用 $ANDROID_USER_HOME/.android/debug.keystore 给 debug 包签名。该目录固定
+# 指向 .android-toolchain(被 gitignore), 干净环境——尤其是 CI 的全新检出——里
+# 这个文件不存在, AGP 会现场生成一个新的 debug 密钥, 于是每轮产物签名都不同,
+# 面板上已安装的应用永远无法覆盖升级(INSTALL_FAILED_UPDATE_INCOMPATIBLE)。
+# 这里用仓库里的 rs485.keystore 播种, 保证任何机器、任何一轮构建的签名一致。
+# 别名/口令沿用 Android debug 密钥的惯例(androiddebugkey/android), 这正是 AGP
+# 自己假定的默认值, 因此不需要改 build.gradle 的 signingConfigs。
+KEYSTORE_SRC="$ANDROID_DIR/rs485.keystore"
+KEYSTORE_DIR="$ANDROID_USER_HOME/.android"
+if [[ ! -s "$KEYSTORE_SRC" ]]; then
+    printf 'Android signing keystore missing: %s\n' "$KEYSTORE_SRC" >&2
+    printf 'Generate it with keytool and commit it as the project signing key.\n' >&2
+    exit 1
+fi
+if ! "$JAVA_ROOT/bin/keytool" -list -keystore "$KEYSTORE_SRC" -storepass android \
+    >/dev/null 2>&1; then
+    printf 'Android signing keystore is not readable with the expected alias/password: %s\n' \
+        "$KEYSTORE_SRC" >&2
+    exit 1
+fi
+mkdir -p "$KEYSTORE_DIR"
+cp "$KEYSTORE_SRC" "$KEYSTORE_DIR/debug.keystore"
+printf 'Signing key: %s (alias androiddebugkey)\n' "$KEYSTORE_SRC"
+"$JAVA_ROOT/bin/keytool" -list -v -keystore "$KEYSTORE_SRC" -storepass android 2>/dev/null \
+    | grep -m1 'SHA256:' | sed 's/^[[:space:]]*/  /' || true
+
 cd "$DEPLOY_DIR"
 ./gradlew assembleDebug
 
