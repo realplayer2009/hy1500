@@ -100,6 +100,79 @@ for TPL in "src/3rdparty/gradle" "src/android/templates"; do
 done
 # aux-mode expects a manifest in place; refresh it from our package source.
 cp "$ANDROID_DIR/package/AndroidManifest.xml" "$DEPLOY_DIR/AndroidManifest.xml"
+# aux-mode 也不走 buildAndroidProject() (main.cpp 的 aux 分支在它之前就 return 0),
+# 因此不会写 gradle.properties 里 build.gradle 需要的属性。模板自带的
+# gradle.properties 不含它们, 于是 build.gradle 的
+#   compileSdkVersion androidCompileSdkVersion
+# 报 "Could not get unknown property 'androidCompileSdkVersion'"。
+# 这里按 buildAndroidProject 的做法, 从 qmake 生成的 deployment settings 与 NDK
+# 的 source.properties 取值, 合并进 gradle.properties (保留原有行与注释),
+# 同时写 local.properties 的 sdk.dir, 并保证 gradlew 可执行。
+python3 - "$SETTINGS" "$DEPLOY_DIR" "$SDK_ROOT" "$NDK_ROOT" "$QT_ROOT" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+settings_path, deploy, sdk_root, ndk_root, qt_root = sys.argv[1:6]
+settings = json.loads(Path(settings_path).read_text(encoding="utf-8"))
+
+def setting(key, default=""):
+    value = settings.get(key)
+    return default if value is None else str(value)
+
+# NDK 版本取自 NDK 的 source.properties (Pkg.Revision), 与 androiddeployqt 一致
+ndk_version = ""
+for line in Path(ndk_root, "source.properties").read_text(
+    encoding="utf-8", errors="replace"
+).splitlines():
+    if line.strip().startswith("Pkg.Revision"):
+        ndk_version = line.split("=", 1)[1].strip()
+
+# 只有 build.gradle 显式 .toInteger() 时才给整数形式, 否则用 android-33 字符串
+build_gradle = Path(deploy, "build.gradle").read_text(encoding="utf-8", errors="replace")
+platform = setting("android-platform", "android-33")
+compile_sdk = (
+    platform.split("-")[-1]
+    if "androidCompileSdkVersion.toInteger()" in build_gradle
+    else platform
+)
+
+architectures = settings.get("architectures") or {}
+props = {
+    "buildDir": "build",
+    "qt5AndroidDir": str(Path(qt_root, "src", "android", "java")),
+    "androidCompileSdkVersion": compile_sdk,
+    "qtMinSdkVersion": setting("android-min-sdk-version", "21") or "21",
+    "qtTargetSdkVersion": setting("android-target-sdk-version", "31") or "31",
+    "androidNdkVersion": ndk_version,
+    "androidBuildToolsVersion": setting("sdkBuildToolsRevision"),
+    "qtTargetAbiList": ",".join(architectures) if architectures else "arm64-v8a",
+}
+
+def merge(path, values, fill_only=()):
+    path = Path(path)
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else []
+    out, used = [], set()
+    for line in lines:
+        match = re.match(r"\s*([^#=\s][^=]*?)\s*=", line)
+        key = match.group(1) if match else None
+        if key is not None and key in values and key not in used:
+            # fill_only 的键沿用文件里已有的值 (与 buildAndroidProject 对
+            # androidBuildToolsVersion 的处理一致: 仅在为空时才补)
+            out.append(line if key in fill_only else f"{key}={values[key]}")
+            used.add(key)
+        else:
+            out.append(line)
+    for key, value in values.items():
+        if key not in used and value != "":
+            out.append(f"{key}={value}")
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+merge(Path(deploy, "gradle.properties"), props, fill_only=("androidBuildToolsVersion",))
+merge(Path(deploy, "local.properties"), {"sdk.dir": sdk_root})
+PY
+chmod +x "$DEPLOY_DIR/gradlew"
 "$QT_ROOT/bin/androiddeployqt" \
     --input "$SETTINGS" \
     --output "$DEPLOY_DIR" \
