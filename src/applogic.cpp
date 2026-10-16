@@ -480,13 +480,32 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
             return;
     }
 
+    // 加热器与温湿度探头一一对应: 某路加热器未配置(输出对=0)时该路探头
+    // 被视为不存在, 不记录其温湿度 -- CSV 列与 JSON 都留空, 避免缺失探头
+    // 的 0 值被当成真实读数污染历史数据。
+    const AppConfig::GeneralConfig &general = AppConfig::instance().general();
+    const bool channelRecorded[3] = {
+        general.heaterAPair != 0, general.heaterBPair != 0, general.heaterCPair != 0
+    };
+    auto channelDropped = [&channelRecorded](const QString &field) {
+        for (int ch = 0; ch < 3; ++ch) {
+            if (!channelRecorded[ch]
+                && (field == QString("th%1_temp").arg(ch + 1)
+                    || field == QString("th%1_humi").arg(ch + 1)))
+                return true;
+        }
+        return false;
+    };
+
     QJsonObject json;
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        if (it.key() != "reserved")
+        if (it.key() != "reserved" && !channelDropped(it.key()))
             json[it.key()] = QJsonValue::fromVariant(it.value());
     }
 
-    auto engineering = [&values](const QString &field) {
+    auto engineering = [&values, &channelDropped](const QString &field) {
+        if (channelDropped(field))
+            return QString();
         return values.contains(field)
             ? QString::number(values.value(field).toInt() / 10.0, 'f', 1)
             : QString();

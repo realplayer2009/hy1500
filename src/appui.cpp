@@ -56,12 +56,17 @@ constexpr int kSensorRecoverySamples = 3;
 // 历史页实时追加上限: 停放在数据浏览页时新记录会持续进内存,
 // 达到上限后暂停实时追加, 重新查询后恢复, 防止长时间运行内存无限增长。
 constexpr int kMaxLiveAppendRecords = 50000;
+// 加热参数设置与高级设置的进入密码 (现场触摸屏, 防止误触改参数)
+const QString kSettingsPassword = QString::fromUtf8("123456");
+// 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
+constexpr int kHeaterParamPage = 2;
+constexpr int kAdvancedPage = 4;
 
 // 外扩输入功能映射的显示名与可选值 (防错线排查用)
 QString expInModeName(const QString &mode)
 {
     if (mode == "manual_auto")
-        return QString::fromUtf8("手自动选择（仅监视）");
+        return QString::fromUtf8("手自动选择");
     if (mode == "heater_a")
         return QString::fromUtf8("加热器A按键");
     if (mode == "heater_b")
@@ -77,7 +82,7 @@ const QVector<QPair<QString, QString>> &expInModeOptions()
 {
     static const QVector<QPair<QString, QString>> options = {
         { "unused",      QString::fromUtf8("未使用") },
-        { "manual_auto", QString::fromUtf8("手自动选择（仅监视）") },
+        { "manual_auto", QString::fromUtf8("手自动选择") },
         { "heater_a",    QString::fromUtf8("加热器A按键") },
         { "heater_b",    QString::fromUtf8("加热器B按键") },
         { "heater_c",    QString::fromUtf8("加热器C按键") },
@@ -488,6 +493,12 @@ QString applicationStyleSheet(const QString &themeName)
             font-weight: 700; }
         QPushButton#secondaryButton:hover { background: #eeeeee; }
         QPushButton#secondaryButton:checked { color: white; background: #555555; border-color: #333333; }
+        QPushButton#keypadButton { color: #202020; background: white; border: 1px solid #aaaaaa;
+            border-radius: 6px; font-size: 26px; font-weight: 700; }
+        QPushButton#keypadButton:hover { background: #f0f0f0; }
+        QPushButton#keypadButton:pressed { background: #dddddd; }
+        QLabel#passwordDisplay { color: #202020; background: #f7f7f7; border: 1px solid #cccccc;
+            border-radius: 4px; font-size: 30px; font-weight: 700; letter-spacing: 10px; }
         QPushButton#startButton { color: white; background: #168f4f; border: 1px solid #107b43; font-weight: 700; }
         QPushButton#startButton:hover { background: #107b43; }
         QPushButton#startButton:disabled { color: #777777; background: #dddddd; border-color: #cccccc; }
@@ -531,6 +542,10 @@ QString applicationStyleSheet(const QString &themeName)
         QDialog#unsavedPrompt { background: #17232b; color: #eef3f5; border-color: #4b5c66; }
         QLabel#unsavedTitle { color: #f1f5f7; }
         QLabel#unsavedMessage { color: #b2c0c8; }
+        QPushButton#keypadButton { color: #eef3f5; background: #22303a; border-color: #4b5c66; }
+        QPushButton#keypadButton:hover { background: #2d3d48; }
+        QPushButton#keypadButton:pressed { background: #3a4c58; }
+        QLabel#passwordDisplay { color: #f1f5f7; background: #10181e; border-color: #4b5c66; }
         QLabel { color: #eef3f5; }
         QFrame#sideBar { background: #080d11; }
         QLabel#brandTitle { color: #f4f8fa; }
@@ -1023,6 +1038,10 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#navButton:hover { background: #2e2e30; color: white; }
         QPushButton#navButton:checked { background: #3a3a3c; color: white;
             border-left-color: #00e676; }
+        QPushButton#keypadButton { color: #f5f5f7; background: #3a3a3c; border-color: #48484a; }
+        QPushButton#keypadButton:hover { background: #48484a; }
+        QPushButton#keypadButton:pressed { background: #58585a; }
+        QLabel#passwordDisplay { color: #ffffff; background: #1c1c1e; border-color: #48484a; }
         QFrame#topBar, QFrame#card { background: #2a2a2c; border-color: #48484a; }
         QLabel#pageTitle, QLabel#sectionTitle, QLabel#metricValue,
         QLabel#metricValueSmall, QLabel#heroValue { color: #ffffff; }
@@ -1323,7 +1342,7 @@ void OverviewCard::updateState(const DeviceState &state, bool automatic)
     const QString alarmColor = dark ? "#ff8a85" : "#c93632";
     const QString runColor = config.displayTheme == "graphite" ? "#00e676" : "#168f4f";
     const QString manualColor = dark ? "#64b5f6" : "#146b97";
-    m_identity->setText(QString::fromUtf8("串口 %1 · ID %2")
+    m_identity->setText(QString::fromUtf8("域控主板 %1 · ID %2")
                            .arg(state.key.portIndex + 1).arg(state.key.slaveId));
     m_mode->setText(!state.online ? QString::fromUtf8("离线")
         : QString::fromUtf8("<b style='font-size:15px; color:%1;'>● %2</b>")
@@ -3207,6 +3226,143 @@ AboutWidget::AboutWidget(QWidget *parent)
 }
 
 // ============================================================
+// PasswordDialog
+// ============================================================
+
+PasswordDialog::PasswordDialog(QWidget *parent)
+    : QDialog(parent)
+{
+    setObjectName("unsavedPrompt");
+    setWindowTitle(QString::fromUtf8("请输入密码"));
+    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+    setModal(true);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(28, 26, 28, 24);
+    layout->setSpacing(14);
+
+    auto *title = new QLabel(QString::fromUtf8("设置页密码"), this);
+    title->setObjectName("unsavedTitle");
+    layout->addWidget(title);
+
+    m_display = new QLabel(this);
+    m_display->setObjectName("passwordDisplay");
+    m_display->setAlignment(Qt::AlignCenter);
+    m_display->setMinimumHeight(62);
+    layout->addWidget(m_display);
+
+    m_hint = new QLabel(QString::fromUtf8("请输入 6 位数字密码"), this);
+    m_hint->setObjectName("unsavedMessage");
+    m_hint->setAlignment(Qt::AlignCenter);
+    layout->addWidget(m_hint);
+
+    auto *grid = new QGridLayout;
+    grid->setSpacing(10);
+    static const QStringList digits = {
+        QString::fromUtf8("1"), QString::fromUtf8("2"), QString::fromUtf8("3"),
+        QString::fromUtf8("4"), QString::fromUtf8("5"), QString::fromUtf8("6"),
+        QString::fromUtf8("7"), QString::fromUtf8("8"), QString::fromUtf8("9")
+    };
+    for (int i = 0; i < digits.size(); ++i) {
+        auto *button = new QPushButton(digits.at(i), this);
+        button->setObjectName("keypadButton");
+        button->setMinimumSize(92, 62);
+        grid->addWidget(button, i / 3, i % 3);
+        connect(button, &QPushButton::clicked,
+                this, [this, d = digits.at(i)]() { appendDigit(d); });
+    }
+    auto *clear = new QPushButton(QString::fromUtf8("清空"), this);
+    auto *zero = new QPushButton(QString::fromUtf8("0"), this);
+    auto *back = new QPushButton(QString::fromUtf8("删除"), this);
+    for (QPushButton *button : { clear, zero, back }) {
+        button->setObjectName("keypadButton");
+        button->setMinimumSize(92, 62);
+    }
+    grid->addWidget(clear, 3, 0);
+    grid->addWidget(zero, 3, 1);
+    grid->addWidget(back, 3, 2);
+    connect(clear, &QPushButton::clicked, this, &PasswordDialog::clearInput);
+    connect(zero, &QPushButton::clicked,
+            this, [this]() { appendDigit(QString::fromUtf8("0")); });
+    connect(back, &QPushButton::clicked, this, &PasswordDialog::backspace);
+    layout->addLayout(grid);
+
+    auto *buttons = new QHBoxLayout;
+    buttons->setSpacing(12);
+    auto *cancel = new QPushButton(QString::fromUtf8("取消"), this);
+    auto *ok = new QPushButton(QString::fromUtf8("确定"), this);
+    cancel->setObjectName("secondaryButton");
+    ok->setObjectName("primaryButton");
+    for (QPushButton *button : { cancel, ok }) {
+        button->setMinimumSize(130, 52);
+        refreshDynamicStyle(button);
+    }
+    buttons->addWidget(cancel);
+    buttons->addWidget(ok);
+    layout->addLayout(buttons);
+    connect(cancel, &QPushButton::clicked, this, &PasswordDialog::reject);
+    connect(ok, &QPushButton::clicked, this, &PasswordDialog::submit);
+
+    resize(520, 560);
+    refreshDisplay();
+}
+
+bool PasswordDialog::verify(QWidget *parent, const QString &expected)
+{
+    PasswordDialog dialog(parent);
+    dialog.m_expected = expected;
+    return dialog.exec() == QDialog::Accepted;
+}
+
+void PasswordDialog::appendDigit(const QString &digit)
+{
+    if (m_entered.size() >= 6)
+        return;
+    m_entered.append(digit);
+    refreshDisplay();
+    if (m_entered.size() == 6)
+        submit();
+}
+
+void PasswordDialog::backspace()
+{
+    if (!m_entered.isEmpty()) {
+        m_entered.chop(1);
+        refreshDisplay();
+    }
+}
+
+void PasswordDialog::clearInput()
+{
+    m_entered.clear();
+    refreshDisplay();
+}
+
+void PasswordDialog::submit()
+{
+    if (m_entered.size() < 6) {
+        m_hint->setText(QString::fromUtf8("请输入完整的 6 位密码"));
+        return;
+    }
+    if (m_entered == m_expected) {
+        accept();
+        return;
+    }
+    m_entered.clear();
+    refreshDisplay();
+    m_hint->setText(QString::fromUtf8("密码错误，请重新输入"));
+}
+
+void PasswordDialog::refreshDisplay()
+{
+    QString text;
+    for (int i = 0; i < 6; ++i)
+        text.append(i < m_entered.size()
+            ? QString::fromUtf8("●") : QString::fromUtf8("○"));
+    m_display->setText(text);
+}
+
+// ============================================================
 // SettingsWidget
 // ============================================================
 
@@ -3966,7 +4122,9 @@ SettingsWidget::SettingsWidget(StorageRotator *rotator, bool advancedOnly,
     expInTitle->setObjectName("sectionTitle");
     expInLayout->addWidget(expInTitle, 0, 0, 1, 4);
     auto *expInHint = new QLabel(
-        QString::fromUtf8("显示当前子板的开关状态；拨动现场开关确认接入位置，再分配实际功能。手自动选择和高压闭锁目前仅监视"), expInCard);
+        QString::fromUtf8("显示当前子板的开关状态；拨动现场开关确认接入位置，再分配实际功能。"
+                          "手自动选择以开关为准（闭合=自动温控，断开=手动），会覆盖界面上的启停；"
+                          "高压闭锁目前仅监视"), expInCard);
     expInHint->setObjectName("mutedText");
     expInHint->setWordWrap(true);
     expInLayout->addWidget(expInHint, 1, 0, 1, 4);
@@ -4902,7 +5060,7 @@ void MainWindow::setupUi()
     sideLayout->addSpacing(28);
 
     const QStringList navTexts = {
-        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手自控制"),
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("手动自动控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("数据浏览"),
         QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };
@@ -5061,9 +5219,17 @@ void MainWindow::switchPage(int index)
             if (!settings->confirmLeavingPage())
                 return;
         }
+        // 加热参数设置与高级设置需要密码: 现场触摸屏无鼠标, 用自带小键盘的
+        // 密码框校验, 取消或错误都停在当前页 (导航选中态已恢复)。
+        if (index == kHeaterParamPage || index == kAdvancedPage) {
+            if (!PasswordDialog::verify(this, kSettingsPassword)) {
+                m_navigation.at(currentIndex)->setChecked(true);
+                return;
+            }
+        }
     }
     const QStringList titles = {
-        QString::fromUtf8("域控子板总览"), QString::fromUtf8("子板手自控制"),
+        QString::fromUtf8("域控子板总览"), QString::fromUtf8("手动自动控制"),
         QString::fromUtf8("加热参数设置"), QString::fromUtf8("历史数据浏览"),
         QString::fromUtf8("高级设置"), QString::fromUtf8("关于本机")
     };
@@ -5342,6 +5508,7 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
         m_initializedDevices.remove(commandKey(key));
         m_sensorHealthyDevices.remove(commandKey(key));
         m_prevExpInMask.remove(commandKey(key));
+        m_lastManualAutoMs.remove(commandKey(key));
     }
     const bool newlyInitialized = updatedState.online
         && !m_initializedDevices.contains(commandKey(key));
@@ -5385,6 +5552,36 @@ void MainWindow::onDeviceUpdated(const DeviceProfile::DeviceKey &key)
             }
         }
         m_prevExpInMask[keyValue] = mask;
+    }
+
+    // 手自动开关: 以现场开关为准, 不是只监视。闭合=自动温控, 断开=手动;
+    // 界面上点动的启停只要与开关状态不一致, 下一轮轮询即被开关纠正回来。
+    if (updatedState.online) {
+        const AppConfig::GeneralConfig &heaterConfig =
+            AppConfig::instance().general();
+        const int keyValue = commandKey(key);
+        int manualAutoIn = 0;
+        for (int i = 1; i <= 5; ++i) {
+            if (heaterConfig.expInMode(i) == "manual_auto") {
+                manualAutoIn = i;
+                break;
+            }
+        }
+        if (manualAutoIn > 0) {
+            const bool switchAuto = updatedState.values
+                .value(QString("exp_in%1").arg(manualAutoIn)).toInt() != 0;
+            if (switchAuto != m_autoDevices.contains(keyValue)) {
+                // 被拒绝时(离线/高压/未配置加热器)按 2s 节流重试,
+                // 避免轮询周期内反复往状态栏写同一条失败原因。
+                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                if (nowMs - m_lastManualAutoMs.value(keyValue, 0) >= 2000) {
+                    m_lastManualAutoMs[keyValue] = nowMs;
+                    setDeviceAutoRunning(key, switchAuto);
+                }
+            } else {
+                m_lastManualAutoMs.remove(keyValue);
+            }
+        }
     }
 
     // 加热器灯跟随实际输出 (自动温控驱动 OT3/OT4 时同样点灯)

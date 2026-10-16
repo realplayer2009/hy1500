@@ -12,6 +12,7 @@
 #include <QThreadPool>
 #include <QVector>
 #include <QWidget>
+#include <QDialog>
 
 class QComboBox;
 class QDateEdit;
@@ -394,6 +395,33 @@ public:
     explicit AboutWidget(QWidget *parent = nullptr);
 };
 
+/**
+ * 设置页密码对话框。
+ * 现场为纯触摸屏、无鼠标, 因此自带大按钮数字小键盘, 不依赖系统输入法;
+ * 输满 6 位即自动校验, 错误则清空重输, 避免多余的一次确认点击。
+ */
+class PasswordDialog : public QDialog
+{
+    Q_OBJECT
+public:
+    explicit PasswordDialog(QWidget *parent = nullptr);
+
+    /** 弹出密码框, 校验通过返回 true (密码由调用方给定, 错误可重试)。 */
+    static bool verify(QWidget *parent, const QString &expected);
+
+private:
+    void appendDigit(const QString &digit);
+    void backspace();
+    void clearInput();
+    void submit();
+    void refreshDisplay();
+
+    QLabel *m_display = nullptr;
+    QLabel *m_hint = nullptr;
+    QString m_expected;
+    QString m_entered;
+};
+
 /** 1024x600 触摸屏主窗口。 */
 class MainWindow : public QMainWindow
 {
@@ -484,6 +512,8 @@ private:
     // 加热器档位与外扩输入上一周期状态 (实体按键上升沿检测用)
     QMap<int, int> m_heaterGears;
     QMap<int, int> m_prevExpInMask;
+    // 手自动开关: 上次驱动时刻 (开关与界面冲突时按开关纠正, 限流避免状态栏刷屏)
+    QMap<int, qint64> m_lastManualAutoMs;
     QVector<int> m_appliedHeaterPairs;
     QSet<int> m_retiredHeaterPairs;
     // 蜂鸣器确认音: 待断开蜂鸣器的子板与断开定时器
