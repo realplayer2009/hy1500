@@ -39,14 +39,8 @@ jobs:
         run: |
           set -uo pipefail
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}"
           echo "=== 安装前磁盘 ==="
-          df -h / | tail -2
-          echo "--- Qt 占用 ---"
-          du -sh "$GITHUB_WORKSPACE/Qt" 2>/dev/null || true
-          echo "--- Android SDK 已占用 ---"
-          du -sh "$ANDROID_HOME"/* 2>/dev/null | sort -h | tail -5 || true
-          sudo apt-get clean >/dev/null 2>&1 || true
+          df -h / | tail -1
           # runner 镜像里 sdkmanager 不在 PATH, 位于 cmdline-tools/latest/bin 下
           SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMGR" ]; then
@@ -59,21 +53,37 @@ jobs:
           fi
           echo "Using sdkmanager: $SDKMGR"
           java -version
-          # 逐个安装, 任一步失败即报出是哪个包以及当时的磁盘余量
+          # 逐个安装, 任一步失败即报出是哪个包
           for PKG in "platforms;android-33" "build-tools;28.0.3" "build-tools;34.0.0" "ndk;21.4.7075529"; do
             echo "::group::Installing $PKG"
+            # 关键: 不能用 yes | sdkmanager 的直接退出码, 也不能用 || true 后读
+            # PIPESTATUS (true 会冲掉 PIPESTATUS)。sdkmanager 正常结束后 yes 会因
+            # 写不进已关闭的管道收到 SIGPIPE, 而 coreutils 的 yes 以退出码 1 结束;
+            # 只要 pipefail 还开着, 整条管道就会被污染成 1, 把成功的安装判成失败。
+            # 因此临时关掉 errexit 与 pipefail, 此时 $? 即 sdkmanager 的真实退出码,
+            # 读完立即恢复, 保证后续命令仍受 -e 保护。
+            set +e
+            set +o pipefail
             yes | "$SDKMGR" --sdk_root="$ANDROID_HOME" "$PKG"
             RC=$?
+            set -e
+            set -o pipefail
             echo "::endgroup::"
-            echo "=== $PKG -> exit $RC; 剩余磁盘: $(df -h / | awk 'NR==2{print $4}') ==="
-            if [ $RC -ne 0 ]; then
-              echo "::error::failed to install $PKG (exit $RC)"
-              exit $RC
+            echo "=== $PKG -> sdkmanager exit $RC; 剩余磁盘 $(df -h / | awk 'NR==2{print $4}') ==="
+            if [ "$RC" -ne 0 ]; then
+              echo "::error::failed to install $PKG (sdkmanager exit $RC)"
+              exit "$RC"
             fi
           done
-          echo "=== 安装后磁盘 ==="
-          df -h / | tail -2
-          du -sh "$ANDROID_HOME"/* 2>/dev/null | sort -h | tail -5 || true
+          echo "=== 安装完成, 校验关键目录 ==="
+          for D in "platforms/android-33" "build-tools/28.0.3" "build-tools/34.0.0" "ndk/21.4.7075529"; do
+            if [ -d "$ANDROID_HOME/$D" ]; then
+              echo "  ✅ $D"
+            else
+              echo "  ❌ $D 缺失"
+              exit 1
+            fi
+          done
 
       # Gradle 5.6.4 不支持 JDK 17, 编译前切回 11
       - name: Set up JDK 11 (for Gradle 5.6.4)
