@@ -35,6 +35,7 @@
 #include <QJsonObject>
 #include <QDir>
 #include <QFileInfo>
+#include <QByteArray>
 #include <QFile>
 #include <QProcess>
 #include <QStandardPaths>
@@ -51,21 +52,22 @@
 #include <limits>
 
 // "关于本机"页要显示本机 IP 与 MAC。项目只链 core/gui/widgets/serialport,
-// 不为这两项引入 QtNetwork(会给 APK 多加一个 libQt5Network.so), 因此用 POSIX
-// 的 getifaddrs 直接枚举: 它同时给出 IPv4 与链路层 MAC, Linux/Android/macOS
-// 都有。Android 的 bionic 不返回 AF_PACKET/AF_LINK 条目, MAC 退回读 sysfs。
+// 不为这两项引入 QtNetwork(会给 APK 多加一个 libQt5Network.so), 因此直接用
+// 内核接口枚举: macOS 用 getifaddrs(一次同时给 IPv4 与 AF_LINK 的 MAC);
+// Linux/Android 用 /sys/class/net 枚举网卡 + SIOCGIFADDR/SIOCGIFFLAGS 取地址
+// —— NDK 21 在 API<24 时不声明 getifaddrs, 而 CI 的编译目标正是 android21。
 #include <arpa/inet.h>
-#include <ifaddrs.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <string.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 #if defined(Q_OS_MACOS)
+#include <ifaddrs.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
-#else
-#include <linux/if_packet.h>
-#include <netpacket/packet.h>
 #endif
 
 namespace {
@@ -301,20 +303,35 @@ void configureDeviceCombo(QComboBox *combo)
 
 // 本机网络信息: 现场屏多为 DHCP, 地址可能变化, 所以每次进入"关于本机"页
 // 都重新取, 不在构造时固化成一个可能过期的值。
-// 不引入 QtNetwork(会给 APK 多加一个 libQt5Network.so): POSIX getifaddrs()
-// 同时给出 IPv4 与链路层 MAC, Android 的 bionic 不返回 AF_PACKET/AF_LINK 条目,
-// 此时退回读 /sys/class/net/<网卡>/address。
+// 不引入 QtNetwork(会给 APK 多加一个 libQt5Network.so), 直接用内核接口枚举。
 struct LocalNetworkInfo {
     QString interfaceName;   // eth0 / en0 ...
     QString ipv4;
     QString mac;
 };
 
-QString formatMac(const unsigned char *bytes, int length)
+// 从 sysfs 读网卡 MAC: Linux/Android 均可读, 也是 Android 上 MAC 的唯一来源
+// (macOS 没有 /sys, 且其 MAC 已由 getifaddrs 的 AF_LINK 条目给出)
+#ifndef Q_OS_MACOS
+QString sysfsMacAddress(const QString &interfaceName)
 {
-    if (length < 6)
+    QFile file(QString("/sys/class/net/%1/address").arg(interfaceName));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return QString();
-    // 全零说明未烧录, 不当成有效地址
+    const QString value = QString::fromUtf8(file.readAll()).trimmed().toLower();
+    if (value.size() != 17 || value == "00:00:00:00:00:00")
+        return QString();
+    return value;
+}
+#endif
+
+// 6 字节格式化成冒号分隔的十六进制。字节必须先转 unsigned char:
+// sockaddr_dl.sdl_data 是 char(有符号), 大于 0x7f 的 MAC 字节(如 0xae)会被
+// 当成负数, arg(int,2,16) 会输出成 ffffffae 之类而不是 ae。
+QString formatMac(const unsigned char *bytes)
+{
+    if (!bytes)
+        return QString();
     bool allZero = true;
     for (int i = 0; i < 6; ++i) {
         if (bytes[i] != 0) {
@@ -333,95 +350,12 @@ QString formatMac(const unsigned char *bytes, int length)
         .arg(bytes[5], 2, 16, QChar('0'));
 }
 
-// 从 sysfs 读网卡 MAC: getifaddrs 拿不到链路层地址时的兜底, Linux/Android 均可读
-QString sysfsMacAddress(const QString &interfaceName)
+// 选出要展示的网卡: 只保留拿到 IPv4 的, 有线优先(现场屏走网线, Linux/Android
+// 上名字通常是 eth0/eth1; macOS 上主用 en0), 取不到 MAC 的排在最后。
+LocalNetworkInfo pickNetworkInterface(const QVector<LocalNetworkInfo> &candidates)
 {
-    QFile file(QString("/sys/class/net/%1/address").arg(interfaceName));
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        return QString();
-    const QString value = QString::fromUtf8(file.readAll()).trimmed().toLower();
-    if (value.size() != 17 || value == "00:00:00:00:00:00")
-        return QString();
-    return value;
-}
-
-LocalNetworkInfo localNetworkInfo()
-{
-    struct ifaddrs *head = nullptr;
-    if (getifaddrs(&head) != 0)
-        return LocalNetworkInfo();
-
-    // IPv4 与链路层 MAC 来自不同的 ifaddrs 条目, 按网卡名聚合后统一判断
-    QHash<QString, LocalNetworkInfo> byName;
-    QStringList order;
-    for (struct ifaddrs *ifa = head; ifa; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr || !ifa->ifa_name)
-            continue;
-        const QString name = QString::fromUtf8(ifa->ifa_name);
-        if (name.isEmpty() || name == "lo")
-            continue;
-        const unsigned int flags = ifa->ifa_flags;
-        if (!(flags & IFF_UP) || (flags & IFF_LOOPBACK))
-            continue;
-
-        LocalNetworkInfo &info = byName[name];
-        info.interfaceName = name;
-        if (!order.contains(name))
-            order.append(name);
-
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            if (!info.ipv4.isEmpty())
-                continue;
-            char text[INET_ADDRSTRLEN] = {};
-            if (!inet_ntop(AF_INET,
-                           &reinterpret_cast<const struct sockaddr_in *>(
-                               ifa->ifa_addr)->sin_addr,
-                           text, sizeof(text)))
-                continue;
-            const QString address = QString::fromUtf8(text);
-            // 排除未配置与 link-local: 现场不会用这两种地址访问面板
-            if (address == "0.0.0.0" || address.startsWith("169.254."))
-                continue;
-            info.ipv4 = address;
-        }
-#if defined(Q_OS_MACOS)
-        else if (ifa->ifa_addr->sa_family == AF_LINK) {
-            const auto *sdl =
-                reinterpret_cast<const struct sockaddr_dl *>(ifa->ifa_addr);
-            if (sdl->sdl_type == IFT_ETHER && sdl->sdl_alen == 6)
-                info.mac = formatMac(
-                    reinterpret_cast<const unsigned char *>(LLADDR(sdl)),
-                    sdl->sdl_alen);
-        }
-#else
-        else if (ifa->ifa_addr->sa_family == AF_PACKET) {
-            const auto *sll =
-                reinterpret_cast<const struct sockaddr_ll *>(ifa->ifa_addr);
-            if (sll->sll_halen == 6)
-                info.mac = formatMac(sll->sll_addr, sll->sll_halen);
-        }
-#endif
-    }
-    freeifaddrs(head);
-
-    // Android 的 getifaddrs 不带链路层条目, 用 sysfs 补齐
-    for (LocalNetworkInfo &info : byName) {
-        if (!info.mac.isEmpty())
-            continue;
-        info.mac = sysfsMacAddress(info.interfaceName);
-    }
-
-    // 只保留拿到 IPv4 的网卡
-    QVector<LocalNetworkInfo> candidates;
-    for (const QString &name : order) {
-        const LocalNetworkInfo info = byName.value(name);
-        if (!info.ipv4.isEmpty())
-            candidates.append(info);
-    }
     if (candidates.isEmpty())
         return LocalNetworkInfo();
-
-    // 有线优先: 现场屏走网线, Linux/Android 上名字通常是 eth0/eth1
     const auto isEthernet = [](const LocalNetworkInfo &info) {
         return info.interfaceName.startsWith("eth")
             || info.interfaceName.startsWith("en");
@@ -439,6 +373,114 @@ LocalNetworkInfo localNetworkInfo()
             return info;
     }
     return candidates.first();
+}
+
+LocalNetworkInfo localNetworkInfo()
+{
+    QVector<LocalNetworkInfo> candidates;
+    QHash<QString, LocalNetworkInfo> byName;
+    QStringList order;
+    // 登记一块网卡; 同一名字可能对应多条地址记录, 只保留首个有效 IPv4
+    const auto addInterface = [&byName, &order](const QString &name,
+                                                const QString &ipv4) {
+        if (name.isEmpty() || name == "lo" || ipv4.isEmpty())
+            return;
+        // 排除未配置与 link-local: 现场不会用这两种地址访问面板
+        if (ipv4 == "0.0.0.0" || ipv4.startsWith("169.254."))
+            return;
+        LocalNetworkInfo &info = byName[name];
+        info.interfaceName = name;
+        if (!info.ipv4.isEmpty())
+            return;
+        info.ipv4 = ipv4;
+        if (!order.contains(name))
+            order.append(name);
+    };
+
+#if defined(Q_OS_MACOS)
+    // macOS: getifaddrs 一直可用, 一次同时给出 IPv4 与 AF_LINK 的链路层 MAC。
+    struct ifaddrs *head = nullptr;
+    if (getifaddrs(&head) != 0)
+        return LocalNetworkInfo();
+    for (struct ifaddrs *ifa = head; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || !ifa->ifa_name)
+            continue;
+        const QString name = QString::fromUtf8(ifa->ifa_name);
+        const unsigned int flags = ifa->ifa_flags;
+        if (!(flags & IFF_UP) || (flags & IFF_LOOPBACK))
+            continue;
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            char text[INET_ADDRSTRLEN] = {};
+            if (inet_ntop(AF_INET,
+                          &reinterpret_cast<const struct sockaddr_in *>(
+                              ifa->ifa_addr)->sin_addr,
+                          text, sizeof(text)))
+                addInterface(name, QString::fromUtf8(text));
+        } else if (ifa->ifa_addr->sa_family == AF_LINK) {
+            const auto *sdl =
+                reinterpret_cast<const struct sockaddr_dl *>(ifa->ifa_addr);
+            if (sdl->sdl_type == IFT_ETHER && sdl->sdl_alen == 6) {
+                LocalNetworkInfo &info = byName[name];
+                info.interfaceName = name;
+                if (info.mac.isEmpty()) {
+                    info.mac = formatMac(
+                        reinterpret_cast<const unsigned char *>(LLADDR(sdl)));
+                }
+            }
+        }
+    }
+    freeifaddrs(head);
+#else
+    // Linux/Android: NDK 21 在 API < 24 时不声明 getifaddrs(CI 目标正是
+    // android21), 因此不依赖它。改用 sysfs 枚举网卡名 + ioctl 取地址:
+    //   - /sys/class/net 下列出全部网卡, 真网卡才有 address 节点,
+    //     借此过滤掉 bonding_masters 之类的普通文件
+    //   - SIOCGIFFLAGS 判断是否启用/回环, SIOCGIFADDR 取 IPv4
+    //   - MAC 直接读 /sys/class/net/<网卡>/address
+    // 不用 SIOCGIFCONF: 它返回的条目步长在各系统上不一致(macOS 就不是
+    // sizeof(struct ifreq)), 逐网卡 ioctl 不依赖任何结构体布局假设。
+    const int sock = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0)
+        return LocalNetworkInfo();
+    QDir netDir(QString("/sys/class/net"));
+    const QStringList entries = netDir.entryList(QDir::AllEntries
+                                                 | QDir::NoDotAndDotDot
+                                                 | QDir::System | QDir::Hidden);
+    for (const QString &name : entries) {
+        if (name.isEmpty() || name == "lo")
+            continue;
+        // 没有 address 节点的不是网卡(如 bonding_masters)
+        const QString mac = sysfsMacAddress(name);
+        if (mac.isEmpty())
+            continue;
+        struct ifreq query;
+        memset(&query, 0, sizeof(query));
+        strncpy(query.ifr_name, name.toLocal8Bit().constData(), IFNAMSIZ - 1);
+        // 跳过未启用与回环, 避免把 lo 的 127.0.0.1 当本机地址
+        if (::ioctl(sock, SIOCGIFFLAGS, &query) == 0
+            && (!(query.ifr_flags & IFF_UP) || (query.ifr_flags & IFF_LOOPBACK)))
+            continue;
+        char text[INET_ADDRSTRLEN] = {};
+        if (::ioctl(sock, SIOCGIFADDR, &query) == 0)
+            inet_ntop(AF_INET,
+                      &reinterpret_cast<const struct sockaddr_in *>(
+                          &query.ifr_addr)->sin_addr,
+                      text, sizeof(text));
+        LocalNetworkInfo &info = byName[name];
+        info.interfaceName = name;
+        info.mac = mac;
+        if (text[0] != '\0')
+            addInterface(name, QString::fromUtf8(text));
+    }
+    ::close(sock);
+#endif
+
+    for (const QString &name : order) {
+        const LocalNetworkInfo info = byName.value(name);
+        if (!info.ipv4.isEmpty())
+            candidates.append(info);
+    }
+    return pickNetworkInterface(candidates);
 }
 
 double averageField(const QMap<QString, QVariant> &values,
