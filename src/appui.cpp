@@ -35,6 +35,7 @@
 #include <QJsonObject>
 #include <QDir>
 #include <QFileInfo>
+#include <QFile>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QStackedWidget>
@@ -49,6 +50,24 @@
 #include <functional>
 #include <limits>
 
+// "关于本机"页要显示本机 IP 与 MAC。项目只链 core/gui/widgets/serialport,
+// 不为这两项引入 QtNetwork(会给 APK 多加一个 libQt5Network.so), 因此用 POSIX
+// 的 getifaddrs 直接枚举: 它同时给出 IPv4 与链路层 MAC, Linux/Android/macOS
+// 都有。Android 的 bionic 不返回 AF_PACKET/AF_LINK 条目, MAC 退回读 sysfs。
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#if defined(Q_OS_MACOS)
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#else
+#include <linux/if_packet.h>
+#include <netpacket/packet.h>
+#endif
+
 namespace {
 
 constexpr int kSelfCheckSeconds = 60;
@@ -61,6 +80,8 @@ const QString kSettingsPassword = QString::fromUtf8("123456");
 // 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
 constexpr int kHeaterParamPage = 2;
 constexpr int kAdvancedPage = 4;
+// 关于本机: 无密码, 但网络地址随 DHCP 可能变化, 每次进入都要刷新
+constexpr int kAboutPage = 5;
 
 // 外扩输入功能映射的显示名与可选值 (防错线排查用)
 QString expInModeName(const QString &mode)
@@ -276,6 +297,148 @@ void configureDeviceCombo(QComboBox *combo)
         "QScrollBar:vertical { width: 36px; }"
         "QScrollBar::handle:vertical { min-height: 72px; margin: 2px 4px; }"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"));
+}
+
+// 本机网络信息: 现场屏多为 DHCP, 地址可能变化, 所以每次进入"关于本机"页
+// 都重新取, 不在构造时固化成一个可能过期的值。
+// 不引入 QtNetwork(会给 APK 多加一个 libQt5Network.so): POSIX getifaddrs()
+// 同时给出 IPv4 与链路层 MAC, Android 的 bionic 不返回 AF_PACKET/AF_LINK 条目,
+// 此时退回读 /sys/class/net/<网卡>/address。
+struct LocalNetworkInfo {
+    QString interfaceName;   // eth0 / en0 ...
+    QString ipv4;
+    QString mac;
+};
+
+QString formatMac(const unsigned char *bytes, int length)
+{
+    if (length < 6)
+        return QString();
+    // 全零说明未烧录, 不当成有效地址
+    bool allZero = true;
+    for (int i = 0; i < 6; ++i) {
+        if (bytes[i] != 0) {
+            allZero = false;
+            break;
+        }
+    }
+    if (allZero)
+        return QString();
+    return QString("%1:%2:%3:%4:%5:%6")
+        .arg(bytes[0], 2, 16, QChar('0'))
+        .arg(bytes[1], 2, 16, QChar('0'))
+        .arg(bytes[2], 2, 16, QChar('0'))
+        .arg(bytes[3], 2, 16, QChar('0'))
+        .arg(bytes[4], 2, 16, QChar('0'))
+        .arg(bytes[5], 2, 16, QChar('0'));
+}
+
+// 从 sysfs 读网卡 MAC: getifaddrs 拿不到链路层地址时的兜底, Linux/Android 均可读
+QString sysfsMacAddress(const QString &interfaceName)
+{
+    QFile file(QString("/sys/class/net/%1/address").arg(interfaceName));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QString();
+    const QString value = QString::fromUtf8(file.readAll()).trimmed().toLower();
+    if (value.size() != 17 || value == "00:00:00:00:00:00")
+        return QString();
+    return value;
+}
+
+LocalNetworkInfo localNetworkInfo()
+{
+    struct ifaddrs *head = nullptr;
+    if (getifaddrs(&head) != 0)
+        return LocalNetworkInfo();
+
+    // IPv4 与链路层 MAC 来自不同的 ifaddrs 条目, 按网卡名聚合后统一判断
+    QHash<QString, LocalNetworkInfo> byName;
+    QStringList order;
+    for (struct ifaddrs *ifa = head; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || !ifa->ifa_name)
+            continue;
+        const QString name = QString::fromUtf8(ifa->ifa_name);
+        if (name.isEmpty() || name == "lo")
+            continue;
+        const unsigned int flags = ifa->ifa_flags;
+        if (!(flags & IFF_UP) || (flags & IFF_LOOPBACK))
+            continue;
+
+        LocalNetworkInfo &info = byName[name];
+        info.interfaceName = name;
+        if (!order.contains(name))
+            order.append(name);
+
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            if (!info.ipv4.isEmpty())
+                continue;
+            char text[INET_ADDRSTRLEN] = {};
+            if (!inet_ntop(AF_INET,
+                           &reinterpret_cast<const struct sockaddr_in *>(
+                               ifa->ifa_addr)->sin_addr,
+                           text, sizeof(text)))
+                continue;
+            const QString address = QString::fromUtf8(text);
+            // 排除未配置与 link-local: 现场不会用这两种地址访问面板
+            if (address == "0.0.0.0" || address.startsWith("169.254."))
+                continue;
+            info.ipv4 = address;
+        }
+#if defined(Q_OS_MACOS)
+        else if (ifa->ifa_addr->sa_family == AF_LINK) {
+            const auto *sdl =
+                reinterpret_cast<const struct sockaddr_dl *>(ifa->ifa_addr);
+            if (sdl->sdl_type == IFT_ETHER && sdl->sdl_alen == 6)
+                info.mac = formatMac(
+                    reinterpret_cast<const unsigned char *>(LLADDR(sdl)),
+                    sdl->sdl_alen);
+        }
+#else
+        else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+            const auto *sll =
+                reinterpret_cast<const struct sockaddr_ll *>(ifa->ifa_addr);
+            if (sll->sll_halen == 6)
+                info.mac = formatMac(sll->sll_addr, sll->sll_halen);
+        }
+#endif
+    }
+    freeifaddrs(head);
+
+    // Android 的 getifaddrs 不带链路层条目, 用 sysfs 补齐
+    for (LocalNetworkInfo &info : byName) {
+        if (!info.mac.isEmpty())
+            continue;
+        info.mac = sysfsMacAddress(info.interfaceName);
+    }
+
+    // 只保留拿到 IPv4 的网卡
+    QVector<LocalNetworkInfo> candidates;
+    for (const QString &name : order) {
+        const LocalNetworkInfo info = byName.value(name);
+        if (!info.ipv4.isEmpty())
+            candidates.append(info);
+    }
+    if (candidates.isEmpty())
+        return LocalNetworkInfo();
+
+    // 有线优先: 现场屏走网线, Linux/Android 上名字通常是 eth0/eth1
+    const auto isEthernet = [](const LocalNetworkInfo &info) {
+        return info.interfaceName.startsWith("eth")
+            || info.interfaceName.startsWith("en");
+    };
+    for (const LocalNetworkInfo &info : candidates) {
+        if (isEthernet(info) && !info.mac.isEmpty())
+            return info;
+    }
+    for (const LocalNetworkInfo &info : candidates) {
+        if (isEthernet(info))
+            return info;
+    }
+    for (const LocalNetworkInfo &info : candidates) {
+        if (!info.mac.isEmpty())
+            return info;
+    }
+    return candidates.first();
 }
 
 double averageField(const QMap<QString, QVariant> &values,
@@ -3222,7 +3385,41 @@ AboutWidget::AboutWidget(QWidget *parent)
     os->setObjectName("metricTitle");
     layout->addWidget(os);
 
+    // 网络信息: 现场屏靠 IP/MAC 定位与远程访问, 地址随 DHCP 可能变化,
+    // 因此标签只建一次、内容每次进入本页时由 refreshNetworkInfo() 更新。
+    m_networkInterfaceLabel = new QLabel(this);
+    m_networkInterfaceLabel->setObjectName("metricTitle");
+    m_networkInterfaceLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_networkInterfaceLabel);
+
+    m_ipLabel = new QLabel(this);
+    m_ipLabel->setObjectName("metricTitle");
+    m_ipLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_ipLabel);
+
+    m_macLabel = new QLabel(this);
+    m_macLabel->setObjectName("metricTitle");
+    m_macLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_macLabel);
+
+    refreshNetworkInfo();
+
     layout->addStretch();
+}
+
+void AboutWidget::refreshNetworkInfo()
+{
+    const LocalNetworkInfo info = localNetworkInfo();
+    const bool hasAddress = !info.ipv4.isEmpty();
+    m_networkInterfaceLabel->setText(hasAddress
+        ? QString::fromUtf8("网卡：%1").arg(info.interfaceName)
+        : QString::fromUtf8("网卡：未连接"));
+    m_ipLabel->setText(hasAddress
+        ? QString::fromUtf8("IP 地址：%1").arg(info.ipv4)
+        : QString::fromUtf8("IP 地址：--"));
+    m_macLabel->setText(info.mac.isEmpty()
+        ? QString::fromUtf8("MAC 地址：--")
+        : QString::fromUtf8("MAC 地址：%1").arg(info.mac));
 }
 
 // ============================================================
@@ -5254,6 +5451,9 @@ void MainWindow::switchPage(int index)
         const DeviceState state = m_deviceManager.device(key);
         m_advancedWidget->updateExpInputStates(state.online
             ? state.values : QMap<QString, QVariant>());
+    } else if (index == kAboutPage) {
+        // IP/MAC 可能随 DHCP 租约变化, 每次进入本页都重新取, 不显示过期地址
+        m_aboutWidget->refreshNetworkInfo();
     }
 }
 

@@ -393,6 +393,18 @@ class AboutWidget : public QWidget
     Q_OBJECT
 public:
     explicit AboutWidget(QWidget *parent = nullptr);
+
+    /**
+     * 刷新本机网络信息 (IP / MAC)。
+     * 现场屏多为 DHCP, 地址可能变化, 因此每次进入本页都重新取,
+     * 而不是在构造时固化成一个可能过期的值。
+     */
+    void refreshNetworkInfo();
+
+private:
+    QLabel *m_networkInterfaceLabel = nullptr;
+    QLabel *m_ipLabel = nullptr;
+    QLabel *m_macLabel = nullptr;
 };
 
 /**
