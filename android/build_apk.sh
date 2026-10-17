@@ -220,14 +220,7 @@ path.write_text(
 )
 PY
 
-# AGP 给 debug 包签名用的 debug.keystore 在干净环境里不存在时会现场生成一个新的,
-# 于是每轮产物签名都不同, 面板上已安装的应用永远无法覆盖升级
-# (INSTALL_FAILED_UPDATE_INCOMPATIBLE)。这里用仓库里的 rs485.keystore 播种。
-# 注意 AGP 3.6.0 实测**不读** $ANDROID_USER_HOME 下的那个(它会另生成一个,
-# 播种后产物签名仍是新的), 因此把它播种到它可能查找的各个位置; 构建后再核对
-# 成品证书指纹, 不匹配就直接失败, 避免产出装不到面板上的包。
-# 别名/口令沿用 Android debug 密钥的惯例(androiddebugkey/android), 这正是 AGP
-# 自己假定的默认值, 因此不需要改 build.gradle 的 signingConfigs。
+# 显式使用项目签名，不覆盖用户的全局 debug.keystore。
 KEYSTORE_SRC="$ANDROID_DIR/rs485.keystore"
 if [[ ! -s "$KEYSTORE_SRC" ]]; then
     printf 'Android signing keystore missing: %s\n' "$KEYSTORE_SRC" >&2
@@ -243,13 +236,18 @@ fi
 printf 'Signing key: %s (alias androiddebugkey)\n' "$KEYSTORE_SRC"
 "$JAVA_ROOT/bin/keytool" -list -v -keystore "$KEYSTORE_SRC" -storepass android 2>/dev/null \
     | grep -m1 'SHA256:' | sed 's/^[[:space:]]*/  /' || true
-for seed_root in "$ANDROID_USER_HOME" "$HOME"; do
-    [[ -n "$seed_root" ]] || continue
-    seed_dir="$seed_root/.android"
-    mkdir -p "$seed_dir"
-    cp "$KEYSTORE_SRC" "$seed_dir/debug.keystore"
-    printf '  seeded %s\n' "$seed_dir/debug.keystore"
-done
+python3 - "$DEPLOY_DIR/build.gradle" "$KEYSTORE_SRC" <<'PY_SIGNING'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+with path.open("a", encoding="utf-8") as out:
+    out.write("\nandroid { signingConfigs { debug {\n")
+    out.write("    storeFile file(" + json.dumps(sys.argv[2]).replace("$", "\\$") + ")\n")
+    out.write('    storePassword "android"\n    keyAlias "androiddebugkey"\n    keyPassword "android"\n')
+    out.write("} } }\n")
+PY_SIGNING
 
 cd "$DEPLOY_DIR"
 ./gradlew assembleDebug

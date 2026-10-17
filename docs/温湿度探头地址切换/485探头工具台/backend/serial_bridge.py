@@ -68,19 +68,17 @@ class ProbeClient:
             raise ModbusTimeout(f"等待响应超时（收到 {len(response)} 字节）")
         if crc16(response[:-2]) != int.from_bytes(response[-2:], "little"):
             raise ModbusError("响应 CRC 校验失败")
+        if response[0] != pdu[0]:
+            raise ModbusError("响应从站地址与请求不符")
+        if response[1] not in (pdu[1], pdu[1] | 0x80):
+            raise ModbusError("响应功能码与请求不符")
         if response[1] & 0x80:
             raise ModbusError(f"设备返回异常码 0x{response[2]:02X}")
+        if len(response) != expect_len:
+            raise ModbusError("响应长度与请求不符")
+        if pdu[1] == 0x06 and response[:-2] != pdu:
+            raise ModbusError("写寄存器回显与请求不符")
         return response
-
-    def send_raw(self, data: bytes) -> None:
-        with self._io_lock:
-            self._ser.write(data)
-            self._ser.flush()
-
-    def read_available(self, wait: float = 0.3) -> bytes:
-        with self._io_lock:
-            time.sleep(wait)
-            return self._ser.read(self._ser.in_waiting or 1)
 
     def read_holding(self, slave: int, start: int, count: int) -> list:
         pdu = bytes([slave, 0x03]) + start.to_bytes(2, "big") + count.to_bytes(2, "big")
@@ -192,7 +190,7 @@ class Bridge:
         # 先停轮询线程，避免和改 ID 抢串口
         self._stop.set()
         if self._worker is not None:
-            self._worker.join(timeout=3.0)
+            self._worker.join()
         self._worker = None
         try:
             result = self._run_id_change(client, old_id, new_id)
@@ -231,8 +229,12 @@ class Bridge:
         payload = bytes.fromhex(req.get("hex", "").replace(" ", ""))
         if req.get("append_crc", True):
             payload += crc16(payload).to_bytes(2, "little")
-        client.send_raw(payload)
-        response = client.read_available(0.3)
+        # 请求和响应共用一次加锁，防止轮询线程取走调试响应。
+        with client._io_lock:
+            client._ser.write(payload)
+            client._ser.flush()
+            time.sleep(0.3)
+            response = client._ser.read(client._ser.in_waiting or 1)
         return {"id": rid, "ok": True,
                 "tx": payload.hex(" ").upper(),
                 "rx": response.hex(" ").upper() if response else ""}
@@ -294,11 +296,13 @@ class Bridge:
         slave = self._current_id  # 改 ID 后的重启轮询先用新 ID
         while not self._stop.is_set() and client is self._client:
             if slave is None:
-                slave = self._detect_current_id(client)
+                slave = self._detect_current_id(client, self._stop)
+                if self._stop.is_set():
+                    return
                 if slave is None:
                     self.emit({"event": "error", "stage": "detect",
-                               "message": "未找到探头：请检查供电/接线/波特率（已扫描 ID 1~50）"})
-                    self.log("错误：未找到探头（ID 1~50 均无响应）", "error")
+                               "message": "未找到探头：请检查供电/接线/波特率（已扫描 ID 1~247）"})
+                    self.log("错误：未找到探头（ID 1~247 均无响应）", "error")
                     return
                 self._current_id = slave
                 self._last_known_id = slave
@@ -306,17 +310,23 @@ class Bridge:
                 self.log(f"检测到探头，当前设备 ID = {slave}")
             try:
                 humidity, temperature = client.read_measurements(slave)
+                if self._stop.is_set():
+                    return
                 self.emit({"event": "reading", "id": slave,
                            "humidity": humidity, "temperature": temperature})
             except (ModbusTimeout, ModbusError, serial.SerialException) as exc:
+                if self._stop.is_set():
+                    return
                 self.emit({"event": "error", "stage": "poll", "message": f"通信中断：{exc}"})
                 self.log(f"通信中断：{exc}", "error")
                 return
             self._stop.wait(1.0)
 
-    def _detect_current_id(self, client: ProbeClient):
+    def _detect_current_id(self, client: ProbeClient, stop_event=None):
         # 先试上次已知 ID：改完 ID 重连时秒级识别，不必从 1 开始全扫
         last = self._last_known_id
+        if stop_event is not None and stop_event.is_set():
+            return None
         if last is not None:
             try:
                 client.read_device_id(last)
@@ -324,6 +334,8 @@ class Bridge:
             except (ModbusTimeout, ModbusError, serial.SerialException):
                 pass
         for candidate in range(1, 248):
+            if stop_event is not None and stop_event.is_set():
+                return None
             try:
                 client.read_device_id(candidate)
                 return candidate
@@ -334,7 +346,7 @@ class Bridge:
     def _teardown(self):
         self._stop.set()
         if self._worker is not None:
-            self._worker.join(timeout=3.0)
+            self._worker.join()
         self._worker = None
         if self._client is not None:
             self._client.close()

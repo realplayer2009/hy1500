@@ -487,27 +487,22 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
     const bool channelRecorded[3] = {
         general.heaterAPair != 0, general.heaterBPair != 0, general.heaterCPair != 0
     };
-    auto channelDropped = [&channelRecorded](const QString &field) {
-        for (int ch = 0; ch < 3; ++ch) {
-            if (!channelRecorded[ch]
-                && (field == QString("th%1_temp").arg(ch + 1)
-                    || field == QString("th%1_humi").arg(ch + 1)))
-                return true;
+    QMap<QString, QVariant> recordedValues = values;
+    recordedValues.remove("reserved");
+    for (int ch = 0; ch < 3; ++ch) {
+        if (!channelRecorded[ch]) {
+            recordedValues.remove(QString("th%1_temp").arg(ch + 1));
+            recordedValues.remove(QString("th%1_humi").arg(ch + 1));
         }
-        return false;
-    };
-
-    QJsonObject json;
-    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        if (it.key() != "reserved" && !channelDropped(it.key()))
-            json[it.key()] = QJsonValue::fromVariant(it.value());
     }
 
-    auto engineering = [&values, &channelDropped](const QString &field) {
-        if (channelDropped(field))
-            return QString();
-        return values.contains(field)
-            ? QString::number(values.value(field).toInt() / 10.0, 'f', 1)
+    QJsonObject json;
+    for (auto it = recordedValues.constBegin(); it != recordedValues.constEnd(); ++it)
+        json[it.key()] = QJsonValue::fromVariant(it.value());
+
+    auto engineering = [&recordedValues](const QString &field) {
+        return recordedValues.contains(field)
+            ? QString::number(recordedValues.value(field).toInt() / 10.0, 'f', 1)
             : QString();
     };
     auto raw = [&values](const QString &field) {
@@ -559,7 +554,7 @@ void DataLogger::appendRecord(const DeviceProfile::DeviceKey &key,
     }
 
     lock.unlock();
-    emit recordAppended(timestamp, key, deviceName, type, values);
+    emit recordAppended(timestamp, key, deviceName, type, recordedValues);
 }
 
 void DataLogger::closeCurrentFile()
