@@ -81,6 +81,28 @@ export PATH="$QT_ROOT/bin:$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-
 mkdir -p "$DEPLOY_DIR/libs/arm64-v8a"
 cp "$DEPLOY_DIR/libRS485Control_arm64-v8a.so" \
     "$DEPLOY_DIR/libs/arm64-v8a/libRS485Control_arm64-v8a.so"
+# androiddeployqt 只在非 aux 模式调 copyStdCpp() 把 NDK 的 libc++_shared.so 放进
+# libs/<abi>/; aux 分支不会做, 而它又不清理已存在的 libs 目录, 所以此前能构建只是
+# 因为复用了暖构建目录里残留的这个库。干净检出(含 CI)产出的 APK 会缺它, 安装后启动即
+#   UnsatisfiedLinkError: dlopen failed: library "libc++_shared.so" not found
+# 这里显式补上。NDK 21 及更早用 sources/cxx-stl 路径, NDK 22 起该目录被移除、
+# 改到 toolchains 的 sysroot 下, 两个位置都试。
+CXX_SO=""
+for candidate in \
+    "$NDK_ROOT/sources/cxx-stl/llvm-libc++/libs/arm64-v8a/libc++_shared.so" \
+    "$NDK_ROOT"/toolchains/llvm/prebuilt/*/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so; do
+    if [[ -f "$candidate" ]]; then
+        CXX_SO="$candidate"
+        break
+    fi
+done
+if [[ -z "$CXX_SO" ]]; then
+    printf 'libc++_shared.so not found under NDK: %s\n' "$NDK_ROOT" >&2
+    printf 'The NDK must ship the LLVM libc++ runtime for arm64-v8a.\n' >&2
+    exit 1
+fi
+cp "$CXX_SO" "$DEPLOY_DIR/libs/arm64-v8a/libc++_shared.so"
+printf 'Bundled libc++_shared.so from %s\n' "$CXX_SO"
 
 OUTPUT_APK="$APK_DIR/RS485Control-arm64-v8a-debug.apk"
 # --aux-mode 只"更新"输出目录里已有的工程文件, 不会复制模板:
@@ -287,6 +309,14 @@ if apk_fp != key_fp:
     sys.exit(1)
 print(f"APK signature verified against the project keystore: {apk_fp}")
 PY
+# 核对成品里带了 libc++_shared.so: 缺它时安装能成功、启动却必然崩在
+# UnsatisfiedLinkError, 而且要到装到面板上才发现, 因此在这里就拦住。
+if ! "$SDK_ROOT/build-tools/34.0.0/aapt" list "$BUILT_APK" 2>/dev/null \
+    | grep -q "^lib/arm64-v8a/libc++_shared.so$"; then
+    printf 'Refusing to publish an APK without lib/arm64-v8a/libc++_shared.so: %s\n' \
+        "$BUILT_APK" >&2
+    exit 1
+fi
 if ! "$SDK_ROOT/build-tools/34.0.0/aapt" dump badging "$BUILT_APK" \
     | grep -q "^package: name='com.rs485.control' "; then
     printf 'Refusing to publish an APK with an unexpected package name: %s\n' "$BUILT_APK" >&2
