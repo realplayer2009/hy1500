@@ -2606,16 +2606,26 @@ void HistoryChart::setRecords(const QVector<HistoryQuery::Record> &records)
 void HistoryChart::appendRecord(const HistoryQuery::Record &record)
 {
     m_records.append(record);
-    refreshAfterRecordsChanged();
+    // 实时追加不打断正在查看的十字线: 跟随最新时 m_viewStart 随 maxViewStart
+    // 一起后移一位, 索引不变指向的仍是同一条记录; 用户拖回旧数据时 viewStart
+    // 不动, 同样还对得上。只有重新查询(setRecords)才重置。
+    const bool inspecting = m_crosshairRecordIndex >= 0;
+    refreshAfterRecordsChanged(inspecting);
 }
 
-void HistoryChart::refreshAfterRecordsChanged()
+void HistoryChart::refreshAfterRecordsChanged(bool keepCrosshair)
 {
     m_viewStart = m_followLatest ? maxViewStart()
                                  : qMin(m_viewStart, maxViewStart());
-    m_crosshairRecordIndex = -1;
+    if (keepCrosshair) {
+        // 只有被追加挤掉(索引越界)时才放弃, 否则保留原记录与原提示
+        if (m_crosshairRecordIndex >= m_records.size())
+            m_crosshairRecordIndex = -1;
+    } else {
+        m_crosshairRecordIndex = -1;
+        emit inspectionChanged(QString::fromUtf8("点击曲线查看数据，左右拖动切换时间段"));
+    }
     emit viewStartChanged(m_viewStart);
-    emit inspectionChanged(QString::fromUtf8("点击曲线查看数据，左右拖动切换时间段"));
     update();
 }
 

@@ -227,7 +227,7 @@ protected:
 
 private:
     void inspectAtX(int x);
-    void refreshAfterRecordsChanged();
+    void refreshAfterRecordsChanged(bool keepCrosshair = false);
 
     QVector<HistoryQuery::Record> m_records;
     int m_viewStart = 0;
