@@ -514,34 +514,45 @@ void mergeFleetRecord(QVector<HistoryQuery::Record> &aggregates,
 
     QMap<QString, QVariant> &values = aggregates.last().values;
     values["fleet_count"] = values.value("fleet_count").toInt() + 1;
-    const QList<QPair<QStringList, QString>> metrics = {
-        { { "th1_temp", "th2_temp", "th3_temp" }, "th1_temp" },
-        { { "th1_humi", "th2_humi", "th3_humi" }, "th1_humi" },
-        { { "pt1_temp", "pt2_temp" }, "pt1_temp" }
+
+    // 按通路分别聚合, 不再先平均成一路: 曲线要显示 A/B/C 三路独立温度,
+    // "全部子板"视图下每一路也必须是跨子板的均值, 否则三路会糊成一条。
+    // 表格仍用 averageField({th1,th2,th3}) 取三者均值, 与旧行为等价
+    // (三个均值的平均 == 总平均), 因此下游读表格的代码无需改动。
+    static const QStringList metricFields = {
+        "th1_temp", "th2_temp", "th3_temp",
+        "th1_humi", "th2_humi", "th3_humi",
+        "pt1_temp", "pt2_temp"
     };
-    for (const auto &metric : metrics) {
-        bool present = false;
-        for (const QString &field : metric.first) {
-            if (record.values.contains(field)) {
-                present = true;
-                break;
-            }
-        }
-        if (!present)
+    for (const QString &field : metricFields) {
+        if (!record.values.contains(field))
             continue;
-        const int sample = qRound(averageField(record.values, metric.first) * 10.0);
-        const QString sumField = "fleet_" + metric.second + "_sum";
-        const QString countField = "fleet_" + metric.second + "_count";
+        const int sample = record.values.value(field).toInt();
+        const QString sumField = "fleet_" + field + "_sum";
+        const QString countField = "fleet_" + field + "_count";
         const int sum = values.value(sumField).toInt() + sample;
         const int count = values.value(countField).toInt() + 1;
         values[sumField] = sum;
         values[countField] = count;
-        values[metric.second] = qRound(static_cast<double>(sum) / count);
-        if (metric.second == "th1_temp") {
-            values["fleet_temp_min"] = count == 1
-                ? sample : qMin(values.value("fleet_temp_min").toInt(), sample);
-            values["fleet_temp_max"] = count == 1
-                ? sample : qMax(values.value("fleet_temp_max").toInt(), sample);
+        values[field] = qRound(static_cast<double>(sum) / count);
+    }
+
+    // 跨子板极值带: 取每块板每一路温度的最小/最大值, 覆盖三路。
+    // 旧实现只对"三路平均"求极值, 三路分开画之后带子必须覆盖全部通路,
+    // 否则 B/C 摆出范围时带子不跟着撑开。
+    static const QStringList tempFields = { "th1_temp", "th2_temp", "th3_temp" };
+    for (const QString &field : tempFields) {
+        if (!record.values.contains(field))
+            continue;
+        const int sample = record.values.value(field).toInt();
+        if (!values.contains("fleet_temp_min")) {
+            values["fleet_temp_min"] = sample;
+            values["fleet_temp_max"] = sample;
+        } else {
+            values["fleet_temp_min"] =
+                qMin(values.value("fleet_temp_min").toInt(), sample);
+            values["fleet_temp_max"] =
+                qMax(values.value("fleet_temp_max").toInt(), sample);
         }
     }
 }
@@ -2647,29 +2658,49 @@ void HistoryChart::inspectAtX(int x)
         : qRound(ratio * (count - 1));
     m_crosshairRecordIndex = m_viewStart + point;
     const HistoryQuery::Record &record = m_records.at(m_crosshairRecordIndex);
-    const bool hasTemperature = record.values.contains("th1_temp")
-        || record.values.contains("th2_temp") || record.values.contains("th3_temp");
-    const bool hasHumidity = record.values.contains("th1_humi")
-        || record.values.contains("th2_humi") || record.values.contains("th3_humi");
-    const bool hasPt100 = record.values.contains("pt1_temp")
-        || record.values.contains("pt2_temp");
-    const QString temperature = hasTemperature
-        ? QString::number(averageField(
-              record.values, { "th1_temp", "th2_temp", "th3_temp" }), 'f', 1) + " ℃"
-        : "--";
-    const QString humidity = hasHumidity
-        ? QString::number(averageField(
-              record.values, { "th1_humi", "th2_humi", "th3_humi" }), 'f', 1) + " %RH"
-        : "--";
-    const QString pt100 = hasPt100
-        ? QString::number(averageField(record.values, { "pt1_temp", "pt2_temp" }), 'f', 1) + " ℃"
-        : "--";
-    QString summary = QString::fromUtf8(
-        "<b>%1</b>&nbsp;&nbsp; <span style='color:#c45f0a'>温湿度计 %2</span>"
-        "&nbsp;&nbsp; <span style='color:#145fa8'>湿度 %3</span>"
-        "&nbsp;&nbsp; <span style='color:#71368a'>PT100 %4</span>")
-        .arg(record.timestamp.toString("yyyy-MM-dd hh:mm:ss"),
-             temperature, humidity, pt100);
+    // 提示也按通路给值, 与曲线一一对应: 没有这一路就不出现对应条目,
+    // 避免出现"温湿度B --"这种图上根本没有的序列
+    auto channelText = [&record](const QString &field, bool requireNonZero) -> QString {
+        if (!record.values.contains(field))
+            return QString();
+        const double value = record.values.value(field).toInt() / 10.0;
+        if (value < -40.0 || value > 85.0)
+            return QString();
+        if (requireNonZero && qFuzzyIsNull(value))
+            return QString();
+        return QString::number(value, 'f', 1) + " ℃";
+    };
+    QString summary = QString::fromUtf8("<b>%1</b>")
+        .arg(record.timestamp.toString("yyyy-MM-dd hh:mm:ss"));
+    static const char *const tempNames[3] = { "温湿度A", "温湿度B", "温湿度C" };
+    static const char *const tempColors[3] = { "#c45f0a", "#0f7c6b", "#71368a" };
+    static const QString tempFields[3] = { "th1_temp", "th2_temp", "th3_temp" };
+    for (int i = 0; i < 3; ++i) {
+        const QString text = channelText(tempFields[i], false);
+        if (text.isEmpty())
+            continue;
+        summary += QString::fromUtf8(
+            "&nbsp;&nbsp; <span style='color:%1'>%2 %3</span>")
+            .arg(QString::fromUtf8(tempColors[i]),
+                 QString::fromUtf8(tempNames[i]), text);
+    }
+    if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
+        || record.values.contains("th3_humi")) {
+        summary += QString::fromUtf8(
+            "&nbsp;&nbsp; <span style='color:#145fa8'>湿度 %1 %RH</span>")
+            .arg(averageField(
+                     record.values, { "th1_humi", "th2_humi", "th3_humi" }), 0, 'f', 1);
+    }
+    const QString pt1 = channelText("pt1_temp", true);
+    const QString pt2 = channelText("pt2_temp", true);
+    if (!pt1.isEmpty()) {
+        summary += QString::fromUtf8(
+            "&nbsp;&nbsp; <span style='color:#5d4037'>PT100-1 %1</span>").arg(pt1);
+    }
+    if (!pt2.isEmpty()) {
+        summary += QString::fromUtf8(
+            "&nbsp;&nbsp; <span style='color:#8d6e63'>PT100-2 %1</span>").arg(pt2);
+    }
     if (record.values.contains("fleet_temp_min")) {
         summary += QString::fromUtf8(
             "&nbsp;&nbsp; 温度范围 %1~%2 ℃（%3 块）")
@@ -2755,6 +2786,53 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     auto recordAtPoint = [this](int point) -> const HistoryQuery::Record & {
         return m_records.at(m_viewStart + point);
     };
+    // 曲线序列: A/B/C 三路独立温度 + 湿度 + PT100 两路。
+    // 温度不再先平均成一条 —— 三路加热器各自跟随自己的探头, 曲线也必须能
+    // 分开看, 否则"平均温度"会把"一路已到温、一路还在升温"的事实抹平,
+    // 现场根本没法定问题。
+    // 某条序列是否可见, 逐条记录判断: 未配置加热器的通路在 CSV 里留空
+    // (DataLogger 按 heaterXPair 是否为 0 决定是否记录), 读数越界的通路也
+    // 不画; PT100 未接入时读到 0, 用 requireNonZero 排除。
+    // 注意: 工程按 C++11 编译, 带默认成员初始化的 struct 不是聚合类型,
+    // 因此这里不给默认值, 每个序列显式写全六个字段。
+    struct ChartSeries {
+        QString field;               // 空 = 湿度, 取三路平均
+        QString label;
+        QColor color;
+        Qt::PenStyle penStyle;
+        bool humidityAxis;
+        bool requireNonZero;         // PT100 未接入读 0, 不当成 0 ℃
+    };
+    const QList<ChartSeries> allSeries = {
+        { "th1_temp", QString::fromUtf8("温湿度A"), QColor("#e67e22"),
+          Qt::SolidLine, false, false },
+        { "th2_temp", QString::fromUtf8("温湿度B"), QColor("#16a085"),
+          Qt::SolidLine, false, false },
+        { "th3_temp", QString::fromUtf8("温湿度C"), QColor("#8e44ad"),
+          Qt::SolidLine, false, false },
+        { QString(), QString::fromUtf8("湿度"), QColor("#1976d2"),
+          Qt::DotLine, true, false },
+        { "pt1_temp", QString::fromUtf8("PT100 1"), QColor("#6d4c41"),
+          Qt::DashLine, false, true },
+        { "pt2_temp", QString::fromUtf8("PT100 2"), QColor("#a1887f"),
+          Qt::DashDotLine, false, true },
+    };
+
+    // 取一条记录里某一路的有效值; 通路缺失或越界时返回 false
+    auto channelValue = [](const QMap<QString, QVariant> &values, const QString &field,
+                           bool requireNonZero, double &out) -> bool {
+        if (!values.contains(field))
+            return false;
+        const double value = values.value(field).toInt() / 10.0;
+        if (value < -40.0 || value > 85.0)
+            return false;
+        if (requireNonZero && qFuzzyIsNull(value))
+            return false;
+        out = value;
+        return true;
+    };
+
+    QVector<int> visibleSeries;
     bool hasTemperature = false;
     bool hasHumidity = false;
     double temperatureMin = 0.0;
@@ -2764,34 +2842,41 @@ void HistoryChart::paintEvent(QPaintEvent *event)
 
     for (int i = 0; i < pointCount; ++i) {
         const QMap<QString, QVariant> &values = recordAtPoint(i).values;
-        if (values.contains("th1_temp") || values.contains("th2_temp")
-            || values.contains("th3_temp")) {
-            const double value = averageField(
-                values, { "th1_temp", "th2_temp", "th3_temp" });
-            temperatureMin = hasTemperature ? qMin(temperatureMin, value) : value;
-            temperatureMax = hasTemperature ? qMax(temperatureMax, value) : value;
-            hasTemperature = true;
+        for (int s = 0; s < allSeries.size(); ++s) {
+            const ChartSeries &series = allSeries.at(s);
+            double value = 0.0;
+            bool ok = false;
+            if (series.humidityAxis) {
+                if (values.contains("th1_humi") || values.contains("th2_humi")
+                    || values.contains("th3_humi")) {
+                    value = averageField(
+                        values, { "th1_humi", "th2_humi", "th3_humi" });
+                    ok = value >= 0.0 && value <= 100.0;
+                }
+            } else {
+                ok = channelValue(values, series.field, series.requireNonZero, value);
+            }
+            if (!ok)
+                continue;
+            if (series.humidityAxis) {
+                humidityMin = hasHumidity ? qMin(humidityMin, value) : value;
+                humidityMax = hasHumidity ? qMax(humidityMax, value) : value;
+                hasHumidity = true;
+            } else {
+                temperatureMin = hasTemperature ? qMin(temperatureMin, value) : value;
+                temperatureMax = hasTemperature ? qMax(temperatureMax, value) : value;
+                hasTemperature = true;
+            }
+            if (!visibleSeries.contains(s))
+                visibleSeries.append(s);
         }
+        // "全部子板"视图的跨子板极值带, 覆盖三路温度
         if (values.contains("fleet_temp_min")) {
             const double low = values.value("fleet_temp_min").toInt() / 10.0;
             const double high = values.value("fleet_temp_max").toInt() / 10.0;
             temperatureMin = hasTemperature ? qMin(temperatureMin, low) : low;
             temperatureMax = hasTemperature ? qMax(temperatureMax, high) : high;
             hasTemperature = true;
-        }
-        if (values.contains("pt1_temp") || values.contains("pt2_temp")) {
-            const double value = averageField(values, { "pt1_temp", "pt2_temp" });
-            temperatureMin = hasTemperature ? qMin(temperatureMin, value) : value;
-            temperatureMax = hasTemperature ? qMax(temperatureMax, value) : value;
-            hasTemperature = true;
-        }
-        if (values.contains("th1_humi") || values.contains("th2_humi")
-            || values.contains("th3_humi")) {
-            const double value = averageField(
-                values, { "th1_humi", "th2_humi", "th3_humi" });
-            humidityMin = hasHumidity ? qMin(humidityMin, value) : value;
-            humidityMax = hasHumidity ? qMax(humidityMax, value) : value;
-            hasHumidity = true;
         }
     }
 
@@ -2850,12 +2935,8 @@ void HistoryChart::paintEvent(QPaintEvent *event)
                          recordAtPoint(point).timestamp.toString("MM-dd\nhh:mm"));
     }
 
-    QPainterPath temperaturePath;
-    QPainterPath humidityPath;
-    QPainterPath pt100Path;
-    bool temperatureStarted = false;
-    bool humidityStarted = false;
-    bool pt100Started = false;
+    QVector<QPainterPath> seriesPaths(allSeries.size());
+    QVector<bool> seriesStarted(allSeries.size(), false);
     QVector<QPointF> fleetRangeUpper;
     QVector<QPointF> fleetRangeLower;
     auto temperatureY = [&plot, temperatureMin, temperatureMax](double value) {
@@ -2871,25 +2952,29 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         const HistoryQuery::Record &record = recordAtPoint(i);
         const qreal x = pointCount == 1 ? plot.left()
             : plot.left() + plot.width() * i / (pointCount - 1.0);
-        if (record.values.contains("th1_temp") || record.values.contains("th2_temp")
-            || record.values.contains("th3_temp")) {
-            const qreal y = temperatureY(averageField(
-                record.values, { "th1_temp", "th2_temp", "th3_temp" }));
-            temperatureStarted ? temperaturePath.lineTo(x, y) : temperaturePath.moveTo(x, y);
-            temperatureStarted = true;
-        }
-        if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
-            || record.values.contains("th3_humi")) {
-            const qreal y = humidityY(averageField(
-                record.values, { "th1_humi", "th2_humi", "th3_humi" }));
-            humidityStarted ? humidityPath.lineTo(x, y) : humidityPath.moveTo(x, y);
-            humidityStarted = true;
-        }
-        if (record.values.contains("pt1_temp") || record.values.contains("pt2_temp")) {
-            const qreal y = temperatureY(averageField(
-                record.values, { "pt1_temp", "pt2_temp" }));
-            pt100Started ? pt100Path.lineTo(x, y) : pt100Path.moveTo(x, y);
-            pt100Started = true;
+        for (int s : visibleSeries) {
+            const ChartSeries &series = allSeries.at(s);
+            double value = 0.0;
+            bool ok = false;
+            if (series.humidityAxis) {
+                if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
+                    || record.values.contains("th3_humi")) {
+                    value = averageField(
+                        record.values, { "th1_humi", "th2_humi", "th3_humi" });
+                    ok = value >= 0.0 && value <= 100.0;
+                }
+            } else {
+                ok = channelValue(record.values, series.field,
+                                  series.requireNonZero, value);
+            }
+            if (!ok)
+                continue;   // 这一路这条记录没有值, 断线, 由下一点重新起笔
+            const qreal y = series.humidityAxis ? humidityY(value) : temperatureY(value);
+            if (seriesStarted.at(s))
+                seriesPaths[s].lineTo(x, y);
+            else
+                seriesPaths[s].moveTo(x, y);
+            seriesStarted[s] = true;
         }
         if (record.values.contains("fleet_temp_min")) {
             fleetRangeUpper.append(QPointF(x, temperatureY(
@@ -2908,12 +2993,11 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         rangePath.closeSubpath();
         painter.fillPath(rangePath, QColor(230, 126, 34, 45));
     }
-    painter.setPen(QPen(QColor("#e67e22"), 2));
-    painter.drawPath(temperaturePath);
-    painter.setPen(QPen(QColor("#1976d2"), 2, Qt::DotLine));
-    painter.drawPath(humidityPath);
-    painter.setPen(QPen(QColor("#8e44ad"), 2, Qt::DashLine));
-    painter.drawPath(pt100Path);
+    for (int s : visibleSeries) {
+        const ChartSeries &series = allSeries.at(s);
+        painter.setPen(QPen(series.color, 2, series.penStyle));
+        painter.drawPath(seriesPaths.at(s));
+    }
 
     if (m_crosshairRecordIndex >= m_viewStart
         && m_crosshairRecordIndex < m_viewStart + pointCount) {
@@ -2921,20 +3005,30 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         const qreal x = pointCount == 1 ? plot.left()
             : plot.left() + plot.width() * point / (pointCount - 1.0);
         const HistoryQuery::Record &record = m_records.at(m_crosshairRecordIndex);
+        // 每条可见序列在十字线处的值; 水平线取第一条有值的序列
+        auto seriesValueAt = [&record, &channelValue](const ChartSeries &series,
+                                                      double &out) -> bool {
+            if (series.humidityAxis) {
+                if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
+                    || record.values.contains("th3_humi")) {
+                    out = averageField(
+                        record.values, { "th1_humi", "th2_humi", "th3_humi" });
+                    return out >= 0.0 && out <= 100.0;
+                }
+                return false;
+            }
+            return channelValue(record.values, series.field,
+                                series.requireNonZero, out);
+        };
+
         qreal crosshairY = plot.center().y();
-        if (record.values.contains("th1_temp") || record.values.contains("th2_temp")
-            || record.values.contains("th3_temp")) {
-            crosshairY = temperatureY(averageField(
-                record.values, { "th1_temp", "th2_temp", "th3_temp" }));
-        } else if (record.values.contains("pt1_temp")
-                   || record.values.contains("pt2_temp")) {
-            crosshairY = temperatureY(averageField(
-                record.values, { "pt1_temp", "pt2_temp" }));
-        } else if (record.values.contains("th1_humi")
-                   || record.values.contains("th2_humi")
-                   || record.values.contains("th3_humi")) {
-            crosshairY = humidityY(averageField(
-                record.values, { "th1_humi", "th2_humi", "th3_humi" }));
+        for (int s : visibleSeries) {
+            double value = 0.0;
+            if (seriesValueAt(allSeries.at(s), value)) {
+                crosshairY = allSeries.at(s).humidityAxis
+                    ? humidityY(value) : temperatureY(value);
+                break;
+            }
         }
         painter.setPen(QPen(chartText, 1, Qt::DashLine));
         painter.drawLine(QPointF(x, plot.top()), QPointF(x, plot.bottom()));
@@ -2945,48 +3039,37 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             painter.setBrush(chartBackground);
             painter.drawEllipse(QPointF(x, y), 4, 4);
         };
-        if (record.values.contains("th1_temp") || record.values.contains("th2_temp")
-            || record.values.contains("th3_temp")) {
-            drawMarker(QColor("#e67e22"), temperatureY(averageField(
-                record.values, { "th1_temp", "th2_temp", "th3_temp" })));
-        }
-        if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
-            || record.values.contains("th3_humi")) {
-            drawMarker(QColor("#1976d2"), humidityY(averageField(
-                record.values, { "th1_humi", "th2_humi", "th3_humi" })));
-        }
-        if (record.values.contains("pt1_temp") || record.values.contains("pt2_temp")) {
-            drawMarker(QColor("#8e44ad"), temperatureY(averageField(
-                record.values, { "pt1_temp", "pt2_temp" })));
+        for (int s : visibleSeries) {
+            const ChartSeries &series = allSeries.at(s);
+            double value = 0.0;
+            if (seriesValueAt(series, value))
+                drawMarker(series.color,
+                           series.humidityAxis ? humidityY(value) : temperatureY(value));
         }
         painter.setBrush(Qt::NoBrush);
     }
 
     const qreal legendTop = plot.bottom() + timeAxisHeight;
     const qreal legendY = legendTop + legendHeight / 2.0;
-    const qreal legendColumnWidth = plot.width() / 3.0;
-    painter.setPen(QPen(QColor("#e67e22"), 2));
-    painter.drawLine(QPointF(plot.left(), legendY), QPointF(plot.left() + 20, legendY));
-    painter.setPen(QColor("#c45f0a"));
-    painter.drawText(QRectF(plot.left() + 25, legendTop, legendColumnWidth - 30, legendHeight),
-                     Qt::AlignLeft | Qt::AlignVCenter,
-                     m_records.first().values.contains("fleet_count")
-                         ? QString::fromUtf8("平均温度 / 范围")
-                         : QString::fromUtf8("温湿度计温度"));
-    painter.setPen(QPen(QColor("#1976d2"), 2, Qt::DotLine));
-    painter.drawLine(QPointF(plot.left() + legendColumnWidth, legendY),
-                     QPointF(plot.left() + legendColumnWidth + 20, legendY));
-    painter.setPen(QColor("#145fa8"));
-    painter.drawText(QRectF(plot.left() + legendColumnWidth + 25, legendTop,
-                            legendColumnWidth - 30, legendHeight),
-                     Qt::AlignLeft | Qt::AlignVCenter, QString::fromUtf8("温湿度计湿度"));
-    painter.setPen(QPen(QColor("#8e44ad"), 2, Qt::DashLine));
-    painter.drawLine(QPointF(plot.left() + legendColumnWidth * 2, legendY),
-                     QPointF(plot.left() + legendColumnWidth * 2 + 20, legendY));
-    painter.setPen(QColor("#71368a"));
-    painter.drawText(QRectF(plot.left() + legendColumnWidth * 2 + 25, legendTop,
-                            legendColumnWidth - 30, legendHeight),
-                     Qt::AlignLeft | Qt::AlignVCenter, QString::fromUtf8("PT100 温度"));
+    // 图例按实际画出来的序列动态分栏: 只有 A/C 两路时图例也只有两栏,
+    // 不会留下"温湿度B"这种没有曲线的空条目
+    const bool fleetView = m_records.first().values.contains("fleet_count");
+    const int legendCount = qMax(1, visibleSeries.size());
+    const qreal legendColumnWidth = plot.width() / legendCount;
+    for (int i = 0; i < visibleSeries.size(); ++i) {
+        const ChartSeries &series = allSeries.at(visibleSeries.at(i));
+        const qreal lx = plot.left() + legendColumnWidth * i;
+        painter.setPen(QPen(series.color, 2, series.penStyle));
+        painter.drawLine(QPointF(lx, legendY), QPointF(lx + 20, legendY));
+        painter.setPen(series.color.darker(130));
+        painter.drawText(QRectF(lx + 25, legendTop, legendColumnWidth - 30, legendHeight),
+                         Qt::AlignLeft | Qt::AlignVCenter,
+                         // 全部子板视图下温度序列附带跨子板极值带
+                         (fleetView && series.field.startsWith("th")
+                          && series.field.endsWith("_temp"))
+                             ? series.label + QString::fromUtf8(" / 范围")
+                             : series.label);
+    }
 }
 
 // ============================================================
