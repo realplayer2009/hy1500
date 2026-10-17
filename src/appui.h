@@ -206,6 +206,7 @@ public:
     explicit HistoryChart(QWidget *parent = nullptr);
     void setRecords(const QVector<HistoryQuery::Record> &records);
     void appendRecord(const HistoryQuery::Record &record);
+    void refreshRecords();
     int recordCount() const { return m_records.size(); }
     int visiblePointCount() const;
     int maxViewStart() const;

@@ -497,9 +497,12 @@ double averageField(const QMap<QString, QVariant> &values,
     return count > 0 ? sum / count : 0.0;
 }
 
-void mergeFleetRecord(QVector<HistoryQuery::Record> &aggregates,
+bool mergeFleetRecord(QVector<HistoryQuery::Record> &aggregates,
                       const HistoryQuery::Record &record)
 {
+    // 返回 true 表示新起了一个时间桶(追加), false 表示并进了当前秒(原地更新)。
+    // 实时追加路径靠这个区分: 前者走 appendRecord, 后者只重绘不清十字线。
+    bool appended = false;
     const QDateTime timestamp = QDateTime::fromString(
         record.timestamp.toString("yyyy-MM-dd hh:mm:ss"), "yyyy-MM-dd hh:mm:ss");
     if (aggregates.isEmpty() || aggregates.last().timestamp != timestamp) {
@@ -510,6 +513,9 @@ void mergeFleetRecord(QVector<HistoryQuery::Record> &aggregates,
         aggregate.deviceName = QString::fromUtf8("全部子板");
         aggregate.values["fleet_count"] = 0;
         aggregates.append(aggregate);
+        appended = true;
+    } else {
+        appended = false;
     }
 
     QMap<QString, QVariant> &values = aggregates.last().values;
@@ -555,6 +561,7 @@ void mergeFleetRecord(QVector<HistoryQuery::Record> &aggregates,
                 qMax(values.value("fleet_temp_max").toInt(), sample);
         }
     }
+    return appended;
 }
 
 bool hasHighVoltage(const QMap<QString, QVariant> &values)
@@ -2629,6 +2636,13 @@ void HistoryChart::refreshAfterRecordsChanged(bool keepCrosshair)
     update();
 }
 
+void HistoryChart::refreshRecords()
+{
+    // 记录内容被原地更新(如"全部子板"同秒内并入了另一块子板的读数):
+    // 只重算视图并重绘, 不动十字线与数值提示。
+    refreshAfterRecordsChanged(m_crosshairRecordIndex >= 0);
+}
+
 int HistoryChart::visiblePointCount() const
 {
     return qMin(m_records.size(), qMax(40, (width() - 106) / 4));
@@ -3357,8 +3371,13 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
     record.values = values;
     ++m_rawRecordCount;
     if (device.isEmpty()) {
-        mergeFleetRecord(m_chartRecords, record);
-        m_chart->setRecords(m_chartRecords);
+        // "全部子板"每秒聚合: 新起一秒才追加记录, 同一秒内多块子板的读数
+        // 并进最后一个聚合点。两条路都不能走 setRecords —— 那会重置用户
+        // 正在查看的十字线与数值提示(现场 1 秒一条, 根本读不住)。
+        if (mergeFleetRecord(m_chartRecords, record))
+            m_chart->appendRecord(m_chartRecords.last());
+        else
+            m_chart->refreshRecords();
     } else {
         m_chartRecords.append(record);
         m_chart->appendRecord(record);
