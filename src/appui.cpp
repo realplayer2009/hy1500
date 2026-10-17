@@ -2595,6 +2595,38 @@ void AutoPanel::refreshState()
 // HistoryChart
 // ============================================================
 
+// A/B/C 三路温度传感器的曲线与提示配色: 现场指定 A 亮黄 / B 绿 / C 红。
+// 亮黄与亮绿在白底(标准/强光主题)上几乎看不见, 因此浅色主题换用同色系的
+// 深档; 深色主题(石墨灰/低光)用亮档。面板默认石墨灰, 看到的是亮档。
+void historyChannelColors(bool darkTheme, QColor colors[3])
+{
+    if (darkTheme) {
+        colors[0] = QColor("#ffd54f");   // A 亮黄
+        colors[1] = QColor("#66bb6a");   // B 绿
+        colors[2] = QColor("#ef5350");   // C 红
+    } else {
+        colors[0] = QColor("#f9a825");
+        colors[1] = QColor("#2e7d32");
+        colors[2] = QColor("#c62828");
+    }
+}
+
+// 取一条记录里某一路的有效值; 通路缺失或越界时返回 false。
+// 湿度量程 0~100 %RH, 温度 -40~85 ℃, 与自检用的固定极端量程一致。
+bool historyChannelValue(const QMap<QString, QVariant> &values, const QString &field,
+                         bool humidity, bool requireNonZero, double &out)
+{
+    if (!values.contains(field))
+        return false;
+    const double value = values.value(field).toInt() / 10.0;
+    if (value < (humidity ? 0.0 : -40.0) || value > (humidity ? 100.0 : 85.0))
+        return false;
+    if (requireNonZero && qFuzzyIsNull(value))
+        return false;
+    out = value;
+    return true;
+}
+
 HistoryChart::HistoryChart(QWidget *parent)
     : QWidget(parent)
 {
@@ -2683,40 +2715,47 @@ void HistoryChart::inspectAtX(int x)
     m_crosshairRecordIndex = m_viewStart + point;
     const HistoryQuery::Record &record = m_records.at(m_crosshairRecordIndex);
     // 提示也按通路给值, 与曲线一一对应: 没有这一路就不出现对应条目,
-    // 避免出现"温湿度B --"这种图上根本没有的序列
-    auto channelText = [&record](const QString &field, bool requireNonZero) -> QString {
-        if (!record.values.contains(field))
+    // 避免出现"B温度 --"这种图上根本没有的序列。配色与曲线同一套
+    // (historyChannelColors), 现场看着提示颜色就能对上曲线。
+    auto channelText = [&record](const QString &field, bool humidity,
+                                 const QString &unit,
+                                 bool requireNonZero = false) -> QString {
+        double value = 0.0;
+        if (!historyChannelValue(record.values, field, humidity,
+                                 requireNonZero, value))
             return QString();
-        const double value = record.values.value(field).toInt() / 10.0;
-        if (value < -40.0 || value > 85.0)
-            return QString();
-        if (requireNonZero && qFuzzyIsNull(value))
-            return QString();
-        return QString::number(value, 'f', 1) + " ℃";
+        return QString::number(value, 'f', 1) + " " + unit;
     };
     QString summary = QString::fromUtf8("<b>%1</b>")
         .arg(record.timestamp.toString("yyyy-MM-dd hh:mm:ss"));
-    static const char *const tempNames[3] = { "温湿度A", "温湿度B", "温湿度C" };
-    static const char *const tempColors[3] = { "#c45f0a", "#0f7c6b", "#71368a" };
+    QColor channelColor[3];
+    historyChannelColors(AppConfig::instance().general().displayTheme == "graphite"
+                             || AppConfig::instance().general().displayTheme == "low_light",
+                         channelColor);
+    static const char *const tempNames[3] = { "A温度", "B温度", "C温度" };
+    static const char *const humiNames[3] = { "A湿度", "B湿度", "C湿度" };
     static const QString tempFields[3] = { "th1_temp", "th2_temp", "th3_temp" };
+    static const QString humiFields[3] = { "th1_humi", "th2_humi", "th3_humi" };
+    static const QString tempUnit = QString::fromUtf8("℃");
+    static const QString humiUnit = QString::fromUtf8("%RH");
     for (int i = 0; i < 3; ++i) {
-        const QString text = channelText(tempFields[i], false);
-        if (text.isEmpty())
-            continue;
-        summary += QString::fromUtf8(
-            "&nbsp;&nbsp; <span style='color:%1'>%2 %3</span>")
-            .arg(QString::fromUtf8(tempColors[i]),
-                 QString::fromUtf8(tempNames[i]), text);
+        const QString text = channelText(tempFields[i], false, tempUnit);
+        if (!text.isEmpty()) {
+            summary += QString::fromUtf8(
+                "&nbsp;&nbsp; <span style='color:%1'>%2 %3</span>")
+                .arg(channelColor[i].name(),
+                     QString::fromUtf8(tempNames[i]), text);
+        }
+        const QString humi = channelText(humiFields[i], true, humiUnit);
+        if (!humi.isEmpty()) {
+            summary += QString::fromUtf8(
+                "&nbsp;&nbsp; <span style='color:%1'>%2 %3</span>")
+                .arg(channelColor[i].name(),
+                     QString::fromUtf8(humiNames[i]), humi);
+        }
     }
-    if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
-        || record.values.contains("th3_humi")) {
-        summary += QString::fromUtf8(
-            "&nbsp;&nbsp; <span style='color:#145fa8'>湿度 %1 %RH</span>")
-            .arg(averageField(
-                     record.values, { "th1_humi", "th2_humi", "th3_humi" }), 0, 'f', 1);
-    }
-    const QString pt1 = channelText("pt1_temp", true);
-    const QString pt2 = channelText("pt2_temp", true);
+    const QString pt1 = channelText("pt1_temp", false, tempUnit, true);
+    const QString pt2 = channelText("pt2_temp", false, tempUnit, true);
     if (!pt1.isEmpty()) {
         summary += QString::fromUtf8(
             "&nbsp;&nbsp; <span style='color:#5d4037'>PT100-1 %1</span>").arg(pt1);
@@ -2810,51 +2849,51 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     auto recordAtPoint = [this](int point) -> const HistoryQuery::Record & {
         return m_records.at(m_viewStart + point);
     };
-    // 曲线序列: A/B/C 三路独立温度 + 湿度 + PT100 两路。
-    // 温度不再先平均成一条 —— 三路加热器各自跟随自己的探头, 曲线也必须能
-    // 分开看, 否则"平均温度"会把"一路已到温、一路还在升温"的事实抹平,
-    // 现场根本没法定问题。
+    // 曲线序列: A/B/C 三路温度传感器各自一条温度实线 + 一条湿度虚线,
+    // 再加 PT100 两路内部探头。
+    // 温度与湿度都不再先平均 —— 三路加热器各自跟随自己的探头, 平均值会把
+    // "一路已到温、一路还在升温"的事实抹平, 现场根本没法定问题。
     // 某条序列是否可见, 逐条记录判断: 未配置加热器的通路在 CSV 里留空
     // (DataLogger 按 heaterXPair 是否为 0 决定是否记录), 读数越界的通路也
     // 不画; PT100 未接入时读到 0, 用 requireNonZero 排除。
     // 注意: 工程按 C++11 编译, 带默认成员初始化的 struct 不是聚合类型,
     // 因此这里不给默认值, 每个序列显式写全六个字段。
     struct ChartSeries {
-        QString field;               // 空 = 湿度, 取三路平均
+        QString field;
         QString label;
         QColor color;
         Qt::PenStyle penStyle;
         bool humidityAxis;
         bool requireNonZero;         // PT100 未接入读 0, 不当成 0 ℃
     };
+    QColor channelColor[3];
+    historyChannelColors(darkTheme, channelColor);
     const QList<ChartSeries> allSeries = {
-        { "th1_temp", QString::fromUtf8("温湿度A"), QColor("#e67e22"),
+        // 温度: 实线
+        { "th1_temp", QString::fromUtf8("A温度"), channelColor[0],
           Qt::SolidLine, false, false },
-        { "th2_temp", QString::fromUtf8("温湿度B"), QColor("#16a085"),
+        { "th2_temp", QString::fromUtf8("B温度"), channelColor[1],
           Qt::SolidLine, false, false },
-        { "th3_temp", QString::fromUtf8("温湿度C"), QColor("#8e44ad"),
+        { "th3_temp", QString::fromUtf8("C温度"), channelColor[2],
           Qt::SolidLine, false, false },
-        { QString(), QString::fromUtf8("湿度"), QColor("#1976d2"),
-          Qt::DotLine, true, false },
-        { "pt1_temp", QString::fromUtf8("PT100 1"), QColor("#6d4c41"),
+        // 湿度: 虚线, 与同色温度靠线型区分
+        { "th1_humi", QString::fromUtf8("A湿度"), channelColor[0],
+          Qt::DashLine, true, false },
+        { "th2_humi", QString::fromUtf8("B湿度"), channelColor[1],
+          Qt::DashLine, true, false },
+        { "th3_humi", QString::fromUtf8("C湿度"), channelColor[2],
+          Qt::DashLine, true, false },
+        // PT100: 棕色系深浅两档, 与黄/绿/红远离
+        { "pt1_temp", QString::fromUtf8("PT100 1"),
+          QColor(darkTheme ? "#a1887f" : "#5d4037"),
           Qt::DashLine, false, true },
-        { "pt2_temp", QString::fromUtf8("PT100 2"), QColor("#a1887f"),
+        { "pt2_temp", QString::fromUtf8("PT100 2"),
+          QColor(darkTheme ? "#8d6e63" : "#4e342e"),
           Qt::DashDotLine, false, true },
     };
 
     // 取一条记录里某一路的有效值; 通路缺失或越界时返回 false
-    auto channelValue = [](const QMap<QString, QVariant> &values, const QString &field,
-                           bool requireNonZero, double &out) -> bool {
-        if (!values.contains(field))
-            return false;
-        const double value = values.value(field).toInt() / 10.0;
-        if (value < -40.0 || value > 85.0)
-            return false;
-        if (requireNonZero && qFuzzyIsNull(value))
-            return false;
-        out = value;
-        return true;
-    };
+    // (湿度 0~100 %RH / 温度 -40~85 ℃, 见 historyChannelValue)
 
     QVector<int> visibleSeries;
     bool hasTemperature = false;
@@ -2869,18 +2908,8 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         for (int s = 0; s < allSeries.size(); ++s) {
             const ChartSeries &series = allSeries.at(s);
             double value = 0.0;
-            bool ok = false;
-            if (series.humidityAxis) {
-                if (values.contains("th1_humi") || values.contains("th2_humi")
-                    || values.contains("th3_humi")) {
-                    value = averageField(
-                        values, { "th1_humi", "th2_humi", "th3_humi" });
-                    ok = value >= 0.0 && value <= 100.0;
-                }
-            } else {
-                ok = channelValue(values, series.field, series.requireNonZero, value);
-            }
-            if (!ok)
+            if (!historyChannelValue(values, series.field, series.humidityAxis,
+                                      series.requireNonZero, value))
                 continue;
             if (series.humidityAxis) {
                 humidityMin = hasHumidity ? qMin(humidityMin, value) : value;
@@ -2979,19 +3008,8 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         for (int s : visibleSeries) {
             const ChartSeries &series = allSeries.at(s);
             double value = 0.0;
-            bool ok = false;
-            if (series.humidityAxis) {
-                if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
-                    || record.values.contains("th3_humi")) {
-                    value = averageField(
-                        record.values, { "th1_humi", "th2_humi", "th3_humi" });
-                    ok = value >= 0.0 && value <= 100.0;
-                }
-            } else {
-                ok = channelValue(record.values, series.field,
-                                  series.requireNonZero, value);
-            }
-            if (!ok)
+            if (!historyChannelValue(record.values, series.field, series.humidityAxis,
+                                      series.requireNonZero, value))
                 continue;   // 这一路这条记录没有值, 断线, 由下一点重新起笔
             const qreal y = series.humidityAxis ? humidityY(value) : temperatureY(value);
             if (seriesStarted.at(s))
@@ -3023,6 +3041,106 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         painter.drawPath(seriesPaths.at(s));
     }
 
+    // 曲线上贴文字标签: "A温度"/"A湿度"..., 让人不必记颜色也能读出哪条是哪条。
+    // 外框线型与曲线一致(温度实线/湿度虚线), 框内填图表底色保证文字可读。
+    // 框与框之间靠纵向避让保证不互相遮挡; 避让后框可能离锚点较远, 补一条
+    // 同色引线连回曲线。
+    struct CurveLabel {
+        QRectF box;
+        QPointF anchor;
+        QString text;
+        QColor color;
+        bool dashedFrame;
+    };
+    QVector<CurveLabel> curveLabels;
+    {
+        const QFontMetrics fm(font());
+        const qreal padX = 5.0;
+        const qreal padY = 3.0;
+        for (int s : visibleSeries) {
+            const ChartSeries &series = allSeries.at(s);
+            const QPainterPath &path = seriesPaths.at(s);
+            if (path.elementCount() < 1)
+                continue;
+            // 锚点取曲线最右端(即最新一个有效点), 标签跟着数据走
+            const QPainterPath::Element last = path.elementAt(path.elementCount() - 1);
+            const QPointF anchor(last.x, last.y);
+            const QSize textSize = fm.size(0, series.label);
+            const qreal boxW = textSize.width() + padX * 2;
+            const qreal boxH = textSize.height() + padY * 2;
+            // 优先放锚点右侧, 右侧放不下就放左侧
+            qreal bx = anchor.x() + 7.0;
+            if (bx + boxW > plot.right())
+                bx = anchor.x() - 7.0 - boxW;
+            if (bx < plot.left())
+                bx = plot.left();
+            CurveLabel label;
+            label.box = QRectF(bx, anchor.y() - boxH / 2.0, boxW, boxH);
+            label.anchor = anchor;
+            label.text = series.label;
+            label.color = series.color;
+            label.dashedFrame = series.humidityAxis;
+            curveLabels.append(label);
+        }
+
+        if (!curveLabels.isEmpty()) {
+            // 一维纵向避让: 按期望位置排序后依次下压, 整体超出绘图区底部时
+            // 上移再重排一次; 最后夹回绘图区。
+            std::sort(curveLabels.begin(), curveLabels.end(),
+                      [](const CurveLabel &a, const CurveLabel &b) {
+                          return a.box.top() < b.box.top();
+                      });
+            const qreal gap = 4.0;
+            auto pack = [&curveLabels, gap]() {
+                for (int i = 1; i < curveLabels.size(); ++i) {
+                    const qreal need = curveLabels.at(i - 1).box.bottom() + gap;
+                    if (curveLabels.at(i).box.top() < need)
+                        curveLabels[i].box.moveTop(need);
+                }
+            };
+            pack();
+            const qreal overflow = curveLabels.last().box.bottom() - plot.bottom();
+            if (overflow > 0.0) {
+                for (CurveLabel &l : curveLabels)
+                    l.box.moveTop(l.box.top() - overflow);
+                pack();
+            }
+            // 坐标取整: paintEvent 全程开抗锯齿, 1px 外框落在小数坐标上会被
+            // 拆到相邻两行各一半, 边框颜色淡得几乎看不见, 实线虚线也分不清。
+            for (CurveLabel &l : curveLabels) {
+                qreal top = l.box.top();
+                if (top < plot.top())
+                    top = plot.top();
+                if (top + l.box.height() > plot.bottom())
+                    top = plot.bottom() - l.box.height();
+                l.box = QRectF(qRound(l.box.left()), qRound(top),
+                               qRound(l.box.width()), qRound(l.box.height()));
+            }
+        }
+
+        for (const CurveLabel &l : curveLabels) {
+            // 引线: 框边缘中点连到锚点
+            const QPointF from(l.box.left() + l.box.width() / 2.0,
+                               l.anchor.y() < l.box.center().y()
+                                   ? l.box.top() : l.box.bottom());
+            painter.setPen(QPen(l.color, 1, Qt::SolidLine));
+            painter.drawLine(from, l.anchor);
+            // 外框: 温度实线 / 湿度虚线。矩形内缩 0.5: Qt 的 1px 笔宽以路径
+            // 为中心, 直接画整数坐标的矩形会把边框拆到相邻两行各一半, 颜色淡
+            // 一半且实线虚线看不出来; 内缩后半像素中心正好落在整数行/列上。
+            painter.setPen(QPen(l.color, 1,
+                                l.dashedFrame ? Qt::DashLine : Qt::SolidLine));
+            painter.setBrush(chartBackground);
+            painter.drawRect(QRectF(l.box.left() + 0.5, l.box.top() + 0.5,
+                                    l.box.width() - 1.0, l.box.height() - 1.0));
+            painter.setPen(l.color);
+            painter.drawText(l.box, Qt::AlignCenter, l.text);
+        }
+        m_labelBoxes.clear();
+        for (const CurveLabel &l : curveLabels)
+            m_labelBoxes.append(l.box);
+    }
+
     if (m_crosshairRecordIndex >= m_viewStart
         && m_crosshairRecordIndex < m_viewStart + pointCount) {
         const int point = m_crosshairRecordIndex - m_viewStart;
@@ -3030,19 +3148,10 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             : plot.left() + plot.width() * point / (pointCount - 1.0);
         const HistoryQuery::Record &record = m_records.at(m_crosshairRecordIndex);
         // 每条可见序列在十字线处的值; 水平线取第一条有值的序列
-        auto seriesValueAt = [&record, &channelValue](const ChartSeries &series,
-                                                      double &out) -> bool {
-            if (series.humidityAxis) {
-                if (record.values.contains("th1_humi") || record.values.contains("th2_humi")
-                    || record.values.contains("th3_humi")) {
-                    out = averageField(
-                        record.values, { "th1_humi", "th2_humi", "th3_humi" });
-                    return out >= 0.0 && out <= 100.0;
-                }
-                return false;
-            }
-            return channelValue(record.values, series.field,
-                                series.requireNonZero, out);
+        auto seriesValueAt = [&record](const ChartSeries &series,
+                                        double &out) -> bool {
+            return historyChannelValue(record.values, series.field, series.humidityAxis,
+                                       series.requireNonZero, out);
         };
 
         qreal crosshairY = plot.center().y();

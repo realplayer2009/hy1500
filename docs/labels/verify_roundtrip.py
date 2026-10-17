@@ -164,8 +164,8 @@ for fn in sorted(os.listdir(OUT)):
                 pr = prod_of(fn)
                 n, mod_px, code_px = qr_geom(sn, pr)
                 cxm = x + M.LABEL / 2.0
-                reg = (cxm - M.QR_SIZE / 2 - 1.0, y + 22.7,
-                       cxm + M.QR_SIZE / 2 + 1.0, y + 22.7 + M.QR_SIZE + 0.3)
+                reg = (cxm - M.QR_SIZE / 2 - 1.0, y + M.QR_TOP,
+                       cxm + M.QR_SIZE / 2 + 1.0, y + M.QR_TOP + M.QR_SIZE + 0.3)
                 crop = g2.crop((int(reg[0] * k), int(reg[1] * k),
                                 int(reg[2] * k), int(reg[3] * k)))
                 bb = crop.point(lambda v: 255 if v < 160 else 0).getbbox()

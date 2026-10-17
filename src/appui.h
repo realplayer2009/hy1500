@@ -211,6 +211,9 @@ public:
     int visiblePointCount() const;
     int maxViewStart() const;
     int viewStart() const { return m_viewStart; }
+    // 上一次绘制算出的曲线上标签框(按可见序列顺序), 供测试校验"有几条曲线
+    // 就有几个标签"以及"标签之间不互相遮挡"
+    QVector<QRectF> labelBoxes() const { return m_labelBoxes; }
     void followLatest();
 
 public slots:
@@ -231,6 +234,7 @@ private:
     void refreshAfterRecordsChanged(bool keepCrosshair = false);
 
     QVector<HistoryQuery::Record> m_records;
+    QVector<QRectF> m_labelBoxes;   // 仅供 labelBoxes() 测试读取
     int m_viewStart = 0;
     int m_crosshairRecordIndex = -1;
     int m_dragViewStart = 0;

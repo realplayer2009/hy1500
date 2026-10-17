@@ -54,7 +54,7 @@ def read_qr_from_page(g, x, y, sn, prod=None):
     n, mod_px, code_px, code_mm = qr_geom(sn, prod)
     cx = x + M.LABEL / 2.0
     x0 = px(cx) - code_px // 2
-    y0 = px(y + 22.7)
+    y0 = px(y + M.QR_TOP)
     if x0 < 0 or y0 < 0 or x0 + code_px > g.width or y0 + code_px > g.height:
         return None
     m = []
@@ -132,13 +132,15 @@ for prod in M.PRODUCTS:
                 if ink_bbox(g, (x + 1.0, y + M.LABEL + 0.6,
                                 x + M.LABEL - 1.0, M.A4_H - M.MARGIN)):
                     problems.append("格{} 下溢出至页边".format(i + 1))
-            # 内容离边框线的真实净距（不是固定内缩线）：裁掉边框本身后量墨迹边界
-            cb = ink_bbox(g, (x + 0.9, y + 0.9, x + M.LABEL - 0.9, y + M.LABEL - 0.9))
+            # 内容离边框线的真实净距（不是固定内缩线）：裁掉边框本身后量墨迹边界。
+            # frame() 的 outline 宽 0.5mm 且画在边界内侧，故内缩 0.55mm 刚好排除它；
+            # 早先内缩 0.9mm 会把这 0.35mm 也算进"空隙"，比真实边框严，导致误报。
+            cb = ink_bbox(g, (x + 0.55, y + 0.55, x + M.LABEL - 0.55, y + M.LABEL - 0.55))
             if cb is None:
                 problems.append("格{} 边框内无内容".format(i + 1))
             else:
-                cw_px = px(M.LABEL - 1.8)
-                ch_px = px(M.LABEL - 1.8)
+                cw_px = px(M.LABEL - 1.1)
+                ch_px = px(M.LABEL - 1.1)
                 cl = cb[0] * M.MM_PER_PX          # 离左边框的墨迹间距 mm
                 ct = cb[1] * M.MM_PER_PX
                 cr = (cw_px - cb[2]) * M.MM_PER_PX
@@ -191,6 +193,57 @@ for prod in M.PRODUCTS:
         print("  [PASS] {:<20} {} 个二维码全部解回正确序列号".format(
             prod["model"], len(sns)))
     print("         模块尺寸 {:.3f} mm（≥0.5 mm 才好扫）".format(avg_mod))
+
+
+def quiet_zone_ink(g, x, y, sn, prod):
+    """量二维码四周 4 模块静区内的墨点数。规范要求静区为纯白，混进深色
+    墨迹会让微信等 App 的码框定位直接失败——这是实际发生过的事故：
+    版面把分隔线和编号排得离码太近，反解脚本按理论坐标采样照样全过，
+    但手机扫不出来。故单列此项，四向必须全零。"""
+    n, mod_px, code_px, code_mm = qr_geom(sn, prod)
+    module = code_mm / n
+    qz = 4 * module
+    cx = x + M.LABEL / 2.0
+    left, right = cx - code_mm / 2, cx + code_mm / 2
+    top, bot = y + M.QR_TOP, y + M.QR_TOP + code_mm
+    sides = (("上", left + 0.5, top - qz, right - 0.5, top),
+             ("下", left + 0.5, bot, right - 0.5, bot + qz),
+             ("左", left - qz, top + 0.5, left, bot - 0.5),
+             ("右", right, top + 0.5, right + qz, bot - 0.5))
+    out = []
+    for name, a, b, c, e in sides:
+        reg = g.crop((px(a), px(b), px(c), px(e)))
+        out.append((name, sum(1 for v in reg.get_flattened_data() if v < 200)))
+    return out, qz
+
+
+print()
+print("=" * 68)
+print("3b) 二维码静区（四周 4 模块必须纯白，否则手机 App 定位不到码）")
+print("=" * 68)
+for prod in M.PRODUCTS:
+    im, d = M.new_page()
+    sns = M.sn_list(prod)
+    for i, (x, y) in enumerate(M.SLOTS):
+        if i >= len(sns):
+            break
+        M.draw_nameplate(im, d, x, y, prod, sns[i])
+    g = im.convert("L")
+    worst = {}
+    dirty = []
+    for i, (x, y) in enumerate(M.SLOTS[:len(sns)]):
+        sides, qz = quiet_zone_ink(g, x, y, sns[i], prod)
+        for name, cnt in sides:
+            worst[name] = max(worst.get(name, 0), cnt)
+            if cnt:
+                dirty.append("格{}{}侧 {} 墨点".format(i + 1, name, cnt))
+    if dirty:
+        fails.append("静区: " + "；".join(dirty[:4]))
+        print("  [FAIL] {:<20} {}".format(prod["model"], "；".join(dirty[:4])))
+    else:
+        print("  [PASS] {:<20} 四向静区全净（各需 {:.2f} mm，最多墨点 {}/{}/{}/{}）".format(
+            prod["model"], qz, worst.get("上", 0), worst.get("下", 0),
+            worst.get("左", 0), worst.get("右", 0)))
 
 # ============================================================
 print()
