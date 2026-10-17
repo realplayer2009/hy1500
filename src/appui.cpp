@@ -5803,21 +5803,31 @@ void MainWindow::applyAutomaticControl(const DeviceProfile::DeviceKey &key)
     if (!state.online)
         return;
 
+    // 每个加热器跟随自己的传感器: 加热器 A↔th1, B↔th2, C↔th3。
+    // 该路传感器缺失或越界时回退到三路有效平均(旧行为), 三路全无效才不控制。
+    // 旧实现三个加热器共用同一个"三路平均温度", 于是一路到达目标会把另外两路
+    // 一起拉下去: 例如 th1 已达 A 的目标, 平均温度随之抬高, B/C 也按这个被抬高
+    // 的温度判据退出加热, 尽管它们自己的传感器还远低于目标。
+    double channelTemperature[3] = { 0.0, 0.0, 0.0 };
+    bool channelValid[3] = { false, false, false };
     double temperatureSum = 0.0;
     int temperatureCount = 0;
     const ControlAlgorithm::SensorLimits limits;
-    for (const char *field : { "th1_temp", "th2_temp", "th3_temp" }) {
+    for (int channel = 0; channel < 3; ++channel) {
+        const QString field = QString("th%1_temp").arg(channel + 1);
         if (!state.values.contains(field))
             continue;
         const double value = state.values.value(field).toInt() / 10.0;
         if (value < limits.temperatureMin || value > limits.temperatureMax)
             continue;
+        channelTemperature[channel] = value;
+        channelValid[channel] = true;
         temperatureSum += value;
         ++temperatureCount;
     }
     if (temperatureCount == 0)
         return;
-    const double temperature = temperatureSum / temperatureCount;
+    const double temperatureAverage = temperatureSum / temperatureCount;
     const AppConfig::GeneralConfig &config = AppConfig::instance().general();
     double pt100Sum = 0.0;
     int pt100Count = 0;
@@ -5890,6 +5900,9 @@ void MainWindow::applyAutomaticControl(const DeviceProfile::DeviceKey &key)
             state.values.value(secondField).toInt() != 0 ? 1 : 0;
         const double target = followPt100 ? pt100Average : targets[h];
         const int heaterKey = keyValue * 4 + h;
+        // 本路加热器跟随本路传感器; 该路无效时用三路平均兜底。
+        const double temperature =
+            channelValid[h] ? channelTemperature[h] : temperatureAverage;
 
         ControlAlgorithm::ControlOutput control;
         if (config.temperatureControlMode == "pid") {
