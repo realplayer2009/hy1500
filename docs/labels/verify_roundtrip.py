@@ -58,8 +58,16 @@ for prod in M.PRODUCTS:
 SC = 2   # 300 DPI → 150 DPI
 
 
-def qr_geom(sn):
-    n = len(Q.qr_matrix(sn, M.QR_ECC)[0])
+def prod_of(fn):
+    for p in M.PRODUCTS:
+        if p["model"] in fn:
+            return p
+    return M.PRODUCTS[0]
+
+
+def qr_geom(sn, prod=None):
+    payload = M.qr_payload(prod, sn) if prod else sn
+    n = len(Q.qr_matrix(payload, M.QR_ECC)[0])
     mod_px = max(2, M.mm(M.QR_SIZE) // n)
     return n, mod_px, n * mod_px
 
@@ -105,16 +113,30 @@ for fn in sorted(os.listdir(OUT)):
             fails.append(fn + " 页{} 尺寸不符".format(pi + 1))
             continue
         g1, g2 = mine.convert("L"), lo.convert("L")
+        k = M.PX / SC          # 300 DPI → 150 DPI 的像素/毫米
 
         # ① 平色区精确性
-        k = M.PX / SC
-        spots = [(x + M.LABEL / 2, y + 5.0) for (x, y) in M.SLOTS[:3]]
-        spots += [(x + 1.0, y + 24.0) for (x, y) in M.SLOTS[:3]]
-        for (xmm, ymm) in spots:
-            c1 = mine.getpixel((int(xmm * k), int(ymm * k)))
-            c2 = lo.getpixel((int(xmm * k), int(ymm * k)))
-            if abs(c1[0] - c2[0]) + abs(c1[1] - c2[1]) + abs(c1[2] - c2[2]) > 6:
-                fid_bad += 1
+        # 不能硬编码采样点：版面一改，某个点就可能落到 logo 图案或抗锯齿
+        # 边缘上，pdfium 的重采样与本地降采样自然有差异，会误报。
+        # 改为自适应——在本地渲染图上扫一片候选点，只取 7×7 邻域完全
+        # 均匀（真正的纯色区）的那些点，再要求 pdfium 在同样位置
+        # 精确复现。这样查的是"平色有没有被搞花"，与版面细节无关。
+        for (x, y) in M.SLOTS[:6]:
+            for fx in range(1, 47, 3):
+                for fy in range(1, 47, 3):
+                    sx = int((x + fx) * k)
+                    sy = int((y + fy) * k)
+                    if sx < 3 or sy < 3 or sx + 3 >= mine.width or sy + 3 >= mine.height:
+                        continue
+                    vals = [mine.getpixel((sx + dx, sy + dy))
+                            for dx in (-2, -1, 0, 1, 2)
+                            for dy in (-2, -1, 0, 1, 2)]
+                    if len(set(vals)) != 1:
+                        continue          # 非纯色区，跳过
+                    c2 = lo.getpixel((sx, sy))
+                    if abs(vals[0][0] - c2[0]) + abs(vals[0][1] - c2[1]) \
+                            + abs(vals[0][2] - c2[2]) > 6:
+                        fid_bad += 1
 
         # ② 每格墨迹边界框
         for (x, y) in M.SLOTS[:len(sns0)]:
@@ -133,26 +155,38 @@ for fn in sorted(os.listdir(OUT)):
                 geo_bad += 1
 
         # ③ 二维码反解（仅标贴）
+        # 不能在 150 DPI 上用整数步长采样：v2 有 25 个模块，code_px/2/25 的
+        # 整数除法会把网格压缩，越采越偏。改为先在渲染图里量出二维码的
+        # 真实墨迹边界框，按实际宽度算浮点步长。
         if "标贴" in fn:
             for ci, (x, y) in enumerate(M.SLOTS[:len(sns0)]):
                 sn = sns0[ci]
-                n, mod_px, code_px = qr_geom(sn)
-                x0 = int((x + M.LABEL / 2.0) * k) - code_px // SC // 2
-                y0 = int((y + 22.7) * k)
-                if x0 < 0 or y0 < 0 or x0 + code_px // SC > g2.width \
-                        or y0 + code_px // SC > g2.height:
+                pr = prod_of(fn)
+                n, mod_px, code_px = qr_geom(sn, pr)
+                cxm = x + M.LABEL / 2.0
+                reg = (cxm - M.QR_SIZE / 2 - 1.0, y + 22.7,
+                       cxm + M.QR_SIZE / 2 + 1.0, y + 22.7 + M.QR_SIZE + 0.3)
+                crop = g2.crop((int(reg[0] * k), int(reg[1] * k),
+                                int(reg[2] * k), int(reg[3] * k)))
+                bb = crop.point(lambda v: 255 if v < 160 else 0).getbbox()
+                if bb is None:
                     qr_bad += 1
                     continue
-                mm = []
+                bw = bb[2] - bb[0]
+                if abs(bw - (bb[3] - bb[1])) > 3 or bw < n:
+                    qr_bad += 1          # 不是正方形或尺寸不足，说明没框准
+                    continue
+                step = bw / float(n)
+                mmx = []
                 for rr in range(n):
                     row = []
                     for cc in range(n):
-                        sx = x0 + cc * (code_px // SC // n) + (code_px // SC // n) // 2
-                        sy = y0 + rr * (code_px // SC // n) + (code_px // SC // n) // 2
-                        row.append(g2.getpixel((sx, sy)) < 160)
-                    mm.append(row)
+                        sx = int(bb[0] + (cc + 0.5) * step)
+                        sy = int(bb[1] + (rr + 0.5) * step)
+                        row.append(crop.getpixel((sx, sy)) < 160)
+                    mmx.append(row)
                 try:
-                    if Q.qr_decode(mm, M.QR_ECC) != sn:
+                    if Q.qr_decode(mmx, M.QR_ECC) != M.qr_payload(pr, sn):
                         qr_bad += 1
                 except Exception:
                     qr_bad += 1

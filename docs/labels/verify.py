@@ -42,15 +42,16 @@ def ok(cond, msg):
 
 
 # ---------- 二维码几何（与 make_labels.build_qr 保持一致）----------
-def qr_geom(sn):
-    n = len(Q.qr_matrix(sn, M.QR_ECC)[0])
+def qr_geom(sn, prod=None):
+    payload = M.qr_payload(prod, sn) if prod else sn
+    n = len(Q.qr_matrix(payload, M.QR_ECC)[0])
     mod_px = max(2, M.mm(M.QR_SIZE) // n)
     return n, mod_px, n * mod_px, n * mod_px * M.MM_PER_PX
 
 
-def read_qr_from_page(g, x, y, sn):
+def read_qr_from_page(g, x, y, sn, prod=None):
     """从页面灰度图 g 中，标签 (x,y) 处的二维码区域解出矩阵。"""
-    n, mod_px, code_px, code_mm = qr_geom(sn)
+    n, mod_px, code_px, code_mm = qr_geom(sn, prod)
     cx = x + M.LABEL / 2.0
     x0 = px(cx) - code_px // 2
     y0 = px(y + 22.7)
@@ -169,9 +170,9 @@ for prod in M.PRODUCTS:
     mods = []
     for i, (x, y) in enumerate(M.SLOTS[:len(sns)]):
         sn = sns[i]
-        n, mod_px, code_px, code_mm = qr_geom(sn)
+        n, mod_px, code_px, code_mm = qr_geom(sn, prod)
         mods.append(code_mm / n)
-        m = read_qr_from_page(g, x, y, sn)
+        m = read_qr_from_page(g, x, y, sn, prod)
         if m is None:
             bad.append("格{} 二维码越界".format(i + 1))
             continue
@@ -180,8 +181,8 @@ for prod in M.PRODUCTS:
         except Exception as e:
             bad.append("格{} 解码异常 {}".format(i + 1, e))
             continue
-        if back != sn:
-            bad.append("格{} 解出 {} ≠ {}".format(i + 1, back, sn))
+        if back != M.qr_payload(prod, sn):
+            bad.append("格{} 解出 {} ≠ {}".format(i + 1, back, M.qr_payload(prod, sn)))
     avg_mod = sum(mods) / len(mods)
     if bad:
         fails.append("二维码: " + "；".join(bad[:4]))

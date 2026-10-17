@@ -102,14 +102,19 @@ PRODUCTS = [
          tint=(253, 240, 227)),
 ]
 
-LOGO_W_NAMEPLATE = 18.0       # mm 标贴上的 logo 宽
+LOGO_W_NAMEPLATE = 22.0       # mm 标贴上的 logo 宽（无角标，放大填补）
 LOGO_W_CERT = 17.0            # mm 合格证上的 logo 宽
 
 # ---- 二维码（海康风格：二维码 + 编号 + 型号）----
 QR_SIZE = 15.0                # mm 二维码视觉边长
-QR_ECC = "M"                  # 纠错级；v1-M 字母数字容量 20 字符，19 位 SN 刚好
-# 二维码内容只放序列号，不放 URL——公司没有可用的真实网站，
-# 编造查询链接比只放 SN 更糟。型号/日期已印在码旁。
+QR_ECC = "M"                  # 纠错级
+# 二维码内容：型号 + 编号，空格分隔，扫码后两者都直接可见。
+# 不放 URL——公司没有可用的真实网站，编造查询链接比只放型号编号更糟。
+# 例：YTT-TC1500 YTT-TC1500-2609-060（30 字符 → 版本 2，25×25 模块）
+def qr_payload(product: dict, sn: str) -> str:
+    return "{} {}".format(product["model"], sn)
+
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import qr as _qr                      # noqa: E402  同目录自实现编码器
 
@@ -218,10 +223,10 @@ def paste_logo(im: Image.Image, color: tuple, width_mm: float,
 _QR_CACHE: dict[tuple, Image.Image] = {}
 
 
-def build_qr(sn: str, color: tuple) -> Image.Image:
-    key = (sn, color)
+def build_qr(product: dict, sn: str, color: tuple) -> Image.Image:
+    key = (product["model"], sn, color)
     if key not in _QR_CACHE:
-        m, ver, mask = _qr.qr_matrix(sn, QR_ECC)
+        m, ver, mask = _qr.qr_matrix(qr_payload(product, sn), QR_ECC)
         n = len(m)
         mod = max(2, mm(QR_SIZE) // n)          # 每模块像素数（整数）
         im = Image.new("RGB", (n * mod, n * mod), WHITE)
@@ -236,17 +241,18 @@ def build_qr(sn: str, color: tuple) -> Image.Image:
     return _QR_CACHE[key]
 
 
-def paste_qr(im: Image.Image, sn: str, color: tuple,
+def paste_qr(im: Image.Image, product: dict, sn: str, color: tuple,
              cx_mm: float, top_mm: float) -> tuple[float, float, float]:
     """把二维码水平居中于 cx_mm、顶边在 top_mm 贴上。
 
     返回 (实际宽mm, 实际高mm, 每模块mm)。模块尺寸需 ≥0.5 mm 才好扫。
     """
-    q = build_qr(sn, color)
+    q = build_qr(product, sn, color)
     w_mm = q.width * MM_PER_PX
     h_mm = q.height * MM_PER_PX
     im.paste(q, (mm(cx_mm) - q.width // 2, mm(top_mm)))
-    mod_mm = q.width / len(_qr.qr_matrix(sn, QR_ECC)[0]) * MM_PER_PX
+    n = len(_qr.qr_matrix(qr_payload(product, sn), QR_ECC)[0])
+    mod_mm = q.width / n * MM_PER_PX
     return w_mm, h_mm, mod_mm
 
 
@@ -258,13 +264,15 @@ def draw_nameplate(im: Image.Image, d: ImageDraw.ImageDraw,
                    ox: float, oy: float, product: dict, sn: str) -> None:
     """标贴：海康摄像头风格——二维码 + 编号 + 型号 + 品名 + 厂家。
 
+    不印「合格证」字样：那是证书的标题，标贴上重复反而冗余。
+
     版面（相对标签左上角，单位 mm）：
-        0.35~10.2  品牌带：logo(左) + 「合格证」角标(右) + 厂家名
+        0.35~10.2  品牌带：logo(左) + 厂家名
         11.0       分隔线
         12.5       产品名称 12pt 居中
         17.4       型　号
         21.7       分隔线
-        22.7       二维码 15mm 居中（编码序列号）
+        22.7       二维码 15mm 居中（编码型号 + 编号）
         38.5       编　号 8pt 加粗，产品色，全宽一行
         42.0       日　期
     """
@@ -273,16 +281,10 @@ def draw_nameplate(im: Image.Image, d: ImageDraw.ImageDraw,
     inner = LABEL - 2 * PAD
     col, tint = product["color"], product["tint"]
 
-    # 品牌带：产品色浅底 + logo + 右上角「合格证」角标 + 厂家名
+    # 品牌带：产品色浅底 + 公司 logo + 厂家名
     d.rectangle([mm(ox + 0.35), mm(oy + 0.35), mm(ox + LABEL - 0.35), mm(oy + 10.2)],
                 fill=tint, outline=None)
     paste_logo(im, NAVY, LOGO_W_NAMEPLATE, ox + PAD, oy + 2.3)
-    bw, bh = 12.0, 5.2
-    bx, by = ox + LABEL - PAD - bw, oy + 2.3
-    d.rectangle([mm(bx), mm(by), mm(bx + bw), mm(by + bh)],
-                outline=col, width=max(1, mm(0.35)))
-    txt(d, bx + bw / 2, by + bh / 2, "合格证", load_font(7.2, bold=True),
-        fill=col, anchor="mm", limit_mm=bw - 1.0)
     # 厂家名放在品牌带内，省出底部一整行给编号
     txt(d, ox + PAD, oy + 7.8, MANUFACTURER, load_font(5.8), fill=GREY,
         limit_mm=inner)
@@ -300,8 +302,8 @@ def draw_nameplate(im: Image.Image, d: ImageDraw.ImageDraw,
 
     hline(d, ox + PAD, oy + 21.7, ox + LABEL - PAD, w=0.4, fill=col)
 
-    # 二维码：居中，编码序列号
-    qw, qh, mod_mm = paste_qr(im, sn, col, cx, oy + 22.7)
+    # 二维码：居中，编码「型号 + 编号」
+    qw, qh, mod_mm = paste_qr(im, product, sn, col, cx, oy + 22.7)
     if mod_mm < 0.5:
         OVERFLOW.append("{} 二维码模块仅 {:.3f} mm，小于 0.5 mm 不利扫码".format(
             sn, mod_mm))
@@ -328,27 +330,27 @@ def draw_certificate(im: Image.Image, d: ImageDraw.ImageDraw,
 
     # 页眉：公司 logo（左）+ 合格证标题（右）
     paste_logo(im, NAVY, LOGO_W_CERT, ox + PAD, oy + 3.4)
-    txt(d, ox + LABEL - PAD, oy + 3.6, "合 格 证", load_font(12, bold=True, serif=True),
+    txt(d, ox + LABEL - PAD, oy + 3.2, "合 格 证", load_font(15, bold=True, serif=True),
         fill=NAVY, anchor="ra", limit_mm=inner - LOGO_W_CERT - 2.0)
 
-    hline(d, ox + 6.0, oy + 9.0, ox + LABEL - 6.0, w=0.6, fill=NAVY)
+    hline(d, ox + 6.0, oy + 10.0, ox + LABEL - 6.0, w=0.6, fill=NAVY)
 
-    for label, value, y, pt in (("产品名称", product["name"], oy + 10.4, 7.8),
-                                ("型　　号", product["model"], oy + 14.3, 8.2),
-                                ("检验日期", INSPECT_DATE, oy + 18.1, 8.2)):
+    for label, value, y, pt in (("产品名称", product["name"], oy + 11.4, 7.8),
+                                ("型　　号", product["model"], oy + 15.3, 8.2),
+                                ("检验日期", INSPECT_DATE, oy + 19.1, 8.2)):
         txt(d, ox + PAD, y, label, load_font(7.4), fill=GREY)
         txt(d, ox + VALUE_X, y - 0.3, value, load_font(pt),
             limit_mm=LABEL - PAD - VALUE_X)
 
-    hline(d, ox + PAD, oy + 22.5, ox + LABEL - PAD, w=0.4, fill=col)
+    hline(d, ox + PAD, oy + 23.5, ox + LABEL - PAD, w=0.4, fill=col)
 
     # 编号单独一行，产品色加粗
-    txt(d, ox + PAD, oy + 23.8, "编　　号", load_font(7.0), fill=GREY)
-    txt(d, ox + PAD, oy + 26.5, sn, load_font(8.8, bold=True), fill=col,
+    txt(d, ox + PAD, oy + 24.8, "编　　号", load_font(7.0), fill=GREY)
+    txt(d, ox + PAD, oy + 27.5, sn, load_font(8.8, bold=True), fill=col,
         limit_mm=inner)
 
     # 检验结论框：结论用合格红
-    by = oy + 30.9
+    by = oy + 31.9
     d.rectangle([mm(ox + PAD), mm(by), mm(ox + LABEL - PAD), mm(by + 7.0)],
                 outline=col, width=max(1, mm(0.45)))
     txt(d, ox + PAD + 1.8, by + 3.0, "检验结论", load_font(7.4), fill=GREY, anchor="lm")
@@ -356,12 +358,12 @@ def draw_certificate(im: Image.Image, d: ImageDraw.ImageDraw,
         fill=PASS_RED, anchor="rm", limit_mm=inner - 13.0)
 
     # 检验员签字位
-    txt(d, ox + PAD, oy + 39.0, "检 验 员", load_font(7.2), fill=GREY)
+    txt(d, ox + PAD, oy + 40.0, "检 验 员", load_font(7.2), fill=GREY)
     sig = INSPECTOR if INSPECTOR else "＿" * 7
-    txt(d, ox + VALUE_X - 1.0, oy + 38.7, sig, load_font(7.6),
+    txt(d, ox + VALUE_X - 1.0, oy + 39.7, sig, load_font(7.6),
         limit_mm=LABEL - PAD - VALUE_X + 1.0)
 
-    txt(d, cx, oy + 42.2, MANUFACTURER, load_font(6.0), fill=GREY,
+    txt(d, cx, oy + 43.2, MANUFACTURER, load_font(6.0), fill=GREY,
         anchor="ma", limit_mm=inner)
 
 
@@ -563,7 +565,8 @@ if __name__ == "__main__":
         100 * (LABEL * ROWS + V_GAP * (ROWS - 1)) / ph))
     print("每页 {} 张".format(PER_PAGE))
     print("序列号起始序号 {}，日期前缀 {}".format(SN_SEQ_START, PRODUCE_DATE[2:4] + PRODUCE_DATE[5:7]))
-    print("二维码：v1 字母数字 ECC-{}，编码内容=序列号".format(QR_ECC))
+    print("二维码：ECC-{}，编码内容=型号+编号（如 {}）".format(
+        QR_ECC, qr_payload(PRODUCTS[0], sn_list(PRODUCTS[0])[0])))
     print("-" * 64)
     for fn, desc, cnt in build():
         print("  {:<44} {:<26} {:>3} 张".format(fn, desc, cnt))
