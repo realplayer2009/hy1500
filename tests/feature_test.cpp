@@ -1,11 +1,12 @@
 // 本轮三项改动的测试:
 // 1) 实时数据呼吸灯(所有页面可见, 有数据时持续渐变)
-// 2) 手动模式告警灯闪烁(界面 ⚠ / runState 变色, 不写硬件)
+// 2) 手动模式告警灯长亮(界面 ⚠ 常驻 / runState 常红底, 不写硬件)
 // 3) 手动加热器连续工作满 2 小时强制休息 15 分钟的提示文案
 #include "appui.h"
 #include <QApplication>
 #include <QImage>
 #include <QPushButton>
+#include <QLabel>
 #include <algorithm>   // std::max_element
 #include <QVector>
 #include <QTest>
@@ -157,6 +158,37 @@ int main(int argc, char *argv[])
         multi.insert(5 * 4 + 2, 61);
         check(overholdText(multi) == QString::fromUtf8("⚠ A/C 超持休息 01:00"),
               "不同子板的同名加热器都列出来");
+    }
+
+    // ── 手动模式告警灯长亮(不闪) ────────────────────────────────────
+    printf("\n=== 手动模式告警灯长亮 ===\n");
+    {
+        // 曾经这里做的是 500 ms 交替闪烁(总览卡片 label 加/去红色 ⚠ 前缀,
+        // 手动页 runState 切 [blink] 属性), 现场反馈"应该长亮"后改成常亮。
+        // 长亮的判据是"属性稳定": 如果是闪烁, 属性会随定时器翻转为 false;
+        // 长亮时无论等多久都保持原值。手动页挂在 MainWindow 里, 直接从窗口
+        // 找 runState, 不必自己构造 ManualPanel(它要 DeviceManager)。
+        MainWindow w;
+        w.resize(1024, 600);
+        w.show();
+        qApp->processEvents();
+        QLabel *runState = nullptr;
+        for (QLabel *l : w.findChildren<QLabel *>())
+            if (l->text().contains(QString::fromUtf8("手动模式"))) {
+                runState = l;
+                break;
+            }
+        check(runState != nullptr, "手动页有 runState 状态标签");
+        if (runState) {
+            // 无子板数据时是等数据态, 不该亮
+            const bool initial = runState->property("blink").toBool();
+            check(!initial, "无数据(等子板)时不亮告警");
+            // 等两倍于旧闪烁周期(500 ms), 属性必须保持原值 —— 若残留闪烁
+            // 定时器, 这会儿已经翻过一次了
+            QTest::qWait(1100);
+            check(runState->property("blink").toBool() == initial,
+                  "静止 1.1 秒后 blink 属性不变(没有残留闪烁定时器)");
+        }
     }
 
     // ── 主窗口能正常构造(顶部新控件已挂上) ─────────────────────────

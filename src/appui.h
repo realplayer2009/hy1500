@@ -51,9 +51,9 @@ private:
     QVector<QLabel *> m_measurements;
     QVector<QLabel *> m_heaters;
     QMap<int, QLabel *> m_indicators;
-    // 手动模式告警闪烁: 切到手动(自动温控没在保护)时报警灯 label 前缀的 ⚠ 交替显隐
-    QTimer m_blinkTimer;
-    bool m_blinkOn = false;
+    // 手动模式告警长亮: 切到手动(自动温控没在保护)时报警灯 label 常带红色 ⚠ 前缀。
+    // 曾经做成 500 ms 交替闪烁, 现场反馈"应该长亮"—— 闪是为了提醒, 但手动模式
+    // 会持续很久(可能整个班次), 一直闪反而让人眼花, 且容易和真报警的闪烁混淆。
     bool m_manualMode = false;
     void refreshIndicatorLabels();
 };
@@ -169,9 +169,9 @@ private:
     QVector<QLabel *> m_expInLabels;
     QMap<QString, QPushButton *> m_expOutButtons;
     QSet<int> m_autoDevices;
-    // 手动模式告警闪烁 (与总览卡片报警灯同节奏)
-    QTimer m_blinkTimer;
-    bool m_blinkOn = false;
+    // 手动模式告警长亮: 切到手动(自动温控没在保护)时 runState 常带红底。
+    // 曾经做成 500 ms 交替闪烁, 现场反馈"应该长亮" —— 手动模式会持续很久,
+    // 一直闪既刺眼又容易和真报警混。
     bool m_manualMode = false;
     // 加热器手动按键与档位缓存 (key=portIndex*256+slaveId, 值 0~3)
     QMap<int, int> m_heaterGears;

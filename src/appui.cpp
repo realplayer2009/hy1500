@@ -1539,14 +1539,6 @@ OverviewCard::OverviewCard(QWidget *parent)
     // 展示标签不接收鼠标事件，整张卡片均可点击进入控制页。
     for (QLabel *label : findChildren<QLabel *>())
         label->setAttribute(Qt::WA_TransparentForMouseEvents);
-
-    // 手动模式告警闪烁: 500 ms 交替一次。切到手动意味着自动温控没在保护,
-    // 现场需要一眼看出来; 只闪界面 label, 不写 OT9 —— 那是真实报警灯,
-    // 闪烁会与真报警混淆, 且下一轮轮询会被自动逻辑覆盖。
-    connect(&m_blinkTimer, &QTimer::timeout, this, [this]() {
-        m_blinkOn = !m_blinkOn;
-        refreshIndicatorLabels();
-    });
 }
 
 void OverviewCard::mouseReleaseEvent(QMouseEvent *event)
@@ -1756,20 +1748,16 @@ void OverviewCard::updateState(const DeviceState &state, bool automatic)
     setProperty("alarm", hasDeviceAlarm(values));
     refreshDynamicStyle(this);
 
-    // 手动模式: 启动告警灯闪烁(自动温控没在保护, 现场要一眼看出来)
+    // 手动模式: 告警灯长亮(自动温控没在保护, 现场要一眼看出来)。
+    // 不闪: 手动模式可能持续整个班次, 一直闪既刺眼又容易和真报警混。
     const bool manual = state.online && !automatic;
     if (manual != m_manualMode) {
         m_manualMode = manual;
-        m_blinkOn = false;
-        if (manual)
-            m_blinkTimer.start(500);
-        else
-            m_blinkTimer.stop();
         refreshIndicatorLabels();
     }
 }
 
-// 手动模式告警闪烁: 只重画指示灯 label 的文字(前缀 ⚠ 交替显隐),
+// 手动模式告警长亮: 给指示灯 label 常带红色 ⚠ 前缀,
 // 不动 OT9 本身的状态显示, 免得把"手动提醒"误读成"报警灯真的亮了"
 void OverviewCard::refreshIndicatorLabels()
 {
@@ -1779,20 +1767,16 @@ void OverviewCard::refreshIndicatorLabels()
     const bool dark = config.displayTheme == "graphite"
         || config.displayTheme == "low_light";
     const QString alarmColor = dark ? "#ff8a85" : "#c93632";
-    const QString blinkMark = m_blinkOn
-        ? QString::fromUtf8("<b style='color:%1;'>⚠ </b>").arg(alarmColor)
-        : QString();
+    const QString warnMark = QString::fromUtf8("<b style='color:%1;'>⚠ </b>").arg(alarmColor);
     for (auto it = m_indicators.constBegin(); it != m_indicators.constEnd(); ++it) {
         QLabel *label = it.value();
         if (!label->isVisible())
             continue;
         // 先去掉上一次加的前缀再重新加, 否则文字会越接越长
         QString text = label->text();
-        if (text.startsWith(QString::fromUtf8("<b style='color:%1;'>⚠ </b>")
-                                .arg(alarmColor)))
-            text = text.mid(QString::fromUtf8("<b style='color:%1;'>⚠ </b>")
-                                .arg(alarmColor).size());
-        label->setText(blinkMark + text);
+        if (text.startsWith(warnMark))
+            text = text.mid(warnMark.size());
+        label->setText(warnMark + text);
     }
 }
 
@@ -2293,13 +2277,6 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
             this, [this]() { emit runningChanged(currentDevice(), true); });
     connect(m_stop, &QPushButton::clicked,
             this, [this]() { emit runningChanged(currentDevice(), false); });
-    // 手动模式告警闪烁: 与总览卡片的报警灯同一节奏(500 ms)。切到手动意味着
-    // 自动温控没在保护, 而现场正在这一页操作, 必须在这儿也看得见。
-    connect(&m_blinkTimer, &QTimer::timeout, this, [this]() {
-        m_blinkOn = !m_blinkOn;
-        m_runState->setProperty("blink", m_blinkOn && m_manualMode);
-        refreshDynamicStyle(m_runState);
-    });
     refreshParameters();
     refreshControls();
 }
@@ -2371,16 +2348,14 @@ void ManualPanel::refreshControls()
         ? QString::fromUtf8("●  自动温控运行中")
         : QString::fromUtf8("●  手动模式"));
     m_runState->setProperty("running", deviceAuto);
-    // 手动且可操作时告警闪烁: 自动温控没在保护, 停止自动后现场要一直看得见
-    const bool manualBlink = !deviceAuto && ready && !locked;
-    if (manualBlink != m_manualMode) {
-        m_manualMode = manualBlink;
-        m_blinkOn = false;
-        m_runState->setProperty("blink", false);
-        if (manualBlink)
-            m_blinkTimer.start(500);
-        else
-            m_blinkTimer.stop();
+    // 手动且可操作时告警灯长亮: 自动温控没在保护, 停止自动后现场要一直看得见。
+    // 曾经做成 500 ms 闪烁, 现场反馈"应该长亮"—— 闪是为了提醒, 但手动模式会
+    // 持续很久(可能整个班次), 一直闪既刺眼又容易和真报警的闪烁混在一起。
+    const bool manualWarn = !deviceAuto && ready && !locked;
+    if (manualWarn != m_manualMode) {
+        m_manualMode = manualWarn;
+        m_runState->setProperty("blink", manualWarn);
+        refreshDynamicStyle(m_runState);
     }
     const bool hasHeater = config.heaterAPair != 0 || config.heaterBPair != 0
         || config.heaterCPair != 0;
