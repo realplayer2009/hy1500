@@ -445,7 +445,8 @@ class PasswordDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit PasswordDialog(QWidget *parent = nullptr);
+    explicit PasswordDialog(QWidget *parent = nullptr,
+                            const QString &expected = QString());
 
     /** 弹出密码框, 校验通过返回 true (密码由调用方给定, 错误可重试)。 */
     static bool verify(QWidget *parent, const QString &expected);

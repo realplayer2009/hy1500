@@ -81,7 +81,7 @@ constexpr int kMaxLiveAppendRecords = 50000;
 // 30 分钟约 1800 个点, 既够看清当前走势, 又能往回拖动比对。
 constexpr int kLiveWindowSeconds = 30 * 60;
 // 加热参数设置与高级设置的进入密码 (现场触摸屏, 防止误触改参数)
-const QString kSettingsPassword = QString::fromUtf8("123456");
+const QString kSettingsPassword = QString::fromUtf8("0000");
 // 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
 constexpr int kHeaterParamPage = 2;
 constexpr int kAdvancedPage = 4;
@@ -3930,8 +3930,8 @@ void AboutWidget::refreshNetworkInfo()
 // PasswordDialog
 // ============================================================
 
-PasswordDialog::PasswordDialog(QWidget *parent)
-    : QDialog(parent)
+PasswordDialog::PasswordDialog(QWidget *parent, const QString &expected)
+    : QDialog(parent), m_expected(expected)
 {
     setObjectName("unsavedPrompt");
     setWindowTitle(QString::fromUtf8("请输入密码"));
@@ -3952,7 +3952,11 @@ PasswordDialog::PasswordDialog(QWidget *parent)
     m_display->setMinimumHeight(62);
     layout->addWidget(m_display);
 
-    m_hint = new QLabel(QString::fromUtf8("请输入 6 位数字密码"), this);
+    // 位数提示按密码实际长度给, 改密码不必再动别处
+    m_hint = new QLabel(expected.isEmpty()
+            ? QString::fromUtf8("请输入密码")
+            : QString::fromUtf8("请输入 %1 位数字密码").arg(expected.size()),
+        this);
     m_hint->setObjectName("unsavedMessage");
     m_hint->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_hint);
@@ -4010,18 +4014,20 @@ PasswordDialog::PasswordDialog(QWidget *parent)
 
 bool PasswordDialog::verify(QWidget *parent, const QString &expected)
 {
-    PasswordDialog dialog(parent);
-    dialog.m_expected = expected;
+    // 空密码等于不设防, 直接拒绝而不是让空输入蒙过去
+    if (expected.isEmpty())
+        return false;
+    PasswordDialog dialog(parent, expected);
     return dialog.exec() == QDialog::Accepted;
 }
 
 void PasswordDialog::appendDigit(const QString &digit)
 {
-    if (m_entered.size() >= 6)
+    if (m_entered.size() >= m_expected.size())
         return;
     m_entered.append(digit);
     refreshDisplay();
-    if (m_entered.size() == 6)
+    if (m_entered.size() == m_expected.size())
         submit();
 }
 
@@ -4041,8 +4047,14 @@ void PasswordDialog::clearInput()
 
 void PasswordDialog::submit()
 {
-    if (m_entered.size() < 6) {
-        m_hint->setText(QString::fromUtf8("请输入完整的 6 位密码"));
+    // 没设密码时任何输入都不该放行
+    if (m_expected.isEmpty()) {
+        reject();
+        return;
+    }
+    if (m_entered.size() < m_expected.size()) {
+        m_hint->setText(QString::fromUtf8("请输入完整的 %1 位密码")
+                            .arg(m_expected.size()));
         return;
     }
     if (m_entered == m_expected) {
@@ -4057,7 +4069,7 @@ void PasswordDialog::submit()
 void PasswordDialog::refreshDisplay()
 {
     QString text;
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < m_expected.size(); ++i)
         text.append(i < m_entered.size()
             ? QString::fromUtf8("●") : QString::fromUtf8("○"));
     m_display->setText(text);
