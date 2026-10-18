@@ -1345,7 +1345,6 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#realtimePill { color: #a1a1a6; background: #2a2a2c;
             border: 1px solid #48484a; border-radius: 12px; padding: 5px 12px; font-weight: 700; }
         QPushButton#realtimePill:hover { background: #38383a; }
-        // 实时开启用蓝, 不与自检正常的绿、告警的红混
         QPushButton#realtimePill:checked { color: white; background: #0a84ff;
             border-color: #55b9e8; }
         QLabel#actionFeedback[success="true"] { color: #00e676; }
