@@ -3390,14 +3390,27 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             }
             // 坐标取整: paintEvent 全程开抗锯齿, 1px 外框落在小数坐标上会被
             // 拆到相邻两行各一半, 边框颜色淡得几乎看不见, 实线虚线也分不清。
+            // 但取整本身会改高度 —— qRound(height) 可能让 bottom 变大, 把上面
+            // 避让算好的 gap 吃掉(实测 Linux 字体下 7 个标签有 1 对重叠 2 px,
+            // macOS 字体下看不出来)。因此这里用 floor(top)+ceil(height): bottom
+            // 只增不减, 取整后再 pack 一次。第二次 pack 的 top 由整数相加得出,
+            // 本身就是整数, 不会再被取整改动, 不需要第三次。
             for (CurveLabel &l : curveLabels) {
-                qreal top = l.box.top();
+                qreal top = qFloor(l.box.top());
+                const qreal height = qCeil(l.box.height());
                 if (top < plot.top())
-                    top = plot.top();
-                if (top + l.box.height() > plot.bottom())
-                    top = plot.bottom() - l.box.height();
-                l.box = QRectF(qRound(l.box.left()), qRound(top),
-                               qRound(l.box.width()), qRound(l.box.height()));
+                    top = qFloor(plot.top());
+                if (top + height > plot.bottom())
+                    top = qFloor(plot.bottom()) - height;
+                l.box = QRectF(qRound(l.box.left()), top,
+                               qRound(l.box.width()), height);
+            }
+            pack();
+            for (CurveLabel &l : curveLabels) {
+                if (l.box.top() < plot.top())
+                    l.box.moveTop(qFloor(plot.top()));
+                if (l.box.bottom() > plot.bottom())
+                    l.box.moveTop(qFloor(plot.bottom()) - l.box.height());
             }
         }
 
