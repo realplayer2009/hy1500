@@ -2929,33 +2929,35 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         QString label;
         QColor color;
         Qt::PenStyle penStyle;
+        int penWidth;
         bool humidityAxis;
         bool requireNonZero;         // PT100 未接入读 0, 不当成 0 ℃
     };
     QColor channelColor[3];
     historyChannelColors(darkTheme, channelColor);
     const QList<ChartSeries> allSeries = {
-        // 温度: 实线
+        // 温度: 实线, 主信号保持 2px 醒目
         { "th1_temp", QString::fromUtf8("A温度"), channelColor[0],
-          Qt::SolidLine, false, false },
+          Qt::SolidLine, 2, false, false },
         { "th2_temp", QString::fromUtf8("B温度"), channelColor[1],
-          Qt::SolidLine, false, false },
+          Qt::SolidLine, 2, false, false },
         { "th3_temp", QString::fromUtf8("C温度"), channelColor[2],
-          Qt::SolidLine, false, false },
-        // 湿度: 虚线, 与同色温度靠线型区分
+          Qt::SolidLine, 2, false, false },
+        // 湿度: 点线 + 1px 细线。1 秒一条记录时 2px 虚线在 683 px 宽的绘图区里
+        // 几乎糊成一条灰带, 三条湿度叠在一起更分不清; 点线配细笔才留得出空隙。
         { "th1_humi", QString::fromUtf8("A湿度"), channelColor[0],
-          Qt::DashLine, true, false },
+          Qt::DotLine, 1, true, false },
         { "th2_humi", QString::fromUtf8("B湿度"), channelColor[1],
-          Qt::DashLine, true, false },
+          Qt::DotLine, 1, true, false },
         { "th3_humi", QString::fromUtf8("C湿度"), channelColor[2],
-          Qt::DashLine, true, false },
+          Qt::DotLine, 1, true, false },
         // PT100: 棕色系深浅两档, 与黄/绿/红远离
         { "pt1_temp", QString::fromUtf8("PT100 1"),
           QColor(darkTheme ? "#a1887f" : "#5d4037"),
-          Qt::DashLine, false, true },
+          Qt::DashLine, 1, false, true },
         { "pt2_temp", QString::fromUtf8("PT100 2"),
           QColor(darkTheme ? "#8d6e63" : "#4e342e"),
-          Qt::DashDotLine, false, true },
+          Qt::DashDotLine, 1, false, true },
     };
 
     // 取一条记录里某一路的有效值; 通路缺失或越界时返回 false
@@ -3103,8 +3105,15 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     }
     for (int s : visibleSeries) {
         const ChartSeries &series = allSeries.at(s);
-        painter.setPen(QPen(series.color, 2, series.penStyle));
+        // 1px 的线关掉抗锯齿: 点线的每个点只有 1px 宽, 开抗锯齿时几乎每个点
+        // 都和图表底色混色(实测 794 px 宽的绘图区里只有约 19 个像素能到实色),
+        // 整条湿度曲线淡到看不见。关掉后点才是清晰的点; 温度 2px 有实心核心,
+        // 不受影响, 仍走抗锯齿保持平滑。
+        if (series.penWidth <= 1)
+            painter.setRenderHint(QPainter::Antialiasing, false);
+        painter.setPen(QPen(series.color, series.penWidth, series.penStyle));
         painter.drawPath(seriesPaths.at(s));
+        painter.setRenderHint(QPainter::Antialiasing, true);
     }
 
     // 曲线上贴文字标签: "A温度"/"A湿度"..., 让人不必记颜色也能读出哪条是哪条。
@@ -3116,7 +3125,7 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         QPointF anchor;
         QString text;
         QColor color;
-        bool dashedFrame;
+        Qt::PenStyle penStyle;   // 外框线型跟随曲线: 温度实线 / 湿度点线
     };
     QVector<CurveLabel> curveLabels;
     {
@@ -3145,7 +3154,7 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             label.anchor = anchor;
             label.text = series.label;
             label.color = series.color;
-            label.dashedFrame = series.humidityAxis;
+            label.penStyle = series.penStyle;
             curveLabels.append(label);
         }
 
@@ -3191,14 +3200,17 @@ void HistoryChart::paintEvent(QPaintEvent *event)
                                    ? l.box.top() : l.box.bottom());
             painter.setPen(QPen(l.color, 1, Qt::SolidLine));
             painter.drawLine(from, l.anchor);
-            // 外框: 温度实线 / 湿度虚线。矩形内缩 0.5: Qt 的 1px 笔宽以路径
-            // 为中心, 直接画整数坐标的矩形会把边框拆到相邻两行各一半, 颜色淡
-            // 一半且实线虚线看不出来; 内缩后半像素中心正好落在整数行/列上。
-            painter.setPen(QPen(l.color, 1,
-                                l.dashedFrame ? Qt::DashLine : Qt::SolidLine));
+            // 外框: 温度实线 / 湿度点线, 与曲线线型一致。矩形内缩 0.5: Qt 的
+            // 1px 笔宽以路径为中心, 直接画整数坐标的矩形会把边框拆到相邻两行各
+            // 一半, 颜色淡一半且实线虚线看不出来; 内缩后半像素中心正好落在整数
+            // 行/列上。点线外框同样关抗锯齿, 否则 1px 的点会被混色淡掉。
+            if (l.penStyle != Qt::SolidLine)
+                painter.setRenderHint(QPainter::Antialiasing, false);
+            painter.setPen(QPen(l.color, 1, l.penStyle));
             painter.setBrush(chartBackground);
             painter.drawRect(QRectF(l.box.left() + 0.5, l.box.top() + 0.5,
                                     l.box.width() - 1.0, l.box.height() - 1.0));
+            painter.setRenderHint(QPainter::Antialiasing, true);
             painter.setPen(l.color);
             painter.drawText(l.box, Qt::AlignCenter, l.text);
         }
@@ -3258,7 +3270,7 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     for (int i = 0; i < visibleSeries.size(); ++i) {
         const ChartSeries &series = allSeries.at(visibleSeries.at(i));
         const qreal lx = plot.left() + legendColumnWidth * i;
-        painter.setPen(QPen(series.color, 2, series.penStyle));
+        painter.setPen(QPen(series.color, series.penWidth, series.penStyle));
         painter.drawLine(QPointF(lx, legendY), QPointF(lx + 20, legendY));
         painter.setPen(series.color.darker(130));
         painter.drawText(QRectF(lx + 25, legendTop, legendColumnWidth - 30, legendHeight),
