@@ -213,9 +213,16 @@ public:
     int visiblePointCount() const;
     int maxViewStart() const;
     int viewStart() const { return m_viewStart; }
+    /** 图例栏就是序列开关: 点一下藏起该条曲线, 再点一下恢复 */
+    void toggleSeriesVisible(int index);
+    bool isSeriesVisible(int index) const;
     // 上一次绘制算出的曲线上标签框(按可见序列顺序), 供测试校验"有几条曲线
     // 就有几个标签"以及"标签之间不互相遮挡"
     QVector<QRectF> labelBoxes() const { return m_labelBoxes; }
+    // 上一次绘制算出的图例栏: 栏矩形与对应序列一一对应, 含被用户藏起来的
+    // 序列 —— 图例必须留着, 否则藏过的曲线点不回来
+    QVector<QRectF> legendBoxes() const { return m_legendBoxes; }
+    QVector<int> legendSeries() const { return m_legendSeries; }
     void followLatest();
 
 public slots:
@@ -234,9 +241,15 @@ protected:
 private:
     void inspectAtX(int x);
     void refreshAfterRecordsChanged(bool keepCrosshair = false);
+    /** 图例栏命中测试: 命中返回栏序号, 未命中返回 -1 */
+    int legendIndexAt(const QPoint &pos) const;
 
     QVector<HistoryQuery::Record> m_records;
     QVector<QRectF> m_labelBoxes;   // 仅供 labelBoxes() 测试读取
+    QVector<bool> m_seriesHidden;   // 按序列下标, true=用户点图例藏起该曲线
+    QVector<int> m_legendSeries;    // 图例栏对应的序列下标(数据有效的全部)
+    QVector<QRectF> m_legendBoxes;  // 图例栏矩形, 与 m_legendSeries 一一对应
+    int m_pressedLegend = -1;       // 按下的图例栏序号(触摸高亮), -1=无
     int m_viewStart = 0;
     int m_crosshairRecordIndex = -1;
     int m_dragViewStart = 0;

@@ -2672,6 +2672,37 @@ HistoryChart::HistoryChart(QWidget *parent)
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setCursor(Qt::OpenHandCursor);
     setMouseTracking(true);
+    // 序列条数固定(3 温度 + 3 湿度 + 2 PT100), 与 paintEvent 里的 allSeries 一致。
+    // 默认全显示; 用户点图例藏起来的记在这里, 不写配置文件 —— 换一天数据序列
+    // 可能不存在, 存进去只会造成困惑, 但本次运行内切页/重新查询都不清空。
+    m_seriesHidden.fill(false, 8);
+}
+
+void HistoryChart::toggleSeriesVisible(int index)
+{
+    if (index < 0 || index >= m_seriesHidden.size())
+        return;
+    m_seriesHidden[index] = !m_seriesHidden.at(index);
+    update();
+}
+
+bool HistoryChart::isSeriesVisible(int index) const
+{
+    if (index < 0)
+        return false;
+    // 越界当成可见, 免得 m_seriesHidden 尚未对齐时把数值提示全吞掉
+    if (index >= m_seriesHidden.size())
+        return true;
+    return !m_seriesHidden.at(index);
+}
+
+int HistoryChart::legendIndexAt(const QPoint &pos) const
+{
+    for (int i = 0; i < m_legendBoxes.size(); ++i) {
+        if (m_legendBoxes.at(i).contains(pos))
+            return i;
+    }
+    return -1;
 }
 
 void HistoryChart::setRecords(const QVector<HistoryQuery::Record> &records)
@@ -2805,6 +2836,9 @@ void HistoryChart::inspectAtX(int x)
     static const QString tempUnit = QString::fromUtf8("℃");
     static const QString humiUnit = QString::fromUtf8("%RH");
     for (int i = 0; i < 3; ++i) {
+        // 藏起来的序列在提示里也去掉: 曲线都关了, 还报它的值会让人以为没生效
+        if (!isSeriesVisible(i))
+            continue;
         const QString text = channelText(tempFields[i], false, tempUnit);
         if (!text.isEmpty()) {
             summary += QString::fromUtf8(
@@ -2812,6 +2846,8 @@ void HistoryChart::inspectAtX(int x)
                 .arg(channelColor[i].name(),
                      QString::fromUtf8(tempNames[i]), text);
         }
+        if (!isSeriesVisible(3 + i))
+            continue;
         const QString humi = channelText(humiFields[i], true, humiUnit);
         if (!humi.isEmpty()) {
             summary += QString::fromUtf8(
@@ -2820,17 +2856,19 @@ void HistoryChart::inspectAtX(int x)
                      QString::fromUtf8(humiNames[i]), humi);
         }
     }
+    const bool anyTempVisible = isSeriesVisible(0) || isSeriesVisible(1)
+        || isSeriesVisible(2);
     const QString pt1 = channelText("pt1_temp", false, tempUnit, true);
     const QString pt2 = channelText("pt2_temp", false, tempUnit, true);
-    if (!pt1.isEmpty()) {
+    if (isSeriesVisible(6) && !pt1.isEmpty()) {
         summary += QString::fromUtf8(
             "&nbsp;&nbsp; <span style='color:#5d4037'>PT100-1 %1</span>").arg(pt1);
     }
-    if (!pt2.isEmpty()) {
+    if (isSeriesVisible(7) && !pt2.isEmpty()) {
         summary += QString::fromUtf8(
             "&nbsp;&nbsp; <span style='color:#8d6e63'>PT100-2 %1</span>").arg(pt2);
     }
-    if (record.values.contains("fleet_temp_min")) {
+    if (anyTempVisible && record.values.contains("fleet_temp_min")) {
         summary += QString::fromUtf8(
             "&nbsp;&nbsp; 温度范围 %1~%2 ℃（%3 块）")
             .arg(record.values.value("fleet_temp_min").toInt() / 10.0, 0, 'f', 1)
@@ -2844,6 +2882,15 @@ void HistoryChart::inspectAtX(int x)
 void HistoryChart::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        // 图例栏是序列开关, 命中就不进入拖动/查看数值流程(否则一点图例
+        // 既切换曲线又蹦出十字线提示, 现场会以为误触了别的东西)
+        const int legend = legendIndexAt(event->pos());
+        if (legend >= 0) {
+            m_pressedLegend = legend;
+            update();
+            event->accept();
+            return;
+        }
         m_dragOrigin = event->pos();
         m_dragViewStart = m_viewStart;
         m_dragging = false;
@@ -2857,6 +2904,11 @@ void HistoryChart::mousePressEvent(QMouseEvent *event)
 void HistoryChart::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton) {
+        // 按下图例后又拖动: 取消图例高亮, 当成普通拖动
+        if (m_pressedLegend >= 0) {
+            m_pressedLegend = -1;
+            update();
+        }
         if (qAbs(event->pos().x() - m_dragOrigin.x()) >= 6)
             m_dragging = true;
         const int pointDelta = static_cast<int>(
@@ -2874,6 +2926,15 @@ void HistoryChart::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
         setCursor(Qt::OpenHandCursor);
+        if (m_pressedLegend >= 0) {
+            // 松手还在原栏才切换; 滑走了就当没点
+            if (legendIndexAt(event->pos()) == m_pressedLegend)
+                toggleSeriesVisible(m_legendSeries.at(m_pressedLegend));
+            m_pressedLegend = -1;
+            update();
+            event->accept();
+            return;
+        }
         if (!m_dragging)
             inspectAtX(event->pos().x());
         event->accept();
@@ -2963,7 +3024,12 @@ void HistoryChart::paintEvent(QPaintEvent *event)
     // 取一条记录里某一路的有效值; 通路缺失或越界时返回 false
     // (湿度 0~100 %RH / 温度 -40~85 ℃, 见 historyChannelValue)
 
-    QVector<int> visibleSeries;
+    // 序列条数固定; 防御性地对齐, 免得越界
+    if (m_seriesHidden.size() != allSeries.size())
+        m_seriesHidden.resize(allSeries.size());
+
+    QVector<int> visibleSeries;   // 数据有效且未被用户藏起的序列
+    QVector<int> legendSeries;    // 数据有效的全部序列 —— 图例要显示藏起来的
     bool hasTemperature = false;
     bool hasHumidity = false;
     double temperatureMin = 0.0;
@@ -2979,17 +3045,22 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             if (!historyChannelValue(values, series.field, series.humidityAxis,
                                       series.requireNonZero, value))
                 continue;
-            if (series.humidityAxis) {
-                humidityMin = hasHumidity ? qMin(humidityMin, value) : value;
-                humidityMax = hasHumidity ? qMax(humidityMax, value) : value;
-                hasHumidity = true;
-            } else {
-                temperatureMin = hasTemperature ? qMin(temperatureMin, value) : value;
-                temperatureMax = hasTemperature ? qMax(temperatureMax, value) : value;
-                hasTemperature = true;
+            // 藏起来的序列不参与纵轴范围与曲线, 但仍进图例(要点它恢复)
+            if (!m_seriesHidden.at(s)) {
+                if (series.humidityAxis) {
+                    humidityMin = hasHumidity ? qMin(humidityMin, value) : value;
+                    humidityMax = hasHumidity ? qMax(humidityMax, value) : value;
+                    hasHumidity = true;
+                } else {
+                    temperatureMin = hasTemperature ? qMin(temperatureMin, value) : value;
+                    temperatureMax = hasTemperature ? qMax(temperatureMax, value) : value;
+                    hasTemperature = true;
+                }
+                if (!visibleSeries.contains(s))
+                    visibleSeries.append(s);
             }
-            if (!visibleSeries.contains(s))
-                visibleSeries.append(s);
+            if (!legendSeries.contains(s))
+                legendSeries.append(s);
         }
         // "全部子板"视图的跨子板极值带, 覆盖三路温度
         if (values.contains("fleet_temp_min")) {
@@ -3020,7 +3091,8 @@ void HistoryChart::paintEvent(QPaintEvent *event)
 
     const int fontHeight = QFontMetrics(font()).height();
     const int timeAxisHeight = fontHeight * 2 + 10;
-    const int legendHeight = fontHeight + 18;
+    // 图例栏是触摸目标, 比纯文字时高一点(38 -> 40 px)
+    const int legendHeight = fontHeight + 22;
     const QRectF plot = QRectF(rect()).adjusted(
         54, 18, -52, -(timeAxisHeight + legendHeight));
     const int axisTickCount = qBound(2, static_cast<int>(plot.height() / 32.0), 4);
@@ -3028,20 +3100,32 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         const qreal y = plot.bottom() - plot.height() * i / axisTickCount;
         painter.setPen(QPen(chartGrid, 1));
         painter.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
-        painter.setPen(chartText);
-        painter.drawText(QRectF(2, y - 9, 47, 18), Qt::AlignRight | Qt::AlignVCenter,
-                         QString::number(temperatureMin
-                             + (temperatureMax - temperatureMin) * i / axisTickCount, 'f', 1));
-        painter.drawText(QRectF(plot.right() + 5, y - 9, 45, 18),
-                         Qt::AlignLeft | Qt::AlignVCenter,
-                         QString::number(humidityMin
-                             + (humidityMax - humidityMin) * i / axisTickCount, 'f', 0));
+        // 某一侧的序列全被藏起来时, 该侧刻度与标题一起不画 —— 留着半排
+        // 没有曲线对应的数字只会让人以为曲线画漏了
+        if (hasTemperature) {
+            painter.setPen(chartText);
+            painter.drawText(QRectF(2, y - 9, 47, 18),
+                             Qt::AlignRight | Qt::AlignVCenter,
+                             QString::number(temperatureMin
+                                 + (temperatureMax - temperatureMin) * i / axisTickCount,
+                                 'f', 1));
+        }
+        if (hasHumidity) {
+            painter.setPen(chartText);
+            painter.drawText(QRectF(plot.right() + 5, y - 9, 45, 18),
+                             Qt::AlignLeft | Qt::AlignVCenter,
+                             QString::number(humidityMin
+                                 + (humidityMax - humidityMin) * i / axisTickCount,
+                                 'f', 0));
+        }
     }
     painter.setPen(chartText);
-    painter.drawText(QRectF(plot.left(), 0, 90, 18),
-                     Qt::AlignLeft | Qt::AlignVCenter, QString::fromUtf8("温度 ℃"));
-    painter.drawText(QRectF(plot.right() - 90, 0, 90, 18),
-                     Qt::AlignRight | Qt::AlignVCenter, QString::fromUtf8("湿度 %RH"));
+    if (hasTemperature)
+        painter.drawText(QRectF(plot.left(), 0, 90, 18),
+                         Qt::AlignLeft | Qt::AlignVCenter, QString::fromUtf8("温度 ℃"));
+    if (hasHumidity)
+        painter.drawText(QRectF(plot.right() - 90, 0, 90, 18),
+                         Qt::AlignRight | Qt::AlignVCenter, QString::fromUtf8("湿度 %RH"));
 
     const int timeTickCount = qBound(2, static_cast<int>(plot.width() / 160.0), 12);
     for (int i = 0; i <= timeTickCount; ++i) {
@@ -3093,7 +3177,7 @@ void HistoryChart::paintEvent(QPaintEvent *event)
                 record.values.value("fleet_temp_min").toInt() / 10.0)));
         }
     }
-    if (!fleetRangeUpper.isEmpty()) {
+    if (!fleetRangeUpper.isEmpty() && hasTemperature) {
         QPainterPath rangePath;
         rangePath.moveTo(fleetRangeUpper.first());
         for (int i = 1; i < fleetRangeUpper.size(); ++i)
@@ -3102,6 +3186,12 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             rangePath.lineTo(fleetRangeLower.at(i));
         rangePath.closeSubpath();
         painter.fillPath(rangePath, QColor(230, 126, 34, 45));
+    }
+    // 全藏完了: 给一句怎么恢复, 否则现场只看到一张空网格, 会以为程序坏了
+    if (visibleSeries.isEmpty() && !legendSeries.isEmpty()) {
+        painter.setPen(chartText);
+        painter.drawText(plot, Qt::AlignCenter,
+                         QString::fromUtf8("所有曲线已隐藏\n点下方图例可恢复"));
     }
     for (int s : visibleSeries) {
         const ChartSeries &series = allSeries.at(s);
@@ -3260,19 +3350,36 @@ void HistoryChart::paintEvent(QPaintEvent *event)
         painter.setBrush(Qt::NoBrush);
     }
 
+    // 图例: 每一栏就是对应序列的开关。显示数据有效的全部序列(含用户藏起来的),
+    // 否则藏过的曲线没有入口点回来。藏起来的栏线段不画、文字压暗, 一眼看出
+    // 谁关着; 按下的栏给半透明同色底, 让触屏知道点到我了。
     const qreal legendTop = plot.bottom() + timeAxisHeight;
     const qreal legendY = legendTop + legendHeight / 2.0;
-    // 图例按实际画出来的序列动态分栏: 只有 A/C 两路时图例也只有两栏,
-    // 不会留下"温湿度B"这种没有曲线的空条目
+    m_legendSeries = legendSeries;
+    m_legendBoxes.clear();
     const bool fleetView = m_records.first().values.contains("fleet_count");
-    const int legendCount = qMax(1, visibleSeries.size());
+    const int legendCount = qMax(1, legendSeries.size());
     const qreal legendColumnWidth = plot.width() / legendCount;
-    for (int i = 0; i < visibleSeries.size(); ++i) {
-        const ChartSeries &series = allSeries.at(visibleSeries.at(i));
+    for (int i = 0; i < legendSeries.size(); ++i) {
+        const int s = legendSeries.at(i);
+        const ChartSeries &series = allSeries.at(s);
         const qreal lx = plot.left() + legendColumnWidth * i;
-        painter.setPen(QPen(series.color, series.penWidth, series.penStyle));
-        painter.drawLine(QPointF(lx, legendY), QPointF(lx + 20, legendY));
-        painter.setPen(series.color.darker(130));
+        const QRectF column(lx, legendTop, legendColumnWidth, legendHeight);
+        m_legendBoxes.append(column);
+        const bool hidden = m_seriesHidden.at(s);
+        if (i == m_pressedLegend) {
+            painter.setOpacity(0.22);
+            painter.fillRect(column, series.color);
+            painter.setOpacity(1.0);
+        }
+        if (!hidden) {
+            painter.setPen(QPen(series.color, series.penWidth, series.penStyle));
+            painter.drawLine(QPointF(lx + 4, legendY), QPointF(lx + 20, legendY));
+            painter.setPen(series.color.darker(130));
+        } else {
+            // 线段不画, 文字压到刻度色: 关着的序列不再抢眼
+            painter.setPen(chartTick);
+        }
         painter.drawText(QRectF(lx + 25, legendTop, legendColumnWidth - 30, legendHeight),
                          Qt::AlignLeft | Qt::AlignVCenter,
                          // 全部子板视图下温度序列附带跨子板极值带
