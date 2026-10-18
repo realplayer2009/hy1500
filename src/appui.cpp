@@ -86,8 +86,9 @@ const QString kSettingsPassword = QString::fromUtf8("0000");
 // 手动加热器连续工作上限与强制休息时长 (现场可能忘关加热器, 一挂就是几天)
 constexpr qint64 kManualHeaterMaxWorkSeconds = 2 * 60 * 60;
 constexpr qint64 kManualHeaterRestSeconds = 15 * 60;
-// 呼吸灯: 超过这么久没有新数据就停下 (现场 1 秒一条记录)
-constexpr qint64 kLivePulseIdleMs = 3000;
+// 呼吸灯: 空闲阈值下限。实际阈值跟随记录周期(见 tickHeaterWorkClocks),
+// 这里是保底值, 防止有人把记录周期设得极短
+constexpr qint64 kLivePulseIdleMinMs = 8000;
 // 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
 constexpr int kHeaterParamPage = 2;
 constexpr int kAdvancedPage = 4;
@@ -6737,10 +6738,15 @@ void MainWindow::refreshIndicatorLights()
 // 不在这套保护里 —— 那是另一套逻辑, 混在一起会互相打断)。
 void MainWindow::tickHeaterWorkClocks()
 {
-    // 呼吸灯: 现场 1 秒一条记录, 3 秒没有新数据就认为"没有实时数据"
+    // 呼吸灯: 空闲阈值取记录周期的 2 倍(至少 8 秒)。短于一个记录周期的话,
+    // 单次读失败就把灯打灭, 现场看着像坏了(实测重启后发现子板阶段数据稀疏,
+    // 3 秒阈值下呼吸灯一亮一灭); 真断线时 8 秒内也停得下来。
+    const qint64 livePulseIdleLimit = qMax<qint64>(
+        kLivePulseIdleMinMs,
+        AppConfig::instance().general().recordIntervalMs * 2);
     if (m_livePulse && m_livePulse->isActive()) {
         m_livePulseIdleMs += 1000;
-        if (m_livePulseIdleMs >= kLivePulseIdleMs)
+        if (m_livePulseIdleMs >= livePulseIdleLimit)
             m_livePulse->setActive(false);
     }
 
