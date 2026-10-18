@@ -107,13 +107,20 @@ LOGO_W_CERT = 17.0            # mm 合格证上的 logo 宽
 
 # ---- 二维码（海康风格：二维码 + 编号 + 型号）----
 QR_SIZE = 17.0                # mm 二维码视觉边长（v2 25 模块 → 0.677 mm/模块）
-QR_TOP = 21.6                 # mm 二维码顶边（下方按「码高 + 4 模块静区」自动排编号）
+QR_TOP = 21.8                 # mm 二维码顶边（v1 需 4 模块 = 3.05 mm 静区）（下方按「码高 + 4 模块静区」自动排编号）
 QR_ECC = "M"                  # 纠错级
 # 二维码内容：型号 + 编号，空格分隔，扫码后两者都直接可见。
 # 不放 URL——公司没有可用的真实网站，编造查询链接比只放型号编号更糟。
 # 例：YTT-TC1500 YTT-TC1500-2609-060（30 字符 → 版本 2，25×25 模块）
 def qr_payload(product: dict, sn: str) -> str:
-    return "{} {}".format(product["model"], sn)
+    """二维码内容：编号的数字部分（yymm + 流水号），如 2609060。
+
+    型号已大号印在标贴正面，扫出的编号配合肉眼可见的型号即可唯一定位。
+    内容越短 → 二维码版本越低 → 模块越大，手机摄像头越容易解出来。
+    不放 URL：公司没有真实网站，编一个扫出来打不开反而更糟。
+    """
+    parts = sn.split("-")
+    return "".join(parts[-2:])          # [..., '2609', '060'] -> '2609060'
 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -564,7 +571,7 @@ if __name__ == "__main__":
         100 * (LABEL * ROWS + V_GAP * (ROWS - 1)) / ph))
     print("每页 {} 张".format(PER_PAGE))
     print("序列号起始序号 {}，日期前缀 {}".format(SN_SEQ_START, PRODUCE_DATE[2:4] + PRODUCE_DATE[5:7]))
-    print("二维码：ECC-{}，编码内容=型号+编号（如 {}）".format(
+    print("二维码：ECC-{}，编码内容=编号数字部分（如 {}）".format(
         QR_ECC, qr_payload(PRODUCTS[0], sn_list(PRODUCTS[0])[0])))
     print("-" * 64)
     for fn, desc, cnt in build():

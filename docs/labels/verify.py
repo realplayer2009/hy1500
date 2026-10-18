@@ -199,21 +199,33 @@ def quiet_zone_ink(g, x, y, sn, prod):
     """量二维码四周 4 模块静区内的墨点数。规范要求静区为纯白，混进深色
     墨迹会让微信等 App 的码框定位直接失败——这是实际发生过的事故：
     版面把分隔线和编号排得离码太近，反解脚本按理论坐标采样照样全过，
-    但手机扫不出来。故单列此项，四向必须全零。"""
+    但手机扫不出来。故单列此项，四向必须全零。
+
+    边界取二维码**实测**墨迹外框而非理论坐标：码图按整数像素缩放，
+    实际边缘最多比理论值溢出 1 px（0.085 mm），拿理论值去量会把自己
+    那 1 px 当成污染，报假故障。"""
     n, mod_px, code_px, code_mm = qr_geom(sn, prod)
     module = code_mm / n
     qz = 4 * module
     cx = x + M.LABEL / 2.0
-    left, right = cx - code_mm / 2, cx + code_mm / 2
-    top, bot = y + M.QR_TOP, y + M.QR_TOP + code_mm
-    sides = (("上", left + 0.5, top - qz, right - 0.5, top),
-             ("下", left + 0.5, bot, right - 0.5, bot + qz),
-             ("左", left - qz, top + 0.5, left, bot - 0.5),
-             ("右", right, top + 0.5, right + qz, bot - 0.5))
+    reg = g.crop((px(cx - M.QR_SIZE), px(y + M.QR_TOP - 0.5),
+                  px(cx + M.QR_SIZE), px(y + M.QR_TOP + M.QR_SIZE + 0.5)))
+    bb = reg.point(lambda v: 255 if v < 200 else 0).getbbox()
+    if bb is None:
+        return [], qz
+    ox, oy = cx - M.QR_SIZE, y + M.QR_TOP - 0.5
+    left = ox + bb[0] * M.MM_PER_PX
+    right = ox + bb[2] * M.MM_PER_PX
+    top = oy + bb[1] * M.MM_PER_PX
+    bot = oy + bb[3] * M.MM_PER_PX
+    sides = (("上", left + 0.2, top - qz, right - 0.2, top),
+             ("下", left + 0.2, bot, right - 0.2, bot + qz),
+             ("左", left - qz, top + 0.2, left, bot - 0.2),
+             ("右", right, top + 0.2, right + qz, bot - 0.2))
     out = []
     for name, a, b, c, e in sides:
-        reg = g.crop((px(a), px(b), px(c), px(e)))
-        out.append((name, sum(1 for v in reg.get_flattened_data() if v < 200)))
+        r = g.crop((px(a), px(b), px(c), px(e)))
+        out.append((name, sum(1 for v in r.get_flattened_data() if v < 200)))
     return out, qz
 
 
@@ -244,6 +256,115 @@ for prod in M.PRODUCTS:
         print("  [PASS] {:<20} 四向静区全净（各需 {:.2f} mm，最多墨点 {}/{}/{}/{}）".format(
             prod["model"], qz, worst.get("上", 0), worst.get("下", 0),
             worst.get("左", 0), worst.get("右", 0)))
+
+
+# ============================================================
+print()
+print("=" * 68)
+print("3c) Reed-Solomon 纠错码自检（真扫码器会校验，废 ECC 直接解不出）")
+print("=" * 68)
+
+
+def _gf_mul(a, b):
+    p = 0
+    while b:
+        if b & 1:
+            p ^= a
+        b >>= 1
+        a <<= 1
+        if a & 0x100:
+            a ^= 0x11D
+    return p
+
+
+def _gf_pow(a, n):
+    r = 1
+    for _ in range(n):
+        r = _gf_mul(r, a)
+    return r
+
+
+def _rs_syndromes(cw, nsym):
+    """QR 约定的校验子。码字多项式 C(x)=c0·x^(n-1)+c1·x^(n-2)+…，
+    合法 RS 码字在 α^0…α^(nsym-1) 处求值必须全为 0。
+
+    GF(2^8) 的加法是 XOR——用整数 sum() 会每一项都错，曾据此误判编码有错。
+    """
+    n = len(cw)
+    out = []
+    for i in range(nsym):
+        s = 0
+        for j, c in enumerate(cw):
+            s ^= _gf_mul(c, _gf_pow(2, i * (n - 1 - j)))
+        out.append(s)
+    return out
+
+
+def _matrix_codewords(m, ver, mask):
+    """按规范 Z 形走位从矩阵实取全部码字（已去掩码）。"""
+    size = len(m)
+    f = Q.MASKS[mask]
+    reserved = Q._reserved(size, ver)
+    positions = [p for p in Q._data_positions(size) if p not in reserved]
+    bits = [1 if (bool(m[r][c]) != f(r, c)) else 0 for (r, c) in positions]
+    cw = []
+    for i in range(0, len(bits) - 7, 8):
+        v = 0
+        for b in bits[i:i + 8]:
+            v = (v << 1) | b
+        cw.append(v)
+    return cw
+
+
+def _deinterleave(cw, version, ecc):
+    """把交织后的码字流还原成各块（每块 = 数据码字 + 纠错码字）。"""
+    ecc_len, nblocks, dbytes = Q.ECC_TABLE[ecc][version]
+    if nblocks == 1:
+        return [cw[:dbytes + ecc_len]]
+    per = dbytes // nblocks
+    extra = dbytes % nblocks
+    sizes = [per + (1 if b >= nblocks - extra else 0) for b in range(nblocks)]
+    blocks = [[] for _ in range(nblocks)]
+    p = 0
+    for i in range(max(sizes)):
+        for b in range(nblocks):
+            if i < sizes[b]:
+                blocks[b].append(cw[p])
+                p += 1
+    for i in range(ecc_len):
+        for b in range(nblocks):
+            blocks[b].append(cw[p])
+            p += 1
+    return blocks
+
+
+rs_bad, rs_n = [], 0
+for prod in M.PRODUCTS:
+    for sn in M.sn_list(prod):
+        payload = M.qr_payload(prod, sn)
+        m, ver, mask = Q.qr_matrix(payload, M.QR_ECC)
+        ecc_len, nblocks, dbytes = Q.ECC_TABLE[M.QR_ECC][ver]
+        cw = _matrix_codewords(m, ver, mask)
+        if len(cw) < dbytes + ecc_len * nblocks:
+            rs_bad.append("{}-{} 码字数仅 {}".format(prod["model"], sn, len(cw)))
+            continue
+        for blk in _deinterleave(cw, ver, M.QR_ECC):
+            if any(_rs_syndromes(blk, ecc_len)):
+                rs_bad.append("{}-{} v{} 块校验子非零".format(prod["model"], sn, ver))
+                break
+        rs_n += 1
+ok(not rs_bad, "RS 纠错码（{} 张标贴，从矩阵实取码字）: {}".format(
+    rs_n, "全部块校验子为零" if not rs_bad else "；".join(rs_bad[:3])))
+
+# 反证：确认这项检查不是空转
+_p = M.qr_payload(M.PRODUCTS[0], M.sn_list(M.PRODUCTS[0])[0])
+_m, _v, _k = Q.qr_matrix(_p, M.QR_ECC)
+_el, _bk, _dl = Q.ECC_TABLE[M.QR_ECC][_v]
+_c = _matrix_codewords(_m, _v, _k)[:_dl + _el]
+_c[-1] ^= 0x5A
+ok(any(_rs_syndromes(_c, _el)),
+   "反证：污染 1 个纠错字节后校验子确实非零（检查非空转）")
+
 
 # ============================================================
 print()

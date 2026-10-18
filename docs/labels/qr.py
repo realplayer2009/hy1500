@@ -40,7 +40,14 @@ def gf_mul(a: int, b: int) -> int:
 
 
 def gf_gen_poly(degree: int) -> list[int]:
-    """RS 生成多项式，最低次项在前，长度 degree+1。"""
+    """RS 生成多项式，**最高次项在前**，长度 degree+1。
+
+    g(x) = Π_{i=0}^{degree-1}(x - α^i)；GF(2^8) 中减法即加法，故为 (x + α^i)。
+    累加过程天然得到「最低次项在前」，末尾反转成「最高次项在前」——
+    rs_remainder 的合成除法按 gen[0] 对齐被消项，要求 gen[0] 是最高次项系数。
+    曾因漏了这次反转，阶数 ≥2 的纠错码全是废值：自己的解码器不校验 RS，
+    往返测试照样全过，但真实扫码器解不出来。
+    """
     g = [1]
     for i in range(degree):
         ng = [0] * (len(g) + 1)
@@ -48,7 +55,7 @@ def gf_gen_poly(degree: int) -> list[int]:
             ng[j + 1] ^= c                      # c * x
             ng[j] ^= gf_mul(c, GF_EXP[i])       # c * α^i
         g = ng
-    return g
+    return g[::-1]
 
 
 def rs_remainder(data: list[int], ecc_len: int) -> list[int]:

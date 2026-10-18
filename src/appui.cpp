@@ -77,11 +77,16 @@ constexpr int kSensorRecoverySamples = 3;
 // 历史页实时追加上限: 停放在数据浏览页时新记录会持续进内存,
 // 达到上限后暂停实时追加, 重新查询后恢复, 防止长时间运行内存无限增长。
 constexpr int kMaxLiveAppendRecords = 50000;
+// "实时数据"模式的时间窗: 只覆盖最近这段时间。现场 1 秒一条记录,
+// 30 分钟约 1800 个点, 既够看清当前走势, 又能往回拖动比对。
+constexpr int kLiveWindowSeconds = 30 * 60;
 // 加热参数设置与高级设置的进入密码 (现场触摸屏, 防止误触改参数)
 const QString kSettingsPassword = QString::fromUtf8("123456");
 // 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
 constexpr int kHeaterParamPage = 2;
 constexpr int kAdvancedPage = 4;
+// "实时数据"按钮只在数据浏览页显示
+constexpr int kHistoryPage = 3;
 // 关于本机: 无密码, 但网络地址随 DHCP 可能变化, 每次进入都要刷新
 constexpr int kAboutPage = 5;
 
@@ -663,6 +668,11 @@ QString applicationStyleSheet(const QString &themeName)
             border-radius: 0; padding: 5px 12px; font-weight: 700; }
         QLabel#selfCheckPill[healthy="true"] { background: #e8f7ee; color: #168f4f; border-color: #7bc99d; }
         QLabel#selfCheckPill[alarm="true"] { background: #c93632; color: white; border-color: #ad2825; }
+        QPushButton#realtimePill { background: #eeeeee; color: #555555;
+            border: 1px solid #bbbbbb; border-radius: 0; padding: 5px 12px; font-weight: 700; }
+        QPushButton#realtimePill:hover { background: #e4e4e4; }
+        QPushButton#realtimePill:checked { background: #e8f1fb; color: #1c62b0;
+            border-color: #8fb6e6; }
         QFrame#card { background: white; border: 1px solid #cccccc; border-radius: 0; }
         QLabel#sectionTitle { color: #202020; font-size: 17px; font-weight: 700; }
         QLabel#metricTitle { color: #666666; font-size: 12px; }
@@ -817,6 +827,11 @@ QString applicationStyleSheet(const QString &themeName)
         QHeaderView::section { color: #f1f5f7; background: #263740; }
         QLabel#bottomStatus { color: #c3cdd2; background: #111b22;
             border-top-color: #4b5c66; }
+        QPushButton#realtimePill { color: #b2c0c8; background: #17232b;
+            border: 1px solid #4b5c66; border-radius: 12px; padding: 5px 12px; font-weight: 700; }
+        QPushButton#realtimePill:hover { background: #1e2e38; }
+        QPushButton#realtimePill:checked { color: white; background: #287eaa;
+            border-color: #55b9e8; }
     )");
     const QString highContrast = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: white; color: black; }
@@ -856,6 +871,10 @@ QString applicationStyleSheet(const QString &themeName)
             border: 2px solid black; gridline-color: #666666; }
         QHeaderView::section { color: black; background: #dddddd; }
         QLabel#bottomStatus { color: black; background: white; border-top: 2px solid black; }
+        QPushButton#realtimePill { color: black; background: white;
+            border: 2px solid black; font-weight: 700; }
+        QPushButton#realtimePill:hover { background: #eeeeee; }
+        QPushButton#realtimePill:checked { color: white; background: black; }
     )");
 
     const QString harmony = QString::fromUtf8(R"(
@@ -944,6 +963,20 @@ QString applicationStyleSheet(const QString &themeName)
             background: #D93636;
             color: white;
             border-color: #B32424;
+        }
+        QPushButton#realtimePill {
+            color: #6B6B6B;
+            background: #F2F3F5;
+            border: 1px solid #D9D9D9;
+            border-radius: 12px;
+            padding: 5px 12px;
+            font-weight: 700;
+        }
+        QPushButton#realtimePill:hover { background: #E8EAED; }
+        QPushButton#realtimePill:checked {
+            color: white;
+            background: #007DFF;
+            border-color: #0059B3;
         }
         QFrame#card {
             background: #FFFFFF;
@@ -1309,6 +1342,12 @@ QString applicationStyleSheet(const QString &themeName)
             border-top-color: #48484a; }
         QLabel#systemPill { color: #00e676; background: #123324; border: 1px solid #00b85f; }
         QLabel#selfCheckPill[healthy="true"] { color: white; background: #00b85f; border-color: #00e676; }
+        QPushButton#realtimePill { color: #a1a1a6; background: #2a2a2c;
+            border: 1px solid #48484a; border-radius: 12px; padding: 5px 12px; font-weight: 700; }
+        QPushButton#realtimePill:hover { background: #38383a; }
+        // 实时开启用蓝, 不与自检正常的绿、告警的红混
+        QPushButton#realtimePill:checked { color: white; background: #0a84ff;
+            border-color: #55b9e8; }
         QLabel#actionFeedback[success="true"] { color: #00e676; }
         QLabel#safeBanner { color: #00e676; background: #123324; border: 1px solid #00b85f; }
         QLabel#statusPill[online="true"] { color: #00e676; background: #123324; border-color: #00b85f; }
@@ -2675,6 +2714,34 @@ void HistoryChart::refreshRecords()
     refreshAfterRecordsChanged(m_crosshairRecordIndex >= 0);
 }
 
+void HistoryChart::trimRecords(const QDateTime &cutoff)
+{
+    if (m_records.isEmpty())
+        return;
+    // 记录按时间升序, 找到第一个仍在窗口内的点, 前面整段丢掉
+    int first = 0;
+    while (first < m_records.size() && m_records.at(first).timestamp < cutoff)
+        ++first;
+    if (first == 0)
+        return;
+    if (first >= m_records.size()) {
+        // 整个窗口都被裁掉(长时间无新数据): 清空但保留跟随状态
+        m_records.clear();
+        m_viewStart = 0;
+        m_crosshairRecordIndex = -1;
+        update();
+        return;
+    }
+    m_records.remove(0, first);
+    if (m_crosshairRecordIndex >= 0) {
+        // 十字线跟着记录一起左移, 仍然指着同一条读数; 被裁掉的才放弃
+        m_crosshairRecordIndex -= first;
+        if (m_crosshairRecordIndex < 0)
+            m_crosshairRecordIndex = -1;
+    }
+    refreshAfterRecordsChanged(m_crosshairRecordIndex >= 0);
+}
+
 int HistoryChart::visiblePointCount() const
 {
     return qMin(m_records.size(), qMax(40, (width() - 106) / 4));
@@ -3437,6 +3504,42 @@ void HistoryWidget::queryRecords()
     loadRecords(true);
 }
 
+void HistoryWidget::setLiveMode(bool live)
+{
+    if (live == m_liveMode)
+        return;
+    m_liveMode = live;
+    if (live) {
+        // 记住用户原来的区间, 退出实时时原样还回去
+        m_historyDateFrom = m_dateFrom->date();
+        m_historyDateTo = m_dateTo->date();
+        // 实时不受日期边界限制: 强制今天, 跨零点后由 onRecordAppended 跟着改
+        m_dateFrom->setDate(QDate::currentDate());
+        m_dateTo->setDate(QDate::currentDate());
+        m_dateFrom->setEnabled(false);
+        m_dateTo->setEnabled(false);
+        m_resultSummary->setText(QString::fromUtf8("实时数据 · 加载中…"));
+    } else {
+        m_dateFrom->setDate(m_historyDateFrom);
+        m_dateTo->setDate(m_historyDateTo);
+        m_dateFrom->setEnabled(true);
+        m_dateTo->setEnabled(true);
+    }
+    loadRecords(true);
+}
+
+void HistoryWidget::trimLiveRecords(const QDateTime &cutoff)
+{
+    // 内存记录与图表各存一份, 两边都要裁, 否则重新查询又会把旧点放回来
+    int first = 0;
+    while (first < m_chartRecords.size()
+           && m_chartRecords.at(first).timestamp < cutoff)
+        ++first;
+    if (first > 0)
+        m_chartRecords.remove(0, first);
+    m_chart->trimRecords(cutoff);
+}
+
 void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
                                      const DeviceProfile::DeviceKey &key,
                                      const QString &deviceName,
@@ -3449,9 +3552,15 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
         saveDeviceIndex();
         refreshDevices();
     }
-    if (!m_loaded || timestamp.date() < m_loadedDateFrom
-        || timestamp.date() > m_loadedDateTo)
+    if (!m_loaded || timestamp.date() < m_loadedDateFrom)
         return;
+    if (m_liveMode && timestamp.date() != m_loadedDateTo) {
+        // 实时模式跨零点: 换日不换画面, 跟着新的一天继续追, 不重新查询
+        m_loadedDateTo = timestamp.date();
+        m_dateTo->setDate(timestamp.date());
+    } else if (timestamp.date() > m_loadedDateTo) {
+        return;
+    }
 
     const QString device = m_loadedDevice;
     if (!device.isEmpty()) {
@@ -3491,11 +3600,18 @@ void HistoryWidget::onRecordAppended(const QDateTime &timestamp,
         m_chartRecords.append(record);
         m_chart->appendRecord(record);
     }
+    if (m_liveMode)
+        trimLiveRecords(QDateTime::currentDateTime().addSecs(-kLiveWindowSeconds));
     updateTimeScroll();
-    m_resultSummary->setText(device.isEmpty()
-        ? QString::fromUtf8("共 %1 条明细 / %2 个时间点")
-              .arg(m_rawRecordCount).arg(m_chart->recordCount())
-        : QString::fromUtf8("共 %1 条记录").arg(m_rawRecordCount));
+    if (m_liveMode) {
+        m_resultSummary->setText(QString::fromUtf8("实时数据 · 最近 %1 分钟 · %2 个时间点")
+            .arg(kLiveWindowSeconds / 60).arg(m_chart->recordCount()));
+    } else {
+        m_resultSummary->setText(device.isEmpty()
+            ? QString::fromUtf8("共 %1 条明细 / %2 个时间点")
+                  .arg(m_rawRecordCount).arg(m_chart->recordCount())
+            : QString::fromUtf8("共 %1 条记录").arg(m_rawRecordCount));
+    }
 
     if (m_table->rowCount() >= 500)
         m_table->removeRow(m_table->rowCount() - 1);
@@ -3568,15 +3684,22 @@ void HistoryWidget::onQueryPoll()
     }
     if (m_pendingResetToLatest)
         m_chart->followLatest();
+    if (m_liveMode)
+        trimLiveRecords(QDateTime::currentDateTime().addSecs(-kLiveWindowSeconds));
     {
         const QSignalBlocker blocker(m_timeScroll);
         m_chart->setRecords(m_chartRecords);
         updateTimeScroll();
     }
-    m_resultSummary->setText(device.isEmpty()
-        ? QString::fromUtf8("共 %1 条明细 / %2 个时间点（曲线已压缩）")
-              .arg(result.rawCount).arg(m_chartRecords.size())
-        : QString::fromUtf8("共 %1 条记录（曲线已压缩显示）").arg(result.rawCount));
+    if (m_liveMode) {
+        m_resultSummary->setText(QString::fromUtf8("实时数据 · 最近 %1 分钟 · %2 个时间点")
+            .arg(kLiveWindowSeconds / 60).arg(m_chart->recordCount()));
+    } else {
+        m_resultSummary->setText(device.isEmpty()
+            ? QString::fromUtf8("共 %1 条明细 / %2 个时间点（曲线已压缩）")
+                  .arg(result.rawCount).arg(m_chartRecords.size())
+            : QString::fromUtf8("共 %1 条记录（曲线已压缩显示）").arg(result.rawCount));
+    }
 
     const int visibleRows = qMin(result.tail.size(), 500);
     m_table->setRowCount(visibleRows);
@@ -5551,6 +5674,15 @@ void MainWindow::setupUi()
     topLayout->addStretch();
     m_selfCheckNotice = new QLabel(QString::fromUtf8("自检 60 秒"), topBar);
     m_selfCheckNotice->setObjectName("selfCheckPill");
+    // "实时数据": 与自检 pill 同款外观, 只在数据浏览页出现, 位于其左侧。
+    // 历史查询被日期边界(23:59:59 换日)卡住, 看不到"现在"的情况。
+    m_realtimeButton = new QPushButton(QString::fromUtf8("实时数据"), topBar);
+    m_realtimeButton->setObjectName("realtimePill");
+    m_realtimeButton->setCheckable(true);
+    m_realtimeButton->setMinimumHeight(32);
+    m_realtimeButton->setVisible(false);
+    topLayout->insertWidget(2, m_realtimeButton);
+    topLayout->insertSpacing(3, 8);
     topLayout->addWidget(m_selfCheckNotice);
     topLayout->addSpacing(8);
     m_systemState = new QLabel(QString::fromUtf8("●  通信检查中"), topBar);
@@ -5579,6 +5711,8 @@ void MainWindow::setupUi()
     m_pages->addWidget(m_historyWidget);
     m_pages->addWidget(m_advancedWidget);
     m_pages->addWidget(m_aboutWidget);
+    connect(m_realtimeButton, &QPushButton::toggled,
+            m_historyWidget, &HistoryWidget::setLiveMode);
 
     auto *pageMargin = new QWidget(root);
     auto *pageLayout = new QVBoxLayout(pageMargin);
@@ -5695,6 +5829,8 @@ void MainWindow::switchPage(int index)
     };
     m_pages->setCurrentIndex(index);
     m_pageTitle->setText(titles.at(index));
+    // "实时数据"只在数据浏览页有意义: 其他页没有历史曲线可切
+    m_realtimeButton->setVisible(index == kHistoryPage);
     m_navigation.at(index)->setChecked(true);
 
     if (index == 1) {

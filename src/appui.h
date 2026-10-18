@@ -207,6 +207,8 @@ public:
     void setRecords(const QVector<HistoryQuery::Record> &records);
     void appendRecord(const HistoryQuery::Record &record);
     void refreshRecords();
+    /** 实时模式: 裁掉 cutoff 之前的点, 正在查看的十字线随记录一起左移 */
+    void trimRecords(const QDateTime &cutoff);
     int recordCount() const { return m_records.size(); }
     int visiblePointCount() const;
     int maxViewStart() const;
@@ -265,9 +267,14 @@ public slots:
                           DeviceProfile::DeviceType type,
                           const QMap<QString, QVariant> &values);
     void onQueryPoll();
+    /** 顶部"实时数据"按钮: 进入后只看最近一段时间并持续跟随最新,
+     *  不受日期筛选(23:59:59 换日)限制; 退出后恢复原查询区间。 */
+    void setLiveMode(bool live);
 
 private:
     void loadRecords(bool resetToLatest);
+    /** 实时模式: 把窗口外的旧点从内存记录与图表里一起裁掉 */
+    void trimLiveRecords(const QDateTime &cutoff);
     void updateTimeScroll();
     void setTableRow(int row, const HistoryQuery::Record &record);
     QString deviceIndexPath() const;
@@ -294,6 +301,10 @@ private:
     QString m_loadedDevice;
     bool m_liveAppendPaused = false;
     bool m_pendingResetToLatest = false;
+    // 实时数据模式: 日期筛选被强制为今天并禁用, 退出时恢复原区间
+    bool m_liveMode = false;
+    QDate m_historyDateFrom;
+    QDate m_historyDateTo;
     // 后台查询共享状态: 工作线程写入, UI 线程轮询取走, 部件销毁后
     // 共享状态仍被线程安全持有, 无生命周期风险
     struct QueryState {
@@ -514,6 +525,8 @@ private:
     QLabel *m_versionLabel = nullptr;
     QLabel *m_systemState = nullptr;
     QLabel *m_selfCheckNotice = nullptr;
+    // 数据浏览页顶部"实时数据"开关(与自检 pill 同款外观, 位于其左侧)
+    QPushButton *m_realtimeButton = nullptr;
     QLabel *m_statusBar = nullptr;
     QSet<int> m_autoDevices;
     bool m_highVoltageAlarm = false;
