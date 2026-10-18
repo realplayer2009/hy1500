@@ -3407,28 +3407,38 @@ void HistoryChart::paintEvent(QPaintEvent *event)
             }
             // 坐标取整: paintEvent 全程开抗锯齿, 1px 外框落在小数坐标上会被
             // 拆到相邻两行各一半, 边框颜色淡得几乎看不见, 实线虚线也分不清。
-            // 但取整本身会改高度 —— qRound(height) 可能让 bottom 变大, 把上面
-            // 避让算好的 gap 吃掉(实测 Linux 字体下 7 个标签有 1 对重叠 2 px,
-            // macOS 字体下看不出来)。因此这里用 floor(top)+ceil(height): bottom
-            // 只增不减, 取整后再 pack 一次。第二次 pack 的 top 由整数相加得出,
-            // 本身就是整数, 不会再被取整改动, 不需要第三次。
+            // 取整必须 floor(top)+ceil(height): bottom 只增不减, 否则避让算好的
+            // gap 会被取整吃掉。
             for (CurveLabel &l : curveLabels) {
-                qreal top = qFloor(l.box.top());
                 const qreal height = qCeil(l.box.height());
-                if (top < plot.top())
-                    top = qFloor(plot.top());
-                if (top + height > plot.bottom())
-                    top = qFloor(plot.bottom()) - height;
-                l.box = QRectF(qRound(l.box.left()), top,
+                l.box = QRectF(qRound(l.box.left()), qFloor(l.box.top()),
                                qRound(l.box.width()), height);
             }
-            pack();
-            for (CurveLabel &l : curveLabels) {
-                if (l.box.top() < plot.top())
-                    l.box.moveTop(qFloor(plot.top()));
-                if (l.box.bottom() > plot.bottom())
-                    l.box.moveTop(qFloor(plot.bottom()) - l.box.height());
+            // 取整让总高度变了, 要重新收敛; 且收敛只能靠"整体上移"——逐个框
+            // 夹回绘图区会把排好的间距又破坏掉(实测框6 bottom=200、框7 top=198
+            // 重叠 2px: 框7 超高被单独上移夹回, 上面的框6 还在原地)。整体平移
+            // 不改变框间距离, 才是安全的。循环几次必然收敛: 每轮要么不再超底
+            // 而退出, 要么整体上移后 pack 出的位置是整数相加、下一轮完全相同。
+            const qreal plotTop = qFloor(plot.top());
+            const qreal plotBottom = qFloor(plot.bottom());
+            for (int guard = 0; guard < 8; ++guard) {
+                pack();
+                const qreal over = curveLabels.last().box.bottom() - plotBottom;
+                if (over <= 0.0)
+                    break;
+                for (CurveLabel &l : curveLabels)
+                    l.box.moveTop(l.box.top() - over);
+                pack();
+                // 整体上移后顶部若超出去, 说明这一屏高度放不下全部标签, 只能
+                // 保持贴顶(间距已被 pack 保证, 不会被逐框 clamp 破坏)
+                if (curveLabels.first().box.top() >= plotTop)
+                    break;
             }
+            // 最后整体夹回顶部: 只平移, 不再 pack
+            const qreal topOver = plotTop - curveLabels.first().box.top();
+            if (topOver > 0.0)
+                for (CurveLabel &l : curveLabels)
+                    l.box.moveTop(l.box.top() + topOver);
         }
 
         for (const CurveLabel &l : curveLabels) {
