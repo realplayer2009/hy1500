@@ -46,6 +46,7 @@
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QtMath>
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -82,6 +83,11 @@ constexpr int kMaxLiveAppendRecords = 50000;
 constexpr int kLiveWindowSeconds = 30 * 60;
 // 加热参数设置与高级设置的进入密码 (现场触摸屏, 防止误触改参数)
 const QString kSettingsPassword = QString::fromUtf8("0000");
+// 手动加热器连续工作上限与强制休息时长 (现场可能忘关加热器, 一挂就是几天)
+constexpr qint64 kManualHeaterMaxWorkSeconds = 2 * 60 * 60;
+constexpr qint64 kManualHeaterRestSeconds = 15 * 60;
+// 呼吸灯: 超过这么久没有新数据就停下 (现场 1 秒一条记录)
+constexpr qint64 kLivePulseIdleMs = 3000;
 // 需要密码的页面索引 (0=总览 1=手动自动控制 2=加热参数 3=数据浏览 4=高级设置 5=关于)
 constexpr int kHeaterParamPage = 2;
 constexpr int kAdvancedPage = 4;
@@ -673,6 +679,8 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#realtimePill:hover { background: #e4e4e4; }
         QPushButton#realtimePill:checked { background: #e8f1fb; color: #1c62b0;
             border-color: #8fb6e6; }
+        QLabel#overholdPill { background: #fdeceb; color: #c93632;
+            border: 1px solid #e5a3a0; border-radius: 0; padding: 5px 12px; font-weight: 700; }
         QFrame#card { background: white; border: 1px solid #cccccc; border-radius: 0; }
         QLabel#sectionTitle { color: #202020; font-size: 17px; font-weight: 700; }
         QLabel#metricTitle { color: #666666; font-size: 12px; }
@@ -704,6 +712,7 @@ QString applicationStyleSheet(const QString &themeName)
         QLabel#runState { color: #555555; background: #eeeeee; border: 1px solid #cccccc;
             border-radius: 0; font-weight: 700; }
         QLabel#runState[running="true"] { color: white; background: #168f4f; border-color: #107b43; }
+        QLabel#runState[blink="true"] { color: white; background: #c93632; border-color: #ad2825; }
         QLabel#fleetSummary { color: #555555; font-size: 14px; }
         QFrame#deviceCard { background: white; color: #202020; border: 1px solid #bbbbbb;
             border-left: 5px solid #168f4f; border-radius: 0; }
@@ -832,6 +841,10 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#realtimePill:hover { background: #1e2e38; }
         QPushButton#realtimePill:checked { color: white; background: #287eaa;
             border-color: #55b9e8; }
+        QLabel#runState[blink="true"] { color: white; background: #c93632;
+            border: 1px solid #ad2825; border-radius: 0; font-weight: 700; }
+        QLabel#overholdPill { background: #3a2320; color: #ff8a80;
+            border: 1px solid #6d3b34; border-radius: 0; padding: 5px 12px; font-weight: 700; }
     )");
     const QString highContrast = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: white; color: black; }
@@ -875,6 +888,10 @@ QString applicationStyleSheet(const QString &themeName)
             border: 2px solid black; font-weight: 700; }
         QPushButton#realtimePill:hover { background: #eeeeee; }
         QPushButton#realtimePill:checked { color: white; background: black; }
+        QLabel#runState[blink="true"] { color: white; background: #b00020;
+            border: 1px solid #b00020; border-radius: 0; font-weight: 700; }
+        QLabel#overholdPill { background: #ffe5e2; color: #b00020;
+            border: 1px solid #b00020; border-radius: 0; padding: 5px 12px; font-weight: 700; }
     )");
 
     const QString harmony = QString::fromUtf8(R"(
@@ -973,6 +990,8 @@ QString applicationStyleSheet(const QString &themeName)
             font-weight: 700;
         }
         QPushButton#realtimePill:hover { background: #E8EAED; }
+        QLabel#overholdPill { background: #3a2320; color: #ff8a80;
+            border: 1px solid #6d3b34; border-radius: 0; padding: 5px 12px; font-weight: 700; }
         QPushButton#realtimePill:checked {
             color: white;
             background: #007DFF;
@@ -1096,6 +1115,11 @@ QString applicationStyleSheet(const QString &themeName)
             color: white;
             background: #007DFF;
             border-color: #0059B3;
+        }
+        QLabel#runState[blink="true"] {
+            color: white;
+            background: #FF3B30;
+            border-color: #D70015;
         }
         QLabel#fleetSummary {
             color: #6B6B6B;
@@ -1347,10 +1371,13 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#realtimePill:hover { background: #38383a; }
         QPushButton#realtimePill:checked { color: white; background: #0a84ff;
             border-color: #55b9e8; }
+        QLabel#overholdPill { background: #3a2320; color: #ff8a80;
+            border: 1px solid #6d3b34; border-radius: 0; padding: 5px 12px; font-weight: 700; }
         QLabel#actionFeedback[success="true"] { color: #00e676; }
         QLabel#safeBanner { color: #00e676; background: #123324; border: 1px solid #00b85f; }
         QLabel#statusPill[online="true"] { color: #00e676; background: #123324; border-color: #00b85f; }
         QLabel#runState[running="true"] { color: #0a2118; background: #00e676; border-color: #00c853; }
+        QLabel#runState[blink="true"] { color: white; background: #c93632; border-color: #ad2825; }
         QLabel#metricValue[running="true"] { color: #00e676; }
         QPushButton#startButton { color: #0a2118; background: #00e676; border: 1px solid #00c853; font-weight: 700; }
         QPushButton#startButton:hover { background: #33eb8b; }
@@ -1384,6 +1411,31 @@ void applyApplicationTheme(const QString &themeName)
 }
 
 } // namespace
+
+// 手动超持提示文案: "⚠ A/B 超持休息 14:32"。
+// key = commandKey*4+heaterIndex, 只收 rest>0 的项; 剩余时间取最短的
+// (最早恢复的那个), 不然显示 15:00 而某一号已经能开了, 现场会白等。
+// 抽成自由函数是为了能单测 —— 集成路径要真等 2 小时, 测试里跑不完;
+// 因此故意放在匿名 namespace 之外(非 static), 让 /tmp/feature_test 能链到。
+QString overholdText(const QMap<int, qint64> &restByHeater)
+{
+    QStringList resting;
+    qint64 shortestRest = 0;
+    for (auto it = restByHeater.constBegin();
+         it != restByHeater.constEnd(); ++it) {
+        if (it.value() <= 0)
+            continue;
+        resting.append(QString("ABC").at(it.key() % 4));
+        if (shortestRest == 0 || it.value() < shortestRest)
+            shortestRest = it.value();
+    }
+    if (resting.isEmpty())
+        return QString();
+    return QString::fromUtf8("⚠ %1 超持休息 %2")
+        .arg(resting.join("/"))
+        .arg(QTime(0, 0).addSecs(static_cast<int>(shortestRest))
+                .toString("mm:ss"));
+}
 
 // ============================================================
 // OverviewCard
@@ -1460,6 +1512,14 @@ OverviewCard::OverviewCard(QWidget *parent)
     // 展示标签不接收鼠标事件，整张卡片均可点击进入控制页。
     for (QLabel *label : findChildren<QLabel *>())
         label->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+    // 手动模式告警闪烁: 500 ms 交替一次。切到手动意味着自动温控没在保护,
+    // 现场需要一眼看出来; 只闪界面 label, 不写 OT9 —— 那是真实报警灯,
+    // 闪烁会与真报警混淆, 且下一轮轮询会被自动逻辑覆盖。
+    connect(&m_blinkTimer, &QTimer::timeout, this, [this]() {
+        m_blinkOn = !m_blinkOn;
+        refreshIndicatorLabels();
+    });
 }
 
 void OverviewCard::mouseReleaseEvent(QMouseEvent *event)
@@ -1668,6 +1728,45 @@ void OverviewCard::updateState(const DeviceState &state, bool automatic)
     setProperty("online", state.online);
     setProperty("alarm", hasDeviceAlarm(values));
     refreshDynamicStyle(this);
+
+    // 手动模式: 启动告警灯闪烁(自动温控没在保护, 现场要一眼看出来)
+    const bool manual = state.online && !automatic;
+    if (manual != m_manualMode) {
+        m_manualMode = manual;
+        m_blinkOn = false;
+        if (manual)
+            m_blinkTimer.start(500);
+        else
+            m_blinkTimer.stop();
+        refreshIndicatorLabels();
+    }
+}
+
+// 手动模式告警闪烁: 只重画指示灯 label 的文字(前缀 ⚠ 交替显隐),
+// 不动 OT9 本身的状态显示, 免得把"手动提醒"误读成"报警灯真的亮了"
+void OverviewCard::refreshIndicatorLabels()
+{
+    if (!m_manualMode)
+        return;
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    const bool dark = config.displayTheme == "graphite"
+        || config.displayTheme == "low_light";
+    const QString alarmColor = dark ? "#ff8a85" : "#c93632";
+    const QString blinkMark = m_blinkOn
+        ? QString::fromUtf8("<b style='color:%1;'>⚠ </b>").arg(alarmColor)
+        : QString();
+    for (auto it = m_indicators.constBegin(); it != m_indicators.constEnd(); ++it) {
+        QLabel *label = it.value();
+        if (!label->isVisible())
+            continue;
+        // 先去掉上一次加的前缀再重新加, 否则文字会越接越长
+        QString text = label->text();
+        if (text.startsWith(QString::fromUtf8("<b style='color:%1;'>⚠ </b>")
+                                .arg(alarmColor)))
+            text = text.mid(QString::fromUtf8("<b style='color:%1;'>⚠ </b>")
+                                .arg(alarmColor).size());
+        label->setText(blinkMark + text);
+    }
 }
 
 // ============================================================
@@ -2167,6 +2266,13 @@ ManualPanel::ManualPanel(DeviceManager *manager, QWidget *parent)
             this, [this]() { emit runningChanged(currentDevice(), true); });
     connect(m_stop, &QPushButton::clicked,
             this, [this]() { emit runningChanged(currentDevice(), false); });
+    // 手动模式告警闪烁: 与总览卡片的报警灯同一节奏(500 ms)。切到手动意味着
+    // 自动温控没在保护, 而现场正在这一页操作, 必须在这儿也看得见。
+    connect(&m_blinkTimer, &QTimer::timeout, this, [this]() {
+        m_blinkOn = !m_blinkOn;
+        m_runState->setProperty("blink", m_blinkOn && m_manualMode);
+        refreshDynamicStyle(m_runState);
+    });
     refreshParameters();
     refreshControls();
 }
@@ -2238,6 +2344,17 @@ void ManualPanel::refreshControls()
         ? QString::fromUtf8("●  自动温控运行中")
         : QString::fromUtf8("●  手动模式"));
     m_runState->setProperty("running", deviceAuto);
+    // 手动且可操作时告警闪烁: 自动温控没在保护, 停止自动后现场要一直看得见
+    const bool manualBlink = !deviceAuto && ready && !locked;
+    if (manualBlink != m_manualMode) {
+        m_manualMode = manualBlink;
+        m_blinkOn = false;
+        m_runState->setProperty("blink", false);
+        if (manualBlink)
+            m_blinkTimer.start(500);
+        else
+            m_blinkTimer.stop();
+    }
     const bool hasHeater = config.heaterAPair != 0 || config.heaterBPair != 0
         || config.heaterCPair != 0;
     m_start->setEnabled(!deviceAuto && hasHeater);
@@ -4076,6 +4193,57 @@ void PasswordDialog::refreshDisplay()
 }
 
 // ============================================================
+// LivePulseIndicator
+// ============================================================
+
+LivePulseIndicator::LivePulseIndicator(QWidget *parent)
+    : QWidget(parent)
+{
+    setAttribute(Qt::WA_TransparentForMouseEvents);
+    // 50 ms 一拍: 20 fps 足够看出渐变, 又不会给 RK3562 的 CPU 添负担
+    m_timer.setInterval(50);
+    connect(&m_timer, &QTimer::timeout, this, [this]() {
+        m_phase += 0.06;
+        if (m_phase > 2.0 * M_PI)
+            m_phase -= 2.0 * M_PI;
+        update();
+    });
+}
+
+void LivePulseIndicator::setActive(bool active)
+{
+    if (m_active == active)
+        return;
+    m_active = active;
+    if (active) {
+        m_phase = 0.0;
+        m_timer.start();
+    } else {
+        m_timer.stop();
+    }
+    update();
+}
+
+void LivePulseIndicator::paintEvent(QPaintEvent *event)
+{
+    QWidget::paintEvent(event);
+    if (!m_active)
+        return;
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const QPointF center(width() / 2.0, height() / 2.0);
+    // 正弦相位: 0→1→0 循环, 透明度与光晕半径同步呼吸
+    const qreal wave = (1.0 - qCos(m_phase)) / 2.0;
+    // 外圈光晕: 半径 6→11, 低透明度
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(0, 230, 118, static_cast<int>(40 + 60 * wave)));
+    painter.drawEllipse(center, 6.0 + 5.0 * wave, 6.0 + 5.0 * wave);
+    // 内核: 半径 3.2→4.4, 高透明度
+    painter.setBrush(QColor(120, 255, 180, static_cast<int>(170 + 85 * wave)));
+    painter.drawEllipse(center, 3.2 + 1.2 * wave, 3.2 + 1.2 * wave);
+}
+
+// ============================================================
 // SettingsWidget
 // ============================================================
 
@@ -5804,15 +5972,29 @@ void MainWindow::setupUi()
     topLayout->addStretch();
     m_selfCheckNotice = new QLabel(QString::fromUtf8("自检 60 秒"), topBar);
     m_selfCheckNotice->setObjectName("selfCheckPill");
-    // "实时数据": 与自检 pill 同款外观, 只在数据浏览页出现, 位于其左侧。
+    // "实时数据": 与自检 pill 同款外观, 所有页面都能看到并点击(在别的页点它
+    // = 跳到数据浏览页并开启实时模式), 位于自检 pill 左侧。
     // 历史查询被日期边界(23:59:59 换日)卡住, 看不到"现在"的情况。
     m_realtimeButton = new QPushButton(QString::fromUtf8("实时数据"), topBar);
     m_realtimeButton->setObjectName("realtimePill");
     m_realtimeButton->setCheckable(true);
     m_realtimeButton->setMinimumHeight(32);
-    m_realtimeButton->setVisible(false);
-    topLayout->insertWidget(2, m_realtimeButton);
-    topLayout->insertSpacing(3, 8);
+    // 呼吸指示灯: 有数据流入时持续渐变, 让人一眼看出系统在实时采数
+    m_livePulse = new LivePulseIndicator(topBar);
+    m_livePulse->setFixedSize(16, 32);
+    m_livePulse->setToolTip(QString::fromUtf8("正在接收实时数据"));
+    // 手动超持提示: 手动加热器连续工作满 2 小时被强制休息时显示,
+    // 位置在"实时数据"左侧(现场要求)
+    m_overholdLabel = new QLabel(topBar);
+    m_overholdLabel->setObjectName("overholdPill");
+    m_overholdLabel->setVisible(false);
+    // 从左到右: 呼吸灯 → 超持提示 → 实时数据 → 自检正常 → ...
+    topLayout->insertWidget(2, m_livePulse);
+    topLayout->insertSpacing(3, 6);
+    topLayout->insertWidget(4, m_overholdLabel);
+    topLayout->insertSpacing(5, 6);
+    topLayout->insertWidget(6, m_realtimeButton);
+    topLayout->insertSpacing(7, 8);
     topLayout->addWidget(m_selfCheckNotice);
     topLayout->addSpacing(8);
     m_systemState = new QLabel(QString::fromUtf8("●  通信检查中"), topBar);
@@ -5843,6 +6025,12 @@ void MainWindow::setupUi()
     m_pages->addWidget(m_aboutWidget);
     connect(m_realtimeButton, &QPushButton::toggled,
             m_historyWidget, &HistoryWidget::setLiveMode);
+    // 在别的页面点"实时数据": 先跳到数据浏览页再开启实时模式 ——
+    // 这个入口现在所有页面都能看到, 点它却只在数据浏览页有反应会让人以为坏了
+    connect(m_realtimeButton, &QPushButton::clicked, this, [this](bool checked) {
+        if (checked && m_pages->currentIndex() != kHistoryPage)
+            switchPage(kHistoryPage);
+    });
 
     auto *pageMargin = new QWidget(root);
     auto *pageLayout = new QVBoxLayout(pageMargin);
@@ -5893,6 +6081,12 @@ void MainWindow::setupUi()
     connect(clockTimer, &QTimer::timeout, this, &MainWindow::updateClock);
     clockTimer->start(1000);
     updateClock();
+
+    // 手动加热器连续工作计时: 满 2 小时强制休息 15 分钟
+    auto *overholdTimer = new QTimer(this);
+    connect(overholdTimer, &QTimer::timeout, this,
+            &MainWindow::tickHeaterWorkClocks);
+    overholdTimer->start(1000);
 }
 
 void MainWindow::startServices()
@@ -5921,6 +6115,11 @@ void MainWindow::startServices()
             this, &MainWindow::onDeviceUpdated);
     connect(&m_logger, &DataLogger::recordAppended,
             m_historyWidget, &HistoryWidget::onRecordAppended);
+    // 呼吸灯: 每落一条记录就点亮"正在接收实时数据"(任何页面都能看到)
+    connect(&m_logger, &DataLogger::recordAppended, this, [this]() {
+        m_livePulse->setActive(true);
+        m_livePulseIdleMs = 0;
+    });
 
     const bool schedulerStarted = m_scheduler->start();
     m_statusBar->setText(!m_configError.isEmpty()
@@ -5959,8 +6158,8 @@ void MainWindow::switchPage(int index)
     };
     m_pages->setCurrentIndex(index);
     m_pageTitle->setText(titles.at(index));
-    // "实时数据"只在数据浏览页有意义: 其他页没有历史曲线可切
-    m_realtimeButton->setVisible(index == kHistoryPage);
+    // "实时数据"与呼吸灯所有页面都显示: 现场在哪个页都能看到系统在采数,
+    // 点它也一律跳到数据浏览页并开启实时模式
     m_navigation.at(index)->setChecked(true);
 
     if (index == 1) {
@@ -6125,6 +6324,16 @@ void MainWindow::cycleHeater(const DeviceProfile::DeviceKey &key, int heaterInde
     if (pair == 0)
         return;
     const int keyValue = commandKey(key);
+    // 手动超持强制休息期间拒绝开启: 到点已经把加热器关了, 这时还能手动开
+    // 的话"休息 15 分钟"就是空话
+    if (m_heaterClocks.value(keyValue * 4 + heaterIndex).rest > 0) {
+        const qint64 rest = m_heaterClocks.value(keyValue * 4 + heaterIndex).rest;
+        m_statusBar->setText(QString::fromUtf8(
+            "加热器%1 手动超持休息中（还剩 %2），暂不能开启")
+            .arg(QString("ABC").at(heaterIndex))
+            .arg(QTime(0, 0).addSecs(static_cast<int>(rest)).toString("mm:ss")));
+        return;
+    }
     // 高压告警期间禁止手动加热, 与 OT3/OT4 按钮一致
     if (m_highVoltageAlarm) {
         m_statusBar->setText(QString::fromUtf8("⚠  联锁中，加热器%1 操作被拒绝")
@@ -6520,6 +6729,86 @@ void MainWindow::refreshIndicatorLights()
         addConfiguredSpareOutputs(state.key, fields, state.values);
         m_scheduler->writeToDevice(state.key, fields);
     }
+}
+
+// 手动加热器的连续工作保护: 现场可能忘关加热器, 一挂就是几天。
+// 满 2 小时强制关闭并休息 15 分钟, 休息期间拒绝手动开启;
+// 三个加热器各自独立计时, 只算手动模式(自动温控由调度器按目标驱动,
+// 不在这套保护里 —— 那是另一套逻辑, 混在一起会互相打断)。
+void MainWindow::tickHeaterWorkClocks()
+{
+    // 呼吸灯: 现场 1 秒一条记录, 3 秒没有新数据就认为"没有实时数据"
+    if (m_livePulse && m_livePulse->isActive()) {
+        m_livePulseIdleMs += 1000;
+        if (m_livePulseIdleMs >= kLivePulseIdleMs)
+            m_livePulse->setActive(false);
+    }
+
+    const AppConfig::GeneralConfig &config = AppConfig::instance().general();
+    const int pairs[3] = { config.heaterAPair, config.heaterBPair,
+                           config.heaterCPair };
+    for (const DeviceState &state : m_deviceManager.allDevices()) {
+        if (!state.online)
+            continue;
+        const int keyValue = commandKey(state.key);
+        if (m_autoDevices.contains(keyValue))
+            continue;
+        for (int h = 0; h < 3; ++h) {
+            if (pairs[h] == 0)
+                continue;
+            const int clockKey = keyValue * 4 + h;
+            HeaterWorkClock &clock = m_heaterClocks[clockKey];
+            if (clock.rest > 0) {
+                --clock.rest;
+                clock.work = 0;
+                if (clock.rest == 0) {
+                    m_statusBar->setText(QString::fromUtf8(
+                        "加热器%1 手动超持休息结束，可重新手动开启")
+                        .arg(QString("ABC").at(h)));
+                }
+                continue;
+            }
+            if (heaterGearFromOutputs(state, pairs[h]) > 0) {
+                ++clock.work;
+                if (clock.work < kManualHeaterMaxWorkSeconds)
+                    continue;
+                // 到点: 强制关闭该加热器(低位/高位 OT + 工作灯一起断)
+                const int lowOt = (pairs[h] - 1) * 2 + 1;
+                const int highOt = (pairs[h] - 1) * 2 + 2;
+                QMap<QString, QVariant> fields;
+                fields[QString("ot%1").arg(lowOt, 2, 10, QChar('0'))] = 0;
+                fields[QString("ot%1").arg(highOt, 2, 10, QChar('0'))] = 0;
+                fields[QString("exp_out%1").arg(h + 1)] = 0;
+                if (m_scheduler)
+                    m_scheduler->writeToDevice(state.key, fields);
+                m_heaterGears[clockKey] = 0;
+                m_manualPanel->setHeaterGears(m_heaterGears);
+                clock.work = 0;
+                clock.rest = kManualHeaterRestSeconds;
+                m_statusBar->setText(QString::fromUtf8(
+                    "加热器%1 手动连续工作满 2 小时，已强制休息 15 分钟")
+                    .arg(QString("ABC").at(h)));
+            } else {
+                clock.work = 0;
+            }
+        }
+    }
+    refreshOverholdLabel();
+}
+
+void MainWindow::refreshOverholdLabel()
+{
+    QMap<int, qint64> restByHeater;
+    for (auto it = m_heaterClocks.constBegin();
+         it != m_heaterClocks.constEnd(); ++it)
+        restByHeater.insert(it.key(), it.value().rest);
+    const QString text = overholdText(restByHeater);
+    if (text.isEmpty()) {
+        m_overholdLabel->setVisible(false);
+        return;
+    }
+    m_overholdLabel->setText(text);
+    m_overholdLabel->setVisible(true);
 }
 
 void MainWindow::applyAutomaticControl(const DeviceProfile::DeviceKey &key)

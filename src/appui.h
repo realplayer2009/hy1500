@@ -51,6 +51,11 @@ private:
     QVector<QLabel *> m_measurements;
     QVector<QLabel *> m_heaters;
     QMap<int, QLabel *> m_indicators;
+    // 手动模式告警闪烁: 切到手动(自动温控没在保护)时报警灯 label 前缀的 ⚠ 交替显隐
+    QTimer m_blinkTimer;
+    bool m_blinkOn = false;
+    bool m_manualMode = false;
+    void refreshIndicatorLabels();
 };
 
 /** 所有已发现子板的可点击状态卡片总览。 */
@@ -164,6 +169,10 @@ private:
     QVector<QLabel *> m_expInLabels;
     QMap<QString, QPushButton *> m_expOutButtons;
     QSet<int> m_autoDevices;
+    // 手动模式告警闪烁 (与总览卡片报警灯同节奏)
+    QTimer m_blinkTimer;
+    bool m_blinkOn = false;
+    bool m_manualMode = false;
     // 加热器手动按键与档位缓存 (key=portIndex*256+slaveId, 值 0~3)
     QMap<int, int> m_heaterGears;
     QVector<QPushButton *> m_heaterButtons;
@@ -464,6 +473,30 @@ private:
     QString m_entered;
 };
 
+/**
+ * 顶部"实时数据"左侧的呼吸指示灯: 有数据流入时持续渐变闪烁。
+ * 用自绘小圆点而不是样式表 —— 样式表只能整块改色, 做不出渐变;
+ * 也不用 QGraphicsOpacityEffect, 那个在 RK3562 上每帧都要重算图层合成。
+ */
+class LivePulseIndicator : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit LivePulseIndicator(QWidget *parent = nullptr);
+
+    /** true = 正在接收实时数据 (呼吸); false = 静止隐藏 */
+    void setActive(bool active);
+    bool isActive() const { return m_active; }
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
+private:
+    QTimer m_timer;
+    qreal m_phase = 0.0;
+    bool m_active = false;
+};
+
 /** 1024x600 触摸屏主窗口。 */
 class MainWindow : public QMainWindow
 {
@@ -493,6 +526,9 @@ private:
     void setupUi();
     void startServices();
     void refreshIndicatorLights();
+    /** 手动加热器连续工作满 2 小时强制休息 15 分钟, 并刷新顶部超持提示 */
+    void tickHeaterWorkClocks();
+    void refreshOverholdLabel();
     void syncAutoPanels();
     void applyAutomaticControl(const DeviceProfile::DeviceKey &key);
     void enterHighVoltageAlarm();
@@ -539,8 +575,22 @@ private:
     QLabel *m_versionLabel = nullptr;
     QLabel *m_systemState = nullptr;
     QLabel *m_selfCheckNotice = nullptr;
-    // 数据浏览页顶部"实时数据"开关(与自检 pill 同款外观, 位于其左侧)
+    // 顶部"实时数据"开关: 所有页面都能看到并点击(在别的页点它 = 跳到数据
+    // 浏览页并开启实时模式), 与自检 pill 同款外观
     QPushButton *m_realtimeButton = nullptr;
+    // "实时数据"左侧的呼吸指示灯: 有数据流入时持续渐变
+    LivePulseIndicator *m_livePulse = nullptr;
+    // 距上次收到数据的毫秒数; 超过 kLivePulseIdleMs 视为"没有实时数据"
+    qint64 m_livePulseIdleMs = 0;
+    // "实时数据"左侧的手动超持提示 (手动加热器连续工作满 2 小时强制休息)
+    QLabel *m_overholdLabel = nullptr;
+    // 手动加热器连续工作计时 (key=commandKey*4+heaterIndex)
+    // work=本轮连续工作秒数, rest=强制休息剩余秒数
+    struct HeaterWorkClock {
+        qint64 work = 0;
+        qint64 rest = 0;
+    };
+    QMap<int, HeaterWorkClock> m_heaterClocks;
     QLabel *m_statusBar = nullptr;
     QSet<int> m_autoDevices;
     bool m_highVoltageAlarm = false;
