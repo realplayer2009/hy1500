@@ -6,6 +6,8 @@
 #include <QApplication>
 #include <QImage>
 #include <QPushButton>
+#include <algorithm>   // std::max_element
+#include <QVector>
 #include <QTest>
 #include <QElapsedTimer>
 #include <cstdio>
@@ -69,6 +71,66 @@ int main(int argc, char *argv[])
         QTest::qWait(120);
         const QImage d = ind.grab().toImage();
         check(c == d, "静止后不再变化(没有空跑定时器)");
+    }
+
+    // 呼吸频率: 现场反馈过"闪动频率太低"(原相位步长 0.06 = 5.2 秒一周,
+    // 看着像灯坏在半亮)。这里数 2.6 秒内的亮度峰个数, 至少要 2 个,
+    // 即一个完整周期不超过约 1.3 秒; 同时不设上限 —— 再快就从"呼吸"
+    // 变成"闪烁", 那是另一种(刺眼的)坏, 由上面的"帧间有变化"兜底。
+    printf("\n=== 呼吸灯: 频率(一个周期不能太慢) ===\n");
+    {
+        LivePulseIndicator ind;
+        ind.resize(16, 32);
+        ind.show();
+        qApp->processEvents();
+        ind.setActive(true);
+        qApp->processEvents();
+        QVector<int> greens;
+        // 50 ms 一拍, 抓 52 帧 = 2.6 秒
+        for (int i = 0; i < 52; ++i) {
+            QTest::qWait(50);
+            const QImage img = ind.grab().toImage();
+            int g = 0;
+            for (int y = 0; y < img.height(); ++y)
+                for (int x = 0; x < img.width(); ++x) {
+                    const QRgb p = img.pixel(x, y);
+                    if (qGreen(p) > 120 && qGreen(p) > qRed(p) + 40
+                        && qGreen(p) > qBlue(p) + 40)
+                        ++g;
+                }
+            greens.append(g);
+        }
+        // 数局部极大值(峰): 前后都比它低即算一个峰。
+        // 正弦的峰顶/谷底都平坦, 50 ms 采样下会有连续几帧同值, 直接数"局部
+        // 极大"会把量化噪声数成假峰(实测 2.6 秒数出 5 个, 而 1.12 秒周期只有
+        // 2~3 个)。因此改用谷底: 值低于峰值 25% 记为一帧谷, 连续谷帧合成一个
+        // 谷, 相邻两个谷的间隔就是一个完整周期。
+        const int peakVal = *std::max_element(greens.begin(), greens.end());
+        const int valleyThreshold = peakVal / 4;
+        QVector<int> valleyStarts;
+        bool inValley = false;
+        for (int i = 0; i < greens.size(); ++i) {
+            const bool isValley = greens.at(i) <= qMax(1, valleyThreshold);
+            if (isValley && !inValley) {
+                valleyStarts.append(i);
+                inValley = true;
+            } else if (!isValley) {
+                inValley = false;
+            }
+        }
+        int cycles = 0;
+        int cycleFrames = 0;
+        if (valleyStarts.size() >= 2) {
+            cycles = valleyStarts.size() - 1;
+            cycleFrames = valleyStarts.at(1) - valleyStarts.at(0);
+        }
+        const int cycleMs = cycleFrames * 50;
+        printf("  谷底起点帧: ");
+        for (int v : valleyStarts) printf("%d ", v);
+        printf("\n  完整周期数=%d, 首个周期=%d ms (期望 1 个以上, 且 <=1300 ms)\n",
+               cycles, cycleMs);
+        check(cycles >= 1 && cycleMs <= 1300,
+              "呼吸周期不超过约 1.3 秒(频率不过低)");
     }
 
     // ── 超持提示文案 ────────────────────────────────────────────────

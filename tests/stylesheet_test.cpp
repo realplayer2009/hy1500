@@ -25,6 +25,11 @@ int main(int argc, char *argv[])
     int fail = 0;
     for (const QString &theme : themes) {
         g_warnings = 0;
+        // 必须显式切主题: 不设 displayTheme 的话五次循环构造的都是同一套
+        // (配置里的当前值), 名为"五主题"实则只测一套 —— 低光主题样式表里
+        // 混进 // 注释导致整表作废, 就是这样漏过去的(现场从没报错,
+        // 因为被测的那套恰好是好的)。
+        AppConfig::instance().general().displayTheme = theme;
         // 走与程序相同的入口: 构造主窗口即会挂上整套主题样式
         MainWindow w;
         w.show();

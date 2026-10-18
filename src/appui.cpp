@@ -780,6 +780,17 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#adjustButton:pressed { background: #146b97; }
         QComboBox:focus { border-color: #1683bd; }
     )");
+    // 低光主题的顶部 pill: 这里原本没有 selfCheckPill 规则, 回落到 base 的
+    // 浅灰/浅绿(#eeeeee / #e8f7ee)。在深色顶栏上那是一块亮斑, 而 realtimePill
+    // 未选中又恰好用 topBar 底色 #17232b 完全隐形 —— 现场反馈"实时数据的背景
+    // 颜色跟自检正常一致", 根因就是这两个 pill 在低光主题下都没被单独设计:
+    // 一个融进背景, 一个用浅色 base 规则。
+    // 现在两者都给出中性/激活两态, 且激活态色相分开(蓝 vs 绿):
+    //   实时数据 = 蓝(数据流, 与"自检正常"的安全语义绿明确区分)
+    //   自检正常 = 绿(安全语义色, 全主题不改)
+    // 中性态统一用 #22323d + #b2c0c8, 比 topBar 底色亮一档, 按钮可辨识。
+    // (这些说明必须放在 R"(...)" 之外: 样式表原始字符串里写 // 会让整份表
+    //  解析失败, Qt 只打一句 logcat, 界面静默回退默认浅色外观。)
     const QString lowLight = QString::fromUtf8(R"(
         QMainWindow, QWidget#appRoot, QMessageBox { background: #10181e; color: #eef3f5; }
         QDialog#unsavedPrompt { background: #17232b; color: #eef3f5; border-color: #4b5c66; }
@@ -837,11 +848,17 @@ QString applicationStyleSheet(const QString &themeName)
         QHeaderView::section { color: #f1f5f7; background: #263740; }
         QLabel#bottomStatus { color: #c3cdd2; background: #111b22;
             border-top-color: #4b5c66; }
-        QPushButton#realtimePill { color: #b2c0c8; background: #17232b;
+        QLabel#selfCheckPill { background: #22323d; color: #b2c0c8;
             border: 1px solid #4b5c66; border-radius: 12px; padding: 5px 12px; font-weight: 700; }
-        QPushButton#realtimePill:hover { background: #1e2e38; }
-        QPushButton#realtimePill:checked { color: white; background: #287eaa;
-            border-color: #55b9e8; }
+        QLabel#selfCheckPill[healthy="true"] { background: #0e7a4a; color: white;
+            border-color: #2fbf7a; }
+        QLabel#selfCheckPill[alarm="true"] { background: #c93632; color: white;
+            border-color: #ad2825; }
+        QPushButton#realtimePill { color: #b2c0c8; background: #22323d;
+            border: 1px solid #4b5c66; border-radius: 12px; padding: 5px 12px; font-weight: 700; }
+        QPushButton#realtimePill:hover { background: #2b3f4b; }
+        QPushButton#realtimePill:checked { color: white; background: #1668a8;
+            border-color: #4aa3e0; }
         QLabel#runState[blink="true"] { color: white; background: #c93632;
             border: 1px solid #ad2825; border-radius: 0; font-weight: 700; }
         QLabel#overholdPill { background: #3a2320; color: #ff8a80;
@@ -4214,10 +4231,14 @@ LivePulseIndicator::LivePulseIndicator(QWidget *parent)
     : QWidget(parent)
 {
     setAttribute(Qt::WA_TransparentForMouseEvents);
-    // 50 ms 一拍: 20 fps 足够看出渐变, 又不会给 RK3562 的 CPU 添负担
+    // 50 ms 一拍: 20 fps 足够看出渐变, 又不会给 RK3562 的 CPU 添负担。
+    // 相位步长 0.28 → 一个完整呼吸周期 2π/0.28×50 ms ≈ 1.12 秒。
+    // 原先 0.06 是 5.2 秒一周, 现场反馈"闪动频率太低"——那种速度看着像
+    // 灯坏在半亮, 不像在提示"系统在采数据"; 但也不能再快, 1 秒以下就从
+    // "呼吸"变成"闪烁", 无人值守常亮的屏上看久了刺眼。
     m_timer.setInterval(50);
     connect(&m_timer, &QTimer::timeout, this, [this]() {
-        m_phase += 0.06;
+        m_phase += 0.28;
         if (m_phase > 2.0 * M_PI)
             m_phase -= 2.0 * M_PI;
         update();
