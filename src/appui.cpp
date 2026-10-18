@@ -651,6 +651,15 @@ QString formatBytes(qint64 bytes)
 
 QString applicationStyleSheet(const QString &themeName)
 {
+    // base 里的 realtimePill:checked 选中态用饱和蓝底白字, 不用浅蓝底(#e8f1fb)。
+    // 现场反馈过"实时数据的背景颜色跟自检正常一致": 自检正常是 #e8f7ee 浅绿底,
+    // 而浅蓝底两者都是 93% 亮度的近白色块, 1024×600 上分不出来。低光主题已经改成
+    // 深绿 vs 饱和蓝, 但这条 base 规则(标准/强光主题共用)还是老的浅蓝 —— harmony
+    // 后来也换成了饱和蓝 #007DFF, 说明选中态用饱和色才是既定方向, 只有 base 这条
+    // 早期写的没跟上。改完浅色主题下自检正常仍是浅绿底, 实时选中变成明确的蓝底白字,
+    // 色相与明度双重分开。high_contrast 自带黑底白字覆盖, 不受影响。
+    // (这些说明必须放在 R"(...)" 之外: 样式表原始字符串里写 // 会让整份表解析
+    //  失败, Qt 只打一句 logcat, 界面静默回退默认浅色外观。本轮已经栽过一次。)
     const QString base = QString::fromUtf8(R"(
         * { font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
         QMainWindow, QWidget#appRoot, QMessageBox { background: white; color: #202020; }
@@ -678,7 +687,7 @@ QString applicationStyleSheet(const QString &themeName)
         QPushButton#realtimePill { background: #eeeeee; color: #555555;
             border: 1px solid #bbbbbb; border-radius: 0; padding: 5px 12px; font-weight: 700; }
         QPushButton#realtimePill:hover { background: #e4e4e4; }
-        QPushButton#realtimePill:checked { background: #e8f1fb; color: #1c62b0;
+        QPushButton#realtimePill:checked { background: #1c62b0; color: white;
             border-color: #8fb6e6; }
         QLabel#overholdPill { background: #fdeceb; color: #c93632;
             border: 1px solid #e5a3a0; border-radius: 0; padding: 5px 12px; font-weight: 700; }
