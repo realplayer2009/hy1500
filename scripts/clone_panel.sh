@@ -198,6 +198,11 @@ replace_signed() {
     if [ -n "$uid" ] && [ -n "$gid" ]; then
         as_root "$dev" "chown -R ${uid}:${gid} /data/data/$PKG/files" >/dev/null
         as_root "$dev" "chmod 600 /data/data/$PKG/files/data/logs/*" >/dev/null 2>&1
+        # 清掉 macOS AppleDouble 垃圾(._开头)。这些是装机方早前用 Mac 侧
+        # 工具还原数据留下的(实测一台面板上有 3 个, 共 163 字节/个), 普通
+        # ls 不带 -a 根本看不见。其中 ._YYYY-MM-DD.csv 后缀是 .csv, 虽然
+        # 当前应用只匹配合法日期格式不一定被干扰, 但没理由留着。
+        as_root "$dev" "find /data/data/$PKG/files -name '._*' -delete" >/dev/null 2>&1
         ok "  ✓ 历史数据已还原, 属主=$uid:$gid"
     else
         warn "  ! 取不到应用 uid, 数据属主可能不对"
