@@ -1,4 +1,4 @@
-name: Native Android APK Build
+name: Native Android APK Build + UI Regression
 
 on:
   push:
@@ -8,6 +8,38 @@ on:
   workflow_dispatch:
 
 jobs:
+  # UI 回归: 这四个测试实例化真实界面控件(历史曲线/五主题样式表/密码框/呼吸灯与
+  # 手动超持), 其中 stylesheet_test 守的是"样式表整份作废"那类静默失败 ——
+  # 那种失败没有弹窗没有状态栏提示, 只有一句 logcat, 不跑就等于没守门。
+  # 与 APK job 并行而非串在其后: 测试红不应该挡住现场急着要的安装包。
+  ui-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Qt 5.15 for Linux
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 5.15.2
+          target: desktop
+
+      - name: Build and run UI regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p build/tests
+          for t in chart stylesheet password feature; do
+            echo "::group::${t}_test"
+            qmake -o Makefile.$t tests/${t}_test.pro
+            make -f Makefile.$t -j"$(nproc)"
+            # Linux 上是裸可执行文件; macOS 上 qmake 打成 .app bundle,
+            # 两种都认, 免得开发机照抄这条命令时找不到文件
+            BIN="build/tests/${t}_test"
+            [ -x "$BIN" ] || BIN="build/tests/${t}_test.app/Contents/MacOS/${t}_test"
+            QT_QPA_PLATFORM=offscreen "$BIN"
+            echo "::endgroup::"
+          done
+
   build-android:
     runs-on: ubuntu-latest
     steps:

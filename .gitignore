@@ -13,6 +13,11 @@ target_wrapper.sh
 /Makefile
 /Makefile.ct
 /Makefile.controlalgorithm_test
+# UI 回归测试(tests/ui_test_common.pri 的四个 target)的 qmake 产物
+/Makefile.chart
+/Makefile.stylesheet
+/Makefile.password
+/Makefile.feature
 RS485Control.app/
 build/
 
