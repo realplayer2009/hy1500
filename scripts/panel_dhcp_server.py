@@ -89,6 +89,46 @@ def build_reply(req, msg_type, yiaddr):
     return out
 
 
+def handle(s, msg, assigned, ip_to_mac):
+    """处理一个 DHCP 报文。拆出来单放, 方便主循环包 try 而不影响服务器存活。"""
+    opts = parse_options(msg)
+    if not opts or 53 not in opts:
+        return
+    mtype = opts[53][0]
+    mac = ":".join("%02x" % b for b in msg[28:34])
+    if mtype == 1:        # DISCOVER
+        ip = assigned.get(mac)
+        if ip is None:
+            free = [p for p in POOL if p not in ip_to_mac]
+            if not free:
+                print("  地址池已满, 忽略 %s" % mac)
+                return
+            ip = free[0]
+            assigned[mac] = ip
+            ip_to_mac[ip] = mac
+            print("  [分配] %s -> %s" % (mac, ip))
+        s.sendto(build_reply(msg, 2, ip), (BROADCAST, 68))      # OFFER
+    elif mtype == 3:      # REQUEST
+        ip = assigned.get(mac)
+        if ip is None:
+            # 屏指名要的地址(选项 50), 在池里就让给它
+            want = opts.get(50)
+            if want:
+                want_ip = socket.inet_ntoa(want)
+                if want_ip in POOL and want_ip not in ip_to_mac:
+                    ip = want_ip
+                    assigned[mac] = ip
+                    ip_to_mac[ip] = mac
+                    print("  [按请求分配] %s -> %s" % (mac, ip))
+        if ip is None:
+            print("  %s 请求但无可用地址, 回 NAK" % mac)
+            s.sendto(build_reply(msg, 6, "0.0.0.0"), (BROADCAST, 68))
+            return
+        s.sendto(build_reply(msg, 5, ip), (BROADCAST, 68))      # ACK
+        print("  [确认] %s 已拿到 %s  <-- 用这个地址 adb connect %s:5555"
+              % (mac, ip, ip))
+
+
 def main():
     idx = iface_index(IFACE)
     assigned = {}          # mac -> ip
@@ -101,7 +141,11 @@ def main():
     IP_BOUND_IF = 25       # macOS/BSD 的 IP_BOUND_IF
     s.setsockopt(socket.IPPROTO_IP, IP_BOUND_IF, struct.pack("I", idx))
     try:
-        s.bind((SERVER_IP, 67))
+        # 必须绑 INADDR_ANY 而不是 SERVER_IP: 屏发的是 0.0.0.0->255.255.255.255
+        # 广播, 目的地址不是 SERVER_IP, 绑到具体单播地址的内核不会把广播包
+        # 送上来 —— 表现就是"服务器在跑、屏在拼命请求, 但两边都看不到对方"。
+        # 收包范围由下面的 IP_BOUND_IF 收敛到插屏的那块网卡。
+        s.bind(("", 67))
     except PermissionError:
         sys.exit("绑不上 67 端口 —— DHCP 服务端口是特权端口, 请用 sudo 运行")
     except OSError as e:
@@ -117,43 +161,19 @@ def main():
         except KeyboardInterrupt:
             print("\n已停止")
             return
-        opts = parse_options(msg)
-        if not opts or 53 not in opts:
+        except OSError as e:
+            # 屏重启/拔线的瞬间接口状态会变, sendto 可能抛 Network is unreachable。
+            # 这不是致命错误: 屏还会重发 DHCP, 所以打一行警告继续等, 不能退出。
+            print("  [警告] 收包出错(%s), 继续等屏重发" % e)
+            time.sleep(1)
             continue
-        mtype = opts[53][0]
-        mac = ":".join("%02x" % b for b in msg[28:34])
-        if mtype == 1:        # DISCOVER
-            ip = assigned.get(mac)
-            if ip is None:
-                free = [p for p in POOL if p not in ip_to_mac]
-                if not free:
-                    print("  地址池已满, 忽略 %s" % mac)
-                    continue
-                ip = free[0]
-                assigned[mac] = ip
-                ip_to_mac[ip] = mac
-                print("  [分配] %s -> %s" % (mac, ip))
-            reply = build_reply(msg, 2, ip)          # OFFER
-            s.sendto(reply, (BROADCAST, 68))
-        elif mtype == 3:      # REQUEST
-            ip = assigned.get(mac)
-            if ip is None:
-                # 屏指名要的地址(选项 50), 在池里就让给它
-                want = opts.get(50)
-                if want:
-                    want_ip = socket.inet_ntoa(want)
-                    if want_ip in POOL and want_ip not in ip_to_mac:
-                        ip = want_ip
-                        assigned[mac] = ip
-                        ip_to_mac[ip] = mac
-                        print("  [按请求分配] %s -> %s" % (mac, ip))
-            if ip is None:
-                print("  %s 请求但无可用地址, 回 NAK" % mac)
-                s.sendto(build_reply(msg, 6, "0.0.0.0"), (BROADCAST, 68))
-                continue
-            s.sendto(build_reply(msg, 5, ip))        # ACK
-            print("  [确认] %s 已拿到 %s  <-- 用这个地址 adb connect %s:5555"
-                  % (mac, ip, ip))
+        try:
+            handle(s, msg, assigned, ip_to_mac)
+        except Exception as e:
+            # 单包解析或发送失败不该让整个服务器退出, 否则 18 台部署时
+            # 一包异常就全停; 屏自己会重发, 下次还有机会。
+            print("  [警告] 处理一包时出错(%s), 忽略该包继续" % e)
+            continue
 
 
 if __name__ == "__main__":

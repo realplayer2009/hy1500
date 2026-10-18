@@ -11,6 +11,7 @@
 #   scripts/clone_panel.sh -f panels.txt                    # 批量(每行一个, # 注释)
 #   scripts/clone_panel.sh -f panels.txt --no-config        # 只装程序不动配置
 #   scripts/clone_panel.sh -f panels.txt --dry-run          # 只查在线状态
+#   scripts/clone_panel.sh -f panels.txt --replace          # 签名不同时走换签名流程
 #
 # 部署包位置: 默认 ~/panel_deploy, 可用环境变量 PANEL_DEPLOY_DIR 覆盖。
 #   ~/panel_deploy/RS485Control-arm64-v8a-debug.apk   程序
@@ -36,6 +37,7 @@ DEFAULT_PORT="5555"
 
 PUSH_CONFIG=1
 DRY_RUN=0
+REPLACE_SIG=0
 LIST_FILE=""
 declare -a TARGETS=()
 
@@ -52,6 +54,7 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || die "-f 需要跟一个文件名"
             LIST_FILE="$2"; shift 2 ;;
         --no-config) PUSH_CONFIG=0; shift ;;
+        --replace)   REPLACE_SIG=1; shift ;;
         --dry-run)   DRY_RUN=1; shift ;;
         -h|--help)   sed -n '2,30p' "$0"; exit 0 ;;
         -*)          die "未知选项: $1 (用 -h 看用法)" ;;
@@ -95,7 +98,11 @@ normalize() {
 }
 
 # 在面板上以 root 执行; $2 为要执行的命令
-as_root() { "$ADB" -s "$1" shell "su 0 $2" 2>/dev/null | tr -d '\r'; }
+# 在面板上以 root 执行; $2 为要执行的命令。
+# 必须经 sh -c: 这块板子的 su 是直接 execvp、不过 shell, 管道/glob/重定向
+# 全都不生效。第一版把 "dd ... | od" 整个交给 su, dd 就把 "|" 当成文件名去读,
+# ELF 校验永远读到空, 误报"库损坏"; glob 也一样不展开, 报 No such file or directory。
+as_root() { "$ADB" -s "$1" shell "su 0 sh -c \"$2\"" 2>/dev/null | tr -d '\r'; }
 
 # 等面板可达, 给若干次重试。面板常被现场人员搬动/重启, 一次性连不上很常见。
 wait_reachable() {
@@ -108,6 +115,103 @@ wait_reachable() {
         sleep 2
     done
     return 1
+}
+
+# ── 换签名(面板上已装应用与我们要装的 APK 签名不同) ───────────────────
+# install -r 遇到签名不同必然失败(INSTALL_FAILED_UPDATE_INCOMPATIBLE):
+# Android 拒绝不同签名覆盖, 没有第二条路。而设备所有者应用连卸载都被禁
+# (DELETE_FAILED_INTERNAL_ERROR), 必须先解除设备所有者。
+#
+# 本函数做"不丢数据换签名": 整包备份 -> 解除设备所有者 -> 重启 -> 卸载 ->
+# 装新包 -> 启动一次自建目录 -> 还原历史数据 -> 恢复装机状态。
+# 配置不在这里还原, 交给主流程推模板(那才是要克隆的设定)。
+#
+# 注意: 中间要重启面板。重启后若段上没有 DHCP, 面板会拿不到 IP 就此失联,
+# 只能人工 adb connect 后续跑 —— 所以这一步前最好确认网络是通的。
+replace_signed() {
+    local dev="$1" stamp bk n f uid gid
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    bk="$DEPLOY_DIR/backup-$stamp"
+    mkdir -p "$bk"
+
+    # 1. 整包备份 files 目录(历史数据 + 配置 + assets)
+    info "  备份面板数据到 $bk ..."
+    if ! "$ADB" -s "$dev" shell "su 0 tar -C /data/data/$PKG/files -cf - . 2>/dev/null" \
+         | tar -xf - -C "$bk" 2>/dev/null || [ ! -d "$bk" ]; then
+        bad "  ✗ 备份失败, 中止换签名(不冒丢数据的风险)"
+        return 1
+    fi
+    n="$(find "$bk" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    info "  已备份 $n 个文件"
+
+    # 2. 备份并解除设备所有者注册。设备所有者状态在
+    #    /data/system/device_owner_2.xml(Android 二进制 XML), 删掉再重启即解除;
+    #    dpm remove-active-admin 要求应用声明 testOnly, 厂商签的包不满足, 走不通。
+    for f in device_owner_2.xml device_policies.xml device_policies_version; do
+        "$ADB" -s "$dev" shell "su 0 base64 /data/system/$f" 2>/dev/null \
+            | tr -d '\r\n' > "$bk/$f.b64"
+    done
+    info "  解除设备所有者(注册文件已备份)..."
+    "$ADB" -s "$dev" shell \
+        "su 0 sh -c 'rm -f /data/system/device_owner_2.xml /data/system/device_policies.xml'" \
+        >/dev/null 2>&1
+
+    # 3. 重启后才卸得掉
+    info "  重启面板..."
+    "$ADB" -s "$dev" reboot >/dev/null 2>&1
+    "$ADB" -s "$dev" wait-for-device >/dev/null 2>&1
+    sleep 20
+    if ! wait_reachable "$dev"; then
+        bad "  ✗ 重启后连不上(段上没有 DHCP 就会这样), 请人工 adb connect 后重跑本脚本"
+        return 1
+    fi
+    ok "  ✓ 重启后已连上"
+
+    # 4. 卸载旧签名包 + 装新包
+    info "  卸载旧签名包..."
+    "$ADB" -s "$dev" uninstall "$PKG" 2>&1 | tr -d '\r'
+    info "  安装新包..."
+    if ! "$ADB" -s "$dev" install --no-streaming -r "$APK" >/tmp/_clone_install2.log 2>&1; then
+        bad "  ✗ 换签名后仍装不上:"
+        sed 's/^/      /' /tmp/_clone_install2.log
+        return 1
+    fi
+    ok "  ✓ 新包装好"
+
+    # 5. 启动一次让应用自建 files/data/logs, 再还原历史数据。
+    #    顺序不能反: 没启动过就没有那个目录, tar 解不开。
+    as_root "$dev" "am start -n $ACT" >/dev/null; sleep 5
+    as_root "$dev" "am force-stop $PKG" >/dev/null
+    if [ -d "$bk/data/logs" ] && [ -n "$(ls -A "$bk/data/logs" 2>/dev/null)" ]; then
+        info "  还原历史数据..."
+        (cd "$bk" && tar -cf /tmp/_clone_logs.tar data 2>/dev/null)
+        "$ADB" -s "$dev" push /tmp/_clone_logs.tar /data/local/tmp/ >/dev/null 2>&1
+        as_root "$dev" \
+            "cd /data/data/$PKG/files && tar -xf /data/local/tmp/_clone_logs.tar && rm -f /data/local/tmp/_clone_logs.tar" \
+            >/dev/null 2>&1
+        rm -f /tmp/_clone_logs.tar
+    fi
+
+    # 6. 属主改回应用 uid
+    uid="$(as_root "$dev" "stat -c '%u' /data/data/$PKG")"
+    gid="$(as_root "$dev" "stat -c '%g' /data/data/$PKG")"
+    if [ -n "$uid" ] && [ -n "$gid" ]; then
+        as_root "$dev" "chown -R ${uid}:${gid} /data/data/$PKG/files" >/dev/null
+        as_root "$dev" "chmod 600 /data/data/$PKG/files/data/logs/*" >/dev/null 2>&1
+        ok "  ✓ 历史数据已还原, 属主=$uid:$gid"
+    else
+        warn "  ! 取不到应用 uid, 数据属主可能不对"
+    fi
+
+    # 7. 恢复装机状态(刚才删了注册文件, 必须补回来)
+    info "  恢复设备所有者与开机自启..."
+    "$ADB" -s "$dev" shell "dpm set-device-owner --user 0 $PKG/.KioskAdminReceiver" >/dev/null 2>&1
+    "$ADB" -s "$dev" shell "dpm set-active-admin --user 0 $PKG/.KioskAdminReceiver" >/dev/null 2>&1
+    "$ADB" -s "$dev" shell "cmd package set-home-activity --user 0 $PKG/.MainActivity" >/dev/null 2>&1
+    "$ADB" -s "$dev" shell "settings put system xzjh_auto_boot_package_name $PKG" >/dev/null 2>&1
+    "$ADB" -s "$dev" shell "settings put system xzjh_daemon_package_name $PKG" >/dev/null 2>&1
+    ok "  ✓ 换签名完成(备份留在 $bk, 确认无误后可删)"
+    return 0
 }
 
 # ── 单台处理 ───────────────────────────────────────────────────────────
@@ -151,11 +255,30 @@ clone_one() {
               | grep -E 'versionName|lastUpdateTime' | tr '\n' ' ')"
     info "  安装前: ${before:-未安装}"
     if ! "$ADB" -s "$dev" install --no-streaming -r "$APK" >/tmp/_clone_install.log 2>&1; then
-        # 失败常见原因是签名不一致或版本降级; 把日志打出来方便定位
-        bad "  ✗ 安装失败:"
         sed 's/^/      /' /tmp/_clone_install.log
-        FAIL_COUNT=$((FAIL_COUNT+1)); FAILED_LIST+=("$dev (安装失败)")
-        return 1
+        if grep -q 'UPDATE_INCOMPATIBLE' /tmp/_clone_install.log; then
+            # 面板上已装的应用与我们的 APK 不是同一把 key 签的(现场见过:
+            # 装机方用自己的 key 预装过一版)。install -r 覆盖不了, 且设备
+            # 所有者应用连卸载都被禁, 只能走换签名流程。
+            if [ "$REPLACE_SIG" = 1 ]; then
+                if ! replace_signed "$dev"; then
+                    FAIL_COUNT=$((FAIL_COUNT+1)); FAILED_LIST+=("$dev (换签名失败)")
+                    return 1
+                fi
+                # 换签名已经装好新包了, 回到主流程补配置
+            else
+                bad "  ✗ 签名不匹配(INSTALL_FAILED_UPDATE_INCOMPATIBLE)"
+                info "    面板上已装的是另一把 key 签的版本, 覆盖装不上。"
+                info "    确认要换成我们的签名就加 --replace 重跑(会先备份数据、"
+                info "    解除设备所有者、重启、卸载重装, 历史数据会还原)。"
+                FAIL_COUNT=$((FAIL_COUNT+1)); FAILED_LIST+=("$dev (签名不匹配, 需 --replace)")
+                return 1
+            fi
+        else
+            bad "  ✗ 安装失败:"
+            FAIL_COUNT=$((FAIL_COUNT+1)); FAILED_LIST+=("$dev (安装失败)")
+            return 1
+        fi
     fi
     grep -qi 'success' /tmp/_clone_install.log && ok "  ✓ 安装成功"
     after="$("$ADB" -s "$dev" shell dumpsys package "$PKG" 2>/dev/null | tr -d '\r' \
@@ -163,10 +286,17 @@ clone_one() {
     info "  安装后: $after"
 
     # 3. 校验 native 库完整(防流式安装损坏)
-    local magic
-    magic="$(as_root "$dev" \
-        "dd if=/data/app/*/${PKG}*/lib/arm64/libRS485Control_arm64-v8a.so bs=1 count=4 2>/dev/null | od -An -tx1" \
-        | tr -d ' \n\r')"
+    #    路径不靠 glob: su 0 不过 shell, glob 不展开(见 as_root 说明);
+    #    从 dumpsys 的 legacyNativeLibraryDir 取, 该路径本身含 '=',
+    #    所以用 's/^[^=]*=//' 而不是 's/.*=//' —— 后者贪婪匹配到最后一个 '=',
+    #    只会剩下 '/lib'。
+    local magic libdir
+    libdir="$(as_root "$dev" "dumpsys package $PKG | grep legacyNativeLibraryDir | sed 's/^[^=]*=//'")"
+    if [ -n "$libdir" ]; then
+        magic="$(as_root "$dev" \
+            "dd if=$libdir/arm64/libRS485Control_arm64-v8a.so bs=1 count=4 2>/dev/null | od -An -tx1" \
+            | tr -d ' \n\r')"
+    fi
     if [ "$magic" = "7f454c46" ]; then
         ok "  ✓ native 库 ELF magic 正常 (7f 45 4c 46)"
     else
@@ -213,9 +343,12 @@ clone_one() {
         gid="$(as_root "$dev" "stat -c '%g' /data/data/$PKG")"
         if [ -n "$uid" ] && [ -n "$gid" ]; then
             as_root "$dev" "chown -R ${uid}:${gid} /data/data/$PKG/files" >/dev/null
+            # 读回比对必须用数值(%u:%g)而不是名称(%U:%G): 名称形如 u0_a91,
+            # 而 uid 是 10091, 拿名称和 "u0_a${uid}" 拼出来的是 u0_a10091,
+            # 永远比不相等 —— 属主明明是对的也会误报。
             local owner
-            owner="$(as_root "$dev" "stat -c '%U:%G' $CFG_REMOTE")"
-            if [ "$owner" = "u0_a${uid}:u0_a${gid}" ] || [ "$owner" = "${uid}:${gid}" ]; then
+            owner="$(as_root "$dev" "stat -c '%u:%g' $CFG_REMOTE")"
+            if [ "$owner" = "${uid}:${gid}" ]; then
                 ok "  ✓ 配置属主已改为应用 uid ($uid:$gid)"
             else
                 warn "  ! 属主改完读回是 '$owner' (期望 $uid:$gid), 请人工确认"
