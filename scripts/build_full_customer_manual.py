@@ -87,7 +87,7 @@ def add_table(document, rows, compact):
     paragraph.add_run().font.size = Pt(2)
 
 
-source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / "docs/客户使用说明书 (2).md"
+source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / "docs/products/客户使用说明书.md"
 
 document = Document()
 section = document.sections[0]

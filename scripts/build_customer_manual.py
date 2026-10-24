@@ -75,7 +75,7 @@ def add_table(document, rows):
     paragraph.add_run().font.size = Pt(2)
 
 
-source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / "docs/客户使用说明书.md"
+source = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[1] / "docs/products/客户使用说明书.md"
 
 # 图示按开发资料绘制板端关系；不替代整箱端子图和扩展板接线资料。
 font_path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"

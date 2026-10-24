@@ -19,6 +19,7 @@ target_wrapper.sh
 /Makefile.password
 /Makefile.feature
 RS485Control.app/
+controlalgorithm_test.app/
 build/
 
 # Runtime data / logs
@@ -45,11 +46,12 @@ android/src/.qmake.stash
 android/src/android-libRS485Control.so-deployment-settings.json
 android/src/android-RS485Control-deployment-settings.json
 
-# 485探头工具台（docs/温湿度探头地址切换/485探头工具台）
-docs/温湿度探头地址切换/485探头工具台/electron/node_modules/
-docs/温湿度探头地址切换/485探头工具台/electron/dist/
-docs/温湿度探头地址切换/485探头工具台/electron/release/
-docs/温湿度探头地址切换/485探头工具台/deliverables/*.app
-docs/温湿度探头地址切换/485探头工具台/deliverables/*.dmg
-docs/温湿度探头地址切换/485探头工具台/legacy/*.app
-docs/温湿度探头地址切换/485探头工具台/**/__pycache__/
+# 485探头工具台（docs/tools/温湿度探头地址切换/485探头工具台）
+docs/tools/温湿度探头地址切换/485探头工具台/electron/node_modules/
+docs/tools/温湿度探头地址切换/485探头工具台/electron/dist/
+docs/tools/温湿度探头地址切换/485探头工具台/electron/release/
+docs/tools/温湿度探头地址切换/485探头工具台/deliverables/*.app
+docs/tools/温湿度探头地址切换/485探头工具台/deliverables/*.dmg
+docs/tools/温湿度探头地址切换/485探头工具台/legacy/*.app
+docs/tools/温湿度探头地址切换/485探头工具台/**/__pycache__/
+docs/labels/__pycache__/

@@ -85,7 +85,7 @@ adb -s "$d" shell sha256sum /data/local/tmp/rs485-boot.brand.img
 adb -s "$d" shell 'dd if=/data/local/tmp/rs485-boot.brand.img of=/dev/block/by-name/boot bs=1M && sync'
 ```
 
-[生成脚本](../scripts/patch_rockchip_boot_logos.py)只处理无 recovery_dtbo、无 AVB footer 的 v2 boot 副本，不操作设备。它校验原镜像 SHA1、全部资源哈希、资源边界及重叠，只在新图不超过原图大小时替换两张图；其余空间填零，更新资源哈希/长度和 boot SHA1，保持资源偏移、镜像长度、内核、ramdisk、设备树及其他内容。已有输出文件不会覆盖。本屏启动状态为 `orange`、`ro.boot.flash.locked=0`；其他启动安全状态需另行处理。
+[生成脚本](../../scripts/patch_rockchip_boot_logos.py)只处理无 recovery_dtbo、无 AVB footer 的 v2 boot 副本，不操作设备。它校验原镜像 SHA1、全部资源哈希、资源边界及重叠，只在新图不超过原图大小时替换两张图；其余空间填零，更新资源哈希/长度和 boot SHA1，保持资源偏移、镜像长度、内核、ramdisk、设备树及其他内容。已有输出文件不会覆盖。本屏启动状态为 `orange`、`ro.boot.flash.locked=0`；其他启动安全状态需另行处理。
 
 资源表格式依据 [Rockchip 官方 resource_tool.c](https://github.com/rockchip-linux/u-boot/blob/next-dev/tools/rockchip/resource_tool.c)。本次可重复生成的镜像与实际写入镜像一致，重启后的 boot SHA256 为 `099274277da1ecc34c9cb7f265a3bcfe1246672f3df9e631f913651f7937856e`。
 

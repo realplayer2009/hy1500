@@ -57,7 +57,7 @@ tests/
     pty_modbus_sim.py     无硬件下位机模拟器（PTY 模拟两条 RS485 总线,
                           默认自动拉起上位机）
     test_pty_modbus_sim.py  模拟器协议与物理模型单元测试
-docs/                     设计文档（见下）
+docs/                     设计文档与产品资料（导航见 docs/README.md）
 config/app.ini            配置文件示例
 rs485_modbus_debug.py     独立的 RS485/Modbus 调试脚本（用法见《使用说明.txt》）
 RS485Control.pro          qmake 工程文件
@@ -126,12 +126,12 @@ python3 tests/simulator/test_pty_modbus_sim.py
 
 | 文档 | 内容 |
 | --- | --- |
-| [客户使用说明书 PDF](docs/客户使用说明书.pdf) / [Word](docs/客户使用说明书.docx) / [Markdown](docs/客户使用说明书.md) | 现场操作图解，包含主要功能入口、手自动控制、联锁处理、接口设置和历史管理 |
-| [docs/产品简介.pdf](docs/产品简介.pdf) / [文案](docs/产品简介.md) | 盒内产品宣传册，介绍核心功能与产品价值 |
+| [客户使用说明书 PDF](docs/products/客户使用说明书.pdf) / [Word](docs/products/客户使用说明书.docx) / [Markdown](docs/products/客户使用说明书.md) | 现场操作图解，包含主要功能入口、手自动控制、联锁处理、接口设置和历史管理 |
+| [docs/产品简介.pdf](docs/products/产品简介.pdf) / [文案](docs/products/产品简介.md) | 盒内产品宣传册，介绍核心功能与产品价值 |
 | [docs/BUILD_LINUX.md](docs/BUILD_LINUX.md) | 依赖安装、命令行编译、RK3568 部署 |
-| [docs/DEVICE_PANEL_PA0715N.md](docs/DEVICE_PANEL_PA0715N.md) | 现场屏（PA0715-N）硬件规格与程序相关要点 |
-| [docs/CONTROL_AND_SAFETY_DESIGN.md](docs/CONTROL_AND_SAFETY_DESIGN.md) | 自检、温控、联锁与备用引脚设计 |
-| [docs/DATA_BROWSER_DESIGN.md](docs/DATA_BROWSER_DESIGN.md) | 数据浏览交互与聚合规则 |
+| [docs/DEVICE_PANEL_PA0715N.md](docs/design/DEVICE_PANEL_PA0715N.md) | 现场屏（PA0715-N）硬件规格与程序相关要点 |
+| [docs/CONTROL_AND_SAFETY_DESIGN.md](docs/design/CONTROL_AND_SAFETY_DESIGN.md) | 自检、温控、联锁与备用引脚设计 |
+| [docs/DATA_BROWSER_DESIGN.md](docs/design/DATA_BROWSER_DESIGN.md) | 数据浏览交互与聚合规则 |
 | [使用说明.txt](使用说明.txt) | `rs485_modbus_debug.py` 调试脚本用法 |
 | [AGENTS.md](AGENTS.md) | 工程取舍与参数决策记录（面向后续维护） |
 

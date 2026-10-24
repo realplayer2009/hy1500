@@ -42,7 +42,7 @@ GitHub Actions 的 `Native Android APK Build` 只构建这条路线，产物名�
 ## 安装入口
 
 十多台同型号原生屏的安装顺序、批量命令和开机画面见
-[`批量安装指南`](../docs/批量安装指南.md)。安装电脑只需 ADB 和现成 APK，
+[`批量安装指南`](../docs/design/批量安装指南.md)。安装电脑只需 ADB 和现成 APK，
 无需 Qt/NDK/Java；全部设备使用同一份已验收产物。
 
 - 原生 APK：`powershell -File android/provision_apk.ps1 -DeviceAddr <设备IP>:<端口>`。
