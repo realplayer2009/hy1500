@@ -1,0 +1,1021 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="959" height="1296" viewBox="0 0 959 1296">
+<!-- 左岸05-励磁变端子柜端子接线图(5of5) -->
+<text x="447.53" y="803.37" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 447.53 803.37)">门控信号(开门信号)</text>
+<text x="447.26" y="893.78" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 447.26 893.78)">门控信号(开门信号)</text>
+<line x1="438.04" y1="101.13" x2="862.78" y2="101.13" stroke="#000" stroke-width="0.40"/>
+<line x1="646.78" y1="131.13" x2="862.78" y2="131.13" stroke="#000" stroke-width="0.40"/>
+<line x1="522.04" y1="131.13" x2="603.04" y2="131.13" stroke="#000" stroke-width="0.40"/>
+<text x="446.36" y="140.74" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 446.36 140.74)">回路功能说明</text>
+<text x="544.79" y="124.25" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 544.79 124.25)">端子排</text>
+<text x="609.20" y="137.69" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 609.20 137.69)">回路号</text>
+<text x="695.94" y="121.55" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 695.94 121.55)">电</text>
+<text x="720.41" y="121.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 720.41 121.91)">缆</text>
+<text x="750.16" y="122.21" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 750.16 122.21)">序</text>
+<text x="775.84" y="123.23" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 775.84 123.23)">号</text>
+<line x1="694.78" y1="131.13" x2="694.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="718.78" y1="131.13" x2="718.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="742.78" y1="131.13" x2="742.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="766.78" y1="131.13" x2="766.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="790.78" y1="131.13" x2="790.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="814.78" y1="131.13" x2="814.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="101.13" x2="862.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<text x="653.42" y="152.96" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 653.42 152.96)">15</text>
+<text x="677.42" y="152.96" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 677.42 152.96)">16</text>
+<text x="701.42" y="152.96" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 701.42 152.96)">17</text>
+<line x1="522.04" y1="146.13" x2="603.04" y2="146.13" stroke="#000" stroke-width="0.40"/>
+<circle cx="659.82" cy="148.93" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="683.82" cy="148.93" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="707.82" cy="148.93" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="838.78" y1="131.13" x2="838.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="522.04" y1="101.13" x2="522.04" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="670.78" y1="131.13" x2="670.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="646.78" y1="101.13" x2="646.78" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="603.04" y1="101.13" x2="603.04" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="438.04" y1="101.13" x2="438.04" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<text x="543.03" y="143.62" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="10.50" fill="#000" transform="rotate(-0.00 543.03 143.62)">ES T5</text>
+<line x1="438.04" y1="161.13" x2="862.78" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="176.13" x2="438.06" y2="176.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="191.13" x2="438.04" y2="191.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="206.13" x2="438.07" y2="206.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="236.13" x2="438.08" y2="236.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="251.13" x2="438.04" y2="251.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="221.13" x2="438.04" y2="221.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="266.13" x2="438.09" y2="266.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="281.13" x2="438.04" y2="281.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="296.13" x2="438.09" y2="296.15" stroke="#000" stroke-width="0.40"/>
+<text x="560.47" y="172.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 172.99)">1</text>
+<text x="560.47" y="187.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 187.99)">2</text>
+<text x="560.47" y="202.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 202.99)">3</text>
+<text x="560.47" y="217.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 217.99)">4</text>
+<text x="560.47" y="232.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 232.99)">5</text>
+<text x="560.47" y="247.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 247.99)">6</text>
+<text x="560.47" y="262.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 262.99)">7</text>
+<text x="560.47" y="277.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 277.99)">8</text>
+<text x="560.47" y="292.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 560.47 292.99)">9</text>
+<text x="556.62" y="307.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.62 307.99)">10</text>
+<text x="556.65" y="322.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 322.99)">11</text>
+<line x1="862.78" y1="326.13" x2="438.10" y2="326.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="311.13" x2="438.04" y2="311.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="337.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 337.99)">12</text>
+<line x1="862.78" y1="341.13" x2="438.04" y2="341.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="352.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 352.99)">13</text>
+<text x="556.65" y="367.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 367.99)">14</text>
+<line x1="862.78" y1="356.13" x2="438.11" y2="356.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="371.13" x2="438.04" y2="371.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="382.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 382.99)">15</text>
+<text x="556.65" y="397.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 397.99)">16</text>
+<line x1="862.78" y1="386.13" x2="438.12" y2="386.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="412.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 412.99)">17</text>
+<line x1="862.78" y1="416.13" x2="438.13" y2="416.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="401.13" x2="438.04" y2="401.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="427.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 427.99)">18</text>
+<line x1="862.78" y1="431.13" x2="438.04" y2="431.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="442.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 442.99)">19</text>
+<text x="556.65" y="457.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 457.99)">20</text>
+<line x1="862.78" y1="446.13" x2="438.13" y2="446.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="461.13" x2="438.04" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="472.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 472.99)">21</text>
+<text x="556.65" y="487.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 487.99)">22</text>
+<line x1="862.78" y1="476.13" x2="438.14" y2="476.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="491.13" x2="438.04" y2="491.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="502.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 502.99)">23</text>
+<text x="556.65" y="517.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 517.99)">24</text>
+<line x1="862.78" y1="506.13" x2="438.15" y2="506.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="521.13" x2="438.04" y2="521.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="532.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 532.99)">25</text>
+<text x="556.65" y="547.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 547.99)">26</text>
+<line x1="862.78" y1="536.13" x2="438.16" y2="536.15" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="562.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 562.99)">27</text>
+<line x1="862.78" y1="566.13" x2="438.17" y2="566.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="551.13" x2="438.04" y2="551.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="577.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 577.99)">28</text>
+<line x1="862.78" y1="581.13" x2="438.04" y2="581.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="592.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 592.99)">29</text>
+<text x="556.65" y="607.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 607.99)">30</text>
+<line x1="862.78" y1="596.13" x2="438.17" y2="596.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="611.13" x2="438.04" y2="611.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="622.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 622.99)">31</text>
+<text x="556.65" y="637.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 637.99)">32</text>
+<line x1="862.78" y1="626.13" x2="438.18" y2="626.15" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="641.13" x2="438.04" y2="641.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="652.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 652.99)">33</text>
+<text x="556.65" y="667.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 667.99)">34</text>
+<line x1="862.78" y1="656.13" x2="438.04" y2="656.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="671.13" x2="438.04" y2="671.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="682.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 682.99)">35</text>
+<text x="556.65" y="697.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 697.99)">36</text>
+<line x1="862.78" y1="686.13" x2="438.04" y2="686.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="712.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 712.99)">37</text>
+<line x1="862.78" y1="716.13" x2="438.04" y2="716.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="701.13" x2="438.04" y2="701.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="727.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 727.99)">38</text>
+<line x1="862.78" y1="731.13" x2="438.04" y2="731.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="742.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 742.99)">39</text>
+<text x="556.65" y="757.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 757.99)">40</text>
+<line x1="862.78" y1="746.13" x2="438.04" y2="746.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="761.13" x2="438.04" y2="761.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="772.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 772.99)">41</text>
+<text x="556.65" y="787.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 787.99)">42</text>
+<line x1="862.78" y1="776.13" x2="438.04" y2="776.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="791.13" x2="438.04" y2="791.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="802.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 802.99)">43</text>
+<text x="556.65" y="817.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 817.99)">44</text>
+<line x1="862.78" y1="806.13" x2="438.04" y2="806.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="821.13" x2="438.04" y2="821.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="832.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 832.99)">45</text>
+<text x="556.65" y="847.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 847.99)">46</text>
+<line x1="862.78" y1="836.13" x2="438.04" y2="836.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="862.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 862.99)">47</text>
+<line x1="862.78" y1="866.13" x2="438.04" y2="866.13" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="851.13" x2="438.04" y2="851.13" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="877.99" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 877.99)">48</text>
+<line x1="862.78" y1="881.13" x2="438.04" y2="881.13" stroke="#000" stroke-width="0.40"/>
+<text x="543.73" y="157.74" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.16" fill="#000" transform="rotate(-0.00 543.73 157.74)">励磁变信号输出端子</text>
+<line x1="576.04" y1="971.57" x2="576.04" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="549.04" y1="971.57" x2="549.04" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="17.38" y1="18.09" x2="17.38" y2="1278.09" stroke="#000" stroke-width="0.40"/>
+<line x1="908.38" y1="18.09" x2="908.38" y2="1278.09" stroke="#000" stroke-width="0.40"/>
+<line x1="908.38" y1="1278.09" x2="17.38" y2="1278.09" stroke="#000" stroke-width="0.40"/>
+<line x1="17.38" y1="18.09" x2="908.38" y2="18.09" stroke="#000" stroke-width="0.40"/>
+<line x1="43.24" y1="161.13" x2="418.73" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="43.24" y1="101.13" x2="418.73" y2="101.13" stroke="#000" stroke-width="0.40"/>
+<text x="324.79" y="150.12" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 324.79 150.12)">项目代号</text>
+<text x="325.91" y="127.29" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 325.91 127.29)">电缆远端</text>
+<line x1="159.87" y1="101.13" x2="159.87" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="159.87" y1="161.13" x2="159.87" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<line x1="73.24" y1="101.13" x2="73.24" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<line x1="43.24" y1="461.13" x2="43.24" y2="101.13" stroke="#000" stroke-width="0.40"/>
+<line x1="309.87" y1="101.13" x2="309.87" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="309.87" y1="161.13" x2="309.87" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<line x1="278.94" y1="101.13" x2="278.94" y2="161.13" stroke="#000" stroke-width="0.40"/>
+<line x1="278.94" y1="161.13" x2="278.94" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<text x="45.81" y="150.12" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 45.81 150.12)">序号</text>
+<text x="83.45" y="151.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 83.45 151.04)">编</text>
+<text x="45.81" y="128.64" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 45.81 128.64)">电缆</text>
+<text x="83.45" y="128.21" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 83.45 128.21)">电</text>
+<text x="129.22" y="151.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 129.22 151.04)">号</text>
+<text x="129.22" y="128.21" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 129.22 128.21)">缆</text>
+<line x1="418.73" y1="191.13" x2="43.24" y2="191.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="251.13" x2="43.24" y2="251.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="221.13" x2="43.24" y2="221.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="281.13" x2="43.24" y2="281.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="341.13" x2="43.24" y2="341.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="311.13" x2="43.24" y2="311.13" stroke="#000" stroke-width="0.40"/>
+<text x="52.39" y="182.54" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 52.39 182.54)">15</text>
+<text x="52.39" y="212.54" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 52.39 212.54)">16</text>
+<text x="52.39" y="242.54" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 52.39 242.54)">17</text>
+<line x1="418.73" y1="101.13" x2="418.73" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<text x="198.17" y="149.41" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 198.17 149.41)">芯数截面</text>
+<text x="197.79" y="125.47" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 197.79 125.47)">电缆型号</text>
+<text x="281.02" y="125.47" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 281.02 125.47)">备用</text>
+<text x="280.52" y="149.41" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-0.00 280.52 149.41)">芯数</text>
+<circle cx="58.78" cy="178.88" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="58.78" cy="208.88" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="58.78" cy="238.88" r="7.50" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="418.73" y1="371.13" x2="43.24" y2="371.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="431.13" x2="43.24" y2="431.13" stroke="#000" stroke-width="0.40"/>
+<line x1="418.73" y1="401.13" x2="43.24" y2="401.13" stroke="#000" stroke-width="0.40"/>
+<text x="153.77" y="1070.63" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 153.77 1070.63)">溪洛渡  工程</text>
+<line x1="418.73" y1="461.13" x2="43.24" y2="461.13" stroke="#000" stroke-width="0.40"/>
+<text x="139.02" y="912.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 139.02 912.75)">审 查</text>
+<text x="141.36" y="1166.72" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="10.80" fill="#000" transform="rotate(-270.00 141.36 1166.72)">电气二次  </text>
+<line x1="137.38" y1="1158.60" x2="179.38" y2="1158.60" stroke="#000" stroke-width="0.40"/>
+<line x1="179.38" y1="948.60" x2="32.38" y2="948.60" stroke="#000" stroke-width="0.40"/>
+<line x1="179.38" y1="1023.60" x2="74.38" y2="1023.60" stroke="#000" stroke-width="0.40"/>
+<line x1="179.38" y1="1053.60" x2="32.38" y2="1053.60" stroke="#000" stroke-width="0.40"/>
+<text x="139.02" y="1227.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 139.02 1227.75)">部 分</text>
+<path d="M 215.38 1263.60 L 215.38 903.60 L 32.38 903.60" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="95.38" y1="903.60" x2="95.38" y2="1053.60" stroke="#000" stroke-width="0.40"/>
+<line x1="116.38" y1="903.60" x2="116.38" y2="1053.60" stroke="#000" stroke-width="0.40"/>
+<line x1="137.38" y1="903.60" x2="137.38" y2="1263.60" stroke="#000" stroke-width="0.40"/>
+<line x1="53.38" y1="903.60" x2="53.38" y2="1263.60" stroke="#000" stroke-width="0.40"/>
+<line x1="74.38" y1="903.60" x2="74.38" y2="1263.60" stroke="#000" stroke-width="0.40"/>
+<line x1="74.38" y1="1203.60" x2="53.38" y2="1203.60" stroke="#000" stroke-width="0.40"/>
+<line x1="74.38" y1="1158.60" x2="53.38" y2="1158.60" stroke="#000" stroke-width="0.40"/>
+<text x="55.02" y="1167.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 55.02 1167.75)">日 期</text>
+<line x1="74.38" y1="1098.60" x2="32.38" y2="1098.60" stroke="#000" stroke-width="0.40"/>
+<text x="55.02" y="1062.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 55.02 1062.75)">比 例</text>
+<text x="34.02" y="1062.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 34.02 1062.75)">图 号</text>
+<text x="55.02" y="904.72" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 55.02 904.72)">发证单位</text>
+<text x="34.02" y="904.72" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 34.02 904.72)">设计证号</text>
+<text x="97.02" y="912.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 97.02 912.75)">设 计</text>
+<text x="118.02" y="912.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 118.02 912.75)">校 核</text>
+<text x="76.02" y="912.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 76.02 912.75)">制 图</text>
+<line x1="158.38" y1="903.60" x2="158.38" y2="1053.60" stroke="#000" stroke-width="0.40"/>
+<line x1="179.38" y1="903.60" x2="179.38" y2="1263.60" stroke="#000" stroke-width="0.40"/>
+<text x="163.04" y="1165.15" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="10.80" fill="#000" transform="rotate(-270.00 163.04 1165.15)">技    施  </text>
+<line x1="158.38" y1="1158.60" x2="158.38" y2="1263.60" stroke="#000" stroke-width="0.40"/>
+<text x="160.02" y="1227.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 160.02 1227.75)">设 计</text>
+<text x="160.02" y="912.75" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="13.50" fill="#000" transform="rotate(-270.00 160.02 912.75)">核 定</text>
+<text x="188.00" y="994.81" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="19.50" fill="#000" transform="rotate(-270.00 188.00 994.81)">中国水电顾问集团成都勘测设计研究院</text>
+<circle cx="539.40" cy="169.40" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="199.40" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="184.20" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="171.82" x2="539.40" y2="181.84" stroke="#000" stroke-width="0.40"/>
+<text x="465.18" y="173.22" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 465.18 173.22)">辅助电源掉电</text>
+<text x="464.81" y="219.55" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 464.81 219.55)">辅助电源掉电</text>
+<text x="465.47" y="262.62" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 465.47 262.62)">超温报警1</text>
+<text x="466.88" y="309.02" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 466.88 309.02)">超温报警1</text>
+<text x="467.69" y="353.16" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 467.69 353.16)">超温报警2</text>
+<text x="468.82" y="399.37" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 468.82 399.37)">超温报警2</text>
+<text x="466.67" y="533.85" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 466.67 533.85)">温度高跳闸1</text>
+<text x="468.70" y="444.17" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 468.70 444.17)">故障报警</text>
+<text x="117.20" y="1078.50" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-270.00 117.20 1078.50)">励磁变端子柜端子接线图 (5/5)</text>
+<text x="102.89" y="1264.00" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 102.89 1264.00)">D</text>
+<line x1="237.88" y1="1263.09" x2="237.88" y2="1278.09" stroke="#000" stroke-width="0.40"/>
+<text x="323.39" y="1264.00" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 323.39 1264.00)">C</text>
+<text x="543.89" y="1264.00" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 543.89 1264.00)">B</text>
+<path d="M 458.38 1263.09 L 458.38 1278.09" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="678.88" y1="1263.09" x2="678.88" y2="1278.09" stroke="#000" stroke-width="0.40"/>
+<text x="773.39" y="1264.00" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 773.39 1264.00)">A</text>
+<text x="19.15" y="1182.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 1182.91)">6</text>
+<line x1="17.38" y1="1068.09" x2="32.38" y2="1068.09" stroke="#000" stroke-width="0.40"/>
+<text x="19.15" y="972.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 972.91)">5</text>
+<line x1="17.38" y1="858.09" x2="32.38" y2="858.09" stroke="#000" stroke-width="0.40"/>
+<text x="19.15" y="762.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 762.91)">4</text>
+<text x="895.15" y="1182.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 1182.91)">6</text>
+<text x="895.15" y="972.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 972.91)">5</text>
+<line x1="893.38" y1="1068.09" x2="908.38" y2="1068.09" stroke="#000" stroke-width="0.40"/>
+<line x1="893.38" y1="858.09" x2="908.38" y2="858.09" stroke="#000" stroke-width="0.40"/>
+<text x="895.15" y="762.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 762.91)">4</text>
+<text x="19.15" y="552.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 552.91)">3</text>
+<path d="M 17.38 648.09 L 32.38 648.09" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="17.38" y1="438.09" x2="32.38" y2="438.09" stroke="#000" stroke-width="0.40"/>
+<text x="19.15" y="342.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 342.91)">2</text>
+<line x1="17.38" y1="228.09" x2="32.38" y2="228.09" stroke="#000" stroke-width="0.40"/>
+<text x="895.15" y="552.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 552.91)">3</text>
+<path d="M 893.38 648.09 L 908.38 648.09" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="893.38" y1="438.09" x2="908.38" y2="438.09" stroke="#000" stroke-width="0.40"/>
+<text x="895.15" y="342.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 342.91)">2</text>
+<line x1="893.38" y1="228.09" x2="908.38" y2="228.09" stroke="#000" stroke-width="0.40"/>
+<text x="19.15" y="132.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 19.15 132.91)">1</text>
+<text x="102.89" y="47.11" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 102.89 47.11)">D</text>
+<line x1="237.88" y1="18.09" x2="237.88" y2="93.09" stroke="#000" stroke-width="0.40"/>
+<text x="323.39" y="47.11" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 323.39 47.11)">C</text>
+<text x="543.89" y="47.11" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 543.89 47.11)">B</text>
+<path d="M 458.38 18.09 L 458.38 93.09" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="678.88" y1="18.09" x2="678.88" y2="93.09" stroke="#000" stroke-width="0.40"/>
+<text x="773.39" y="47.11" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="18.00" fill="#000" transform="rotate(-270.00 773.39 47.11)">A</text>
+<text x="895.15" y="132.91" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="9.60" fill="#000" transform="rotate(-270.00 895.15 132.91)">1</text>
+<text x="60.53" y="955.18" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.68" fill="#000" transform="rotate(-270.00 60.53 955.18)">中华人民共和国住房和城乡建设部</text>
+<text x="38.91" y="966.01" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.68" fill="#000" transform="rotate(-270.00 38.91 966.01)">A151001849</text>
+<path d="M 32.38 93.09 L 893.38 93.09 L 893.38 1263.09 L 32.38 1263.09 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="539.40" y1="196.98" x2="539.40" y2="186.57" stroke="#000" stroke-width="0.40"/>
+<text x="468.70" y="488.87" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 468.70 488.87)">故障报警</text>
+<text x="466.67" y="578.09" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 466.67 578.09)">温度高跳闸1</text>
+<text x="466.67" y="622.53" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 466.67 622.53)">温度高跳闸2</text>
+<text x="466.67" y="667.49" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 466.67 667.49)">温度高跳闸2</text>
+<text x="556.65" y="893.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 893.43)">49</text>
+<line x1="862.78" y1="896.57" x2="438.04" y2="896.57" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="908.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 908.43)">50</text>
+<text x="556.65" y="923.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 923.43)">51</text>
+<line x1="862.78" y1="911.57" x2="438.04" y2="911.57" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="926.57" x2="438.04" y2="926.57" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="938.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 938.43)">52</text>
+<text x="556.65" y="953.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 953.43)">53</text>
+<line x1="862.78" y1="941.57" x2="438.04" y2="941.57" stroke="#000" stroke-width="0.40"/>
+<text x="556.65" y="968.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.75" fill="#000" transform="rotate(-0.00 556.65 968.43)">54</text>
+<line x1="862.78" y1="971.57" x2="438.04" y2="971.57" stroke="#000" stroke-width="0.40"/>
+<line x1="862.78" y1="956.57" x2="438.04" y2="956.57" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="215.45" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="245.45" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="230.25" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="217.87" x2="539.40" y2="227.89" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="243.03" x2="539.40" y2="232.62" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="260.09" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="290.09" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="274.90" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="262.51" x2="539.40" y2="272.53" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="287.67" x2="539.40" y2="277.26" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="304.85" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="334.85" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="319.66" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="307.27" x2="539.40" y2="317.29" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="332.43" x2="539.40" y2="322.02" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="349.44" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="379.44" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="364.25" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="351.86" x2="539.40" y2="361.88" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="377.02" x2="539.40" y2="366.61" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="395.76" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="425.76" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="410.57" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="398.18" x2="539.40" y2="408.20" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="423.34" x2="539.40" y2="412.93" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="439.76" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="469.76" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="454.57" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="442.18" x2="539.40" y2="452.20" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="467.34" x2="539.40" y2="456.93" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="485.51" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="515.51" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="500.31" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="487.92" x2="539.40" y2="497.94" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="513.09" x2="539.40" y2="502.67" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="530.28" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="560.28" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="545.09" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="532.70" x2="539.40" y2="542.72" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="557.87" x2="539.40" y2="547.45" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="576.58" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="606.58" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="591.38" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="579.00" x2="539.40" y2="589.02" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="604.16" x2="539.40" y2="593.75" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="621.37" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="651.37" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="636.17" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="623.78" x2="539.40" y2="633.80" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="648.95" x2="539.40" y2="638.53" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="664.84" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="694.84" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="679.64" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="667.26" x2="539.40" y2="677.28" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="692.42" x2="539.40" y2="682.01" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="711.74" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="741.74" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="726.55" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="714.16" x2="539.40" y2="724.18" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="739.32" x2="539.40" y2="728.91" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="754.30" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="784.30" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="769.11" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="756.72" x2="539.40" y2="766.74" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="781.88" x2="539.40" y2="771.47" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="800.27" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="830.27" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="815.08" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="802.69" x2="539.40" y2="812.71" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="827.85" x2="539.40" y2="817.44" stroke="#000" stroke-width="0.40"/>
+<circle cx="539.40" cy="846.78" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="539.40" cy="876.78" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="538.89" cy="861.58" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="539.40" y1="849.20" x2="539.40" y2="859.22" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="874.36" x2="539.40" y2="863.95" stroke="#000" stroke-width="0.40"/>
+<circle cx="537.69" cy="890.31" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="537.69" cy="920.31" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="537.18" cy="905.12" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="537.69" y1="892.73" x2="537.69" y2="902.75" stroke="#000" stroke-width="0.40"/>
+<line x1="537.69" y1="917.89" x2="537.69" y2="907.48" stroke="#000" stroke-width="0.40"/>
+<circle cx="537.69" cy="932.34" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="537.69" cy="962.34" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="537.18" cy="947.14" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="537.69" y1="934.76" x2="537.69" y2="944.78" stroke="#000" stroke-width="0.40"/>
+<line x1="537.69" y1="959.92" x2="537.69" y2="949.51" stroke="#000" stroke-width="0.40"/>
+<line x1="539.40" y1="832.69" x2="539.40" y2="844.36" stroke="#000" stroke-width="0.40"/>
+<line x1="537.69" y1="922.73" x2="537.69" y2="929.92" stroke="#000" stroke-width="0.40"/>
+<text x="38.91" y="1105.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.68" fill="#000" transform="rotate(-270.00 38.91 1105.61)">CD81 SG-54-103(8)-5</text>
+<text x="58.37" y="1212.21" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.68" fill="#000" transform="rotate(-270.00 58.37 1212.21)">2011.11</text>
+<text x="656.45" y="173.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 656.45 173.04)">1</text>
+<text x="656.45" y="218.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 656.45 218.05)">2</text>
+<text x="680.45" y="263.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 680.45 263.04)">1</text>
+<text x="680.45" y="308.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 680.45 308.05)">2</text>
+<text x="704.45" y="353.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 704.45 353.04)">1</text>
+<text x="704.45" y="398.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 704.45 398.05)">2</text>
+<text x="656.45" y="488.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 656.45 488.05)">4</text>
+<text x="680.45" y="533.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 680.45 533.04)">3</text>
+<text x="680.45" y="578.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 680.45 578.05)">4</text>
+<text x="704.45" y="623.04" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 704.45 623.04)">3</text>
+<text x="704.45" y="668.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 704.45 668.05)">4</text>
+<text x="656.45" y="893.05" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 656.45 893.05)">3</text>
+<text x="77.65" y="181.31" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 77.65 181.31)">Un-E/44-111</text>
+<text x="163.63" y="181.56" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 163.63 181.56)">WDZA-KYJYRP-8X1.5</text>
+<text x="293.44" y="180.77" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 293.44 180.77)">4</text>
+<text x="77.65" y="211.31" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 77.65 211.31)">Un-P/44-008A</text>
+<text x="163.63" y="211.56" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 163.63 211.56)">WDZR-NHA-KYJYRP-8X1.5</text>
+<text x="293.44" y="210.77" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 293.44 210.77)">4</text>
+<text x="163.63" y="241.56" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 163.63 241.56)">WDZA-KYJYRP-8X1.5</text>
+<text x="293.44" y="240.77" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 293.44 240.77)">4</text>
+<text x="607.63" y="173.69" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 607.63 173.69)">X000</text>
+<text x="607.63" y="218.70" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 607.63 218.70)">X031</text>
+<text x="607.63" y="488.70" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 607.63 488.70)">X033</text>
+<text x="607.63" y="893.69" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 607.63 893.69)">X032</text>
+<circle cx="589.74" cy="169.40" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="589.74" cy="439.40" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<circle cx="589.74" cy="799.40" r="2.42" fill="none" stroke="#000" stroke-width="0.6"/>
+<line x1="589.74" y1="171.82" x2="589.74" y2="436.98" stroke="#000" stroke-width="0.40"/>
+<line x1="589.74" y1="441.82" x2="589.74" y2="796.98" stroke="#000" stroke-width="0.40"/>
+<path d="M 606.83 265.11 L 630.26 265.11 L 630.26 253.30 L 606.83 253.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="263.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 263.61)">701a</text>
+<path d="M 606.83 310.12 L 630.26 310.12 L 630.26 298.31 L 606.83 298.31 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="308.62" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 308.62)">721a</text>
+<path d="M 606.83 355.11 L 630.26 355.11 L 630.26 343.30 L 606.83 343.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="353.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 353.61)">701b</text>
+<path d="M 606.83 400.11 L 630.26 400.11 L 630.26 388.30 L 606.83 388.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="398.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 398.61)">721b</text>
+<path d="M 606.83 535.11 L 630.26 535.11 L 630.26 523.30 L 606.83 523.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="533.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 533.61)">707a</text>
+<path d="M 606.83 580.12 L 630.26 580.12 L 630.26 568.31 L 606.83 568.31 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="578.62" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 578.62)">709a</text>
+<path d="M 606.83 625.11 L 630.26 625.11 L 630.26 613.30 L 606.83 613.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="623.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 623.61)">707b</text>
+<path d="M 606.83 670.11 L 630.26 670.11 L 630.26 658.30 L 606.83 658.30 Z" fill="none" stroke="#000" stroke-width="0.30"/>
+<text x="608.44" y="668.61" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="7.50" fill="#000" transform="rotate(-0.00 608.44 668.61)">709b</text>
+<line x1="143.13" y1="1005.96" x2="139.86" y2="1005.72" stroke="#000" stroke-width="0.40"/>
+<line x1="146.96" y1="1010.29" x2="145.72" y2="1007.81" stroke="#000" stroke-width="0.40"/>
+<line x1="147.70" y1="1003.49" x2="149.92" y2="1011.03" stroke="#000" stroke-width="0.40"/>
+<line x1="144.36" y1="968.98" x2="148.93" y2="973.80" stroke="#000" stroke-width="0.40"/>
+<line x1="151.90" y1="976.52" x2="144.36" y2="968.98" stroke="#000" stroke-width="0.40"/>
+<line x1="150.29" y1="968.61" x2="153.38" y2="978.50" stroke="#000" stroke-width="0.40"/>
+<line x1="150.42" y1="967.74" x2="150.29" y2="968.61" stroke="#000" stroke-width="0.40"/>
+<line x1="157.46" y1="1006.08" x2="153.88" y2="1006.33" stroke="#000" stroke-width="0.40"/>
+<line x1="148.81" y1="1005.22" x2="157.46" y2="1006.08" stroke="#000" stroke-width="0.40"/>
+<line x1="151.65" y1="1007.94" x2="151.28" y2="1007.94" stroke="#000" stroke-width="0.40"/>
+<line x1="155.48" y1="1007.81" x2="154.87" y2="1007.81" stroke="#000" stroke-width="0.40"/>
+<line x1="148.32" y1="1006.58" x2="143.13" y2="1005.96" stroke="#000" stroke-width="0.40"/>
+<line x1="145.72" y1="1007.57" x2="146.09" y2="1006.21" stroke="#000" stroke-width="0.40"/>
+<line x1="154.37" y1="1004.85" x2="155.36" y2="1005.71" stroke="#000" stroke-width="0.40"/>
+<line x1="148.56" y1="1005.59" x2="147.70" y2="1003.49" stroke="#000" stroke-width="0.40"/>
+<line x1="152.39" y1="1002.99" x2="154.37" y2="1004.85" stroke="#000" stroke-width="0.40"/>
+<line x1="148.93" y1="1001.14" x2="147.70" y2="1001.01" stroke="#000" stroke-width="0.40"/>
+<line x1="153.88" y1="1006.33" x2="148.32" y2="1006.58" stroke="#000" stroke-width="0.40"/>
+<line x1="146.09" y1="1006.21" x2="148.81" y2="1005.22" stroke="#000" stroke-width="0.40"/>
+<line x1="150.29" y1="1007.32" x2="148.56" y2="1005.59" stroke="#000" stroke-width="0.40"/>
+<line x1="154.00" y1="1007.57" x2="151.03" y2="1004.35" stroke="#000" stroke-width="0.40"/>
+<line x1="155.73" y1="1006.45" x2="155.61" y2="1006.70" stroke="#000" stroke-width="0.40"/>
+<line x1="155.36" y1="1005.71" x2="155.73" y2="1006.45" stroke="#000" stroke-width="0.40"/>
+<line x1="145.72" y1="1007.81" x2="145.72" y2="1007.57" stroke="#000" stroke-width="0.40"/>
+<line x1="154.87" y1="1007.81" x2="154.00" y2="1007.57" stroke="#000" stroke-width="0.40"/>
+<line x1="151.28" y1="1007.94" x2="150.29" y2="1007.32" stroke="#000" stroke-width="0.40"/>
+<line x1="151.03" y1="1004.35" x2="151.65" y2="1007.94" stroke="#000" stroke-width="0.40"/>
+<line x1="155.61" y1="1006.70" x2="155.48" y2="1007.81" stroke="#000" stroke-width="0.40"/>
+<line x1="147.33" y1="992.85" x2="144.73" y2="990.00" stroke="#000" stroke-width="0.40"/>
+<line x1="144.73" y1="990.00" x2="144.49" y2="991.24" stroke="#000" stroke-width="0.40"/>
+<line x1="154.62" y1="991.61" x2="153.88" y2="990.00" stroke="#000" stroke-width="0.40"/>
+<line x1="148.32" y1="984.44" x2="152.02" y2="992.48" stroke="#000" stroke-width="0.40"/>
+<line x1="148.19" y1="990.62" x2="147.58" y2="991.74" stroke="#000" stroke-width="0.40"/>
+<line x1="152.02" y1="992.48" x2="150.05" y2="990.62" stroke="#000" stroke-width="0.40"/>
+<line x1="155.98" y1="989.88" x2="156.10" y2="992.23" stroke="#000" stroke-width="0.40"/>
+<line x1="158.45" y1="990.99" x2="159.07" y2="991.61" stroke="#000" stroke-width="0.40"/>
+<line x1="158.33" y1="988.52" x2="155.85" y2="988.89" stroke="#000" stroke-width="0.40"/>
+<line x1="155.73" y1="990.50" x2="158.45" y2="990.99" stroke="#000" stroke-width="0.40"/>
+<line x1="147.20" y1="987.65" x2="144.49" y2="983.20" stroke="#000" stroke-width="0.40"/>
+<line x1="145.72" y1="981.96" x2="146.34" y2="982.58" stroke="#000" stroke-width="0.40"/>
+<line x1="146.22" y1="979.24" x2="145.72" y2="979.99" stroke="#000" stroke-width="0.40"/>
+<line x1="142.26" y1="974.05" x2="150.42" y2="977.39" stroke="#000" stroke-width="0.40"/>
+<line x1="150.54" y1="974.67" x2="142.26" y2="974.05" stroke="#000" stroke-width="0.40"/>
+<line x1="145.72" y1="979.99" x2="145.72" y2="981.96" stroke="#000" stroke-width="0.40"/>
+<line x1="155.73" y1="975.78" x2="150.54" y2="974.67" stroke="#000" stroke-width="0.40"/>
+<line x1="153.38" y1="978.50" x2="155.73" y2="975.78" stroke="#000" stroke-width="0.40"/>
+<line x1="148.32" y1="976.77" x2="147.20" y2="977.64" stroke="#000" stroke-width="0.40"/>
+<line x1="150.42" y1="977.39" x2="151.90" y2="976.52" stroke="#000" stroke-width="0.40"/>
+<line x1="148.81" y1="975.90" x2="148.32" y2="976.77" stroke="#000" stroke-width="0.40"/>
+<line x1="149.18" y1="974.91" x2="148.81" y2="975.90" stroke="#000" stroke-width="0.40"/>
+<line x1="148.93" y1="973.80" x2="149.18" y2="974.91" stroke="#000" stroke-width="0.40"/>
+<line x1="146.34" y1="982.58" x2="147.08" y2="982.95" stroke="#000" stroke-width="0.40"/>
+<line x1="147.20" y1="977.64" x2="146.22" y2="979.24" stroke="#000" stroke-width="0.40"/>
+<line x1="149.06" y1="988.15" x2="155.73" y2="990.50" stroke="#000" stroke-width="0.40"/>
+<line x1="155.85" y1="988.89" x2="154.37" y2="988.89" stroke="#000" stroke-width="0.40"/>
+<line x1="153.26" y1="983.94" x2="155.24" y2="987.53" stroke="#000" stroke-width="0.40"/>
+<line x1="150.05" y1="990.62" x2="147.20" y2="987.65" stroke="#000" stroke-width="0.40"/>
+<line x1="152.89" y1="990.75" x2="151.90" y2="989.63" stroke="#000" stroke-width="0.40"/>
+<line x1="153.88" y1="990.00" x2="153.26" y2="990.75" stroke="#000" stroke-width="0.40"/>
+<line x1="149.92" y1="988.40" x2="149.06" y2="988.15" stroke="#000" stroke-width="0.40"/>
+<line x1="152.27" y1="988.89" x2="149.92" y2="988.40" stroke="#000" stroke-width="0.40"/>
+<line x1="154.37" y1="988.89" x2="152.27" y2="988.89" stroke="#000" stroke-width="0.40"/>
+<line x1="151.90" y1="989.63" x2="148.32" y2="984.44" stroke="#000" stroke-width="0.40"/>
+<line x1="153.26" y1="990.75" x2="152.89" y2="990.75" stroke="#000" stroke-width="0.40"/>
+<line x1="155.24" y1="987.53" x2="155.98" y2="989.88" stroke="#000" stroke-width="0.40"/>
+<line x1="157.58" y1="992.23" x2="154.62" y2="991.86" stroke="#000" stroke-width="0.40"/>
+<line x1="144.61" y1="993.22" x2="144.49" y2="993.96" stroke="#000" stroke-width="0.40"/>
+<line x1="144.49" y1="992.85" x2="144.61" y2="993.22" stroke="#000" stroke-width="0.40"/>
+<line x1="144.49" y1="991.24" x2="144.49" y2="992.85" stroke="#000" stroke-width="0.40"/>
+<line x1="154.62" y1="991.86" x2="152.02" y2="991.49" stroke="#000" stroke-width="0.40"/>
+<line x1="147.33" y1="993.96" x2="146.96" y2="996.31" stroke="#000" stroke-width="0.40"/>
+<line x1="148.81" y1="992.85" x2="147.33" y2="993.96" stroke="#000" stroke-width="0.40"/>
+<line x1="149.92" y1="992.23" x2="148.81" y2="992.85" stroke="#000" stroke-width="0.40"/>
+<line x1="147.58" y1="991.74" x2="147.33" y2="992.85" stroke="#000" stroke-width="0.40"/>
+<line x1="155.24" y1="992.85" x2="154.62" y2="991.61" stroke="#000" stroke-width="0.40"/>
+<line x1="155.61" y1="993.34" x2="155.24" y2="992.85" stroke="#000" stroke-width="0.40"/>
+<line x1="155.98" y1="993.10" x2="155.61" y2="993.34" stroke="#000" stroke-width="0.40"/>
+<line x1="156.10" y1="992.23" x2="155.98" y2="993.10" stroke="#000" stroke-width="0.40"/>
+<line x1="149.18" y1="1000.27" x2="149.43" y2="1000.52" stroke="#000" stroke-width="0.40"/>
+<line x1="148.69" y1="999.90" x2="149.18" y2="1000.27" stroke="#000" stroke-width="0.40"/>
+<line x1="147.33" y1="998.79" x2="148.69" y2="999.90" stroke="#000" stroke-width="0.40"/>
+<line x1="147.45" y1="998.66" x2="147.33" y2="998.79" stroke="#000" stroke-width="0.40"/>
+<line x1="147.82" y1="998.79" x2="147.45" y2="998.66" stroke="#000" stroke-width="0.40"/>
+<line x1="148.32" y1="999.03" x2="147.82" y2="998.79" stroke="#000" stroke-width="0.40"/>
+<line x1="149.18" y1="999.53" x2="148.32" y2="999.03" stroke="#000" stroke-width="0.40"/>
+<line x1="150.17" y1="999.90" x2="149.18" y2="999.53" stroke="#000" stroke-width="0.40"/>
+<line x1="151.16" y1="1000.27" x2="150.17" y2="999.90" stroke="#000" stroke-width="0.40"/>
+<line x1="151.78" y1="1000.15" x2="151.16" y2="1000.27" stroke="#000" stroke-width="0.40"/>
+<line x1="152.02" y1="999.77" x2="151.78" y2="1000.15" stroke="#000" stroke-width="0.40"/>
+<line x1="152.15" y1="999.53" x2="152.02" y2="999.77" stroke="#000" stroke-width="0.40"/>
+<line x1="146.09" y1="1000.52" x2="146.22" y2="1000.76" stroke="#000" stroke-width="0.40"/>
+<line x1="159.07" y1="991.61" x2="157.58" y2="992.23" stroke="#000" stroke-width="0.40"/>
+<line x1="147.70" y1="1001.01" x2="146.09" y2="1000.52" stroke="#000" stroke-width="0.40"/>
+<line x1="149.43" y1="1000.52" x2="148.93" y2="1001.14" stroke="#000" stroke-width="0.40"/>
+<line x1="146.22" y1="1000.76" x2="147.20" y2="1001.38" stroke="#000" stroke-width="0.40"/>
+<line x1="148.44" y1="1011.40" x2="146.96" y2="1010.29" stroke="#000" stroke-width="0.40"/>
+<line x1="149.55" y1="1011.52" x2="148.44" y2="1011.40" stroke="#000" stroke-width="0.40"/>
+<line x1="149.92" y1="1011.03" x2="149.55" y2="1011.52" stroke="#000" stroke-width="0.40"/>
+<path d="M 124.13 966.38 L 124.13 966.27 L 124.03 966.27" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.24 966.69 L 124.13 966.48" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.66 967.32 L 124.45 967.22" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.76 967.53 L 124.74 967.45 L 124.55 967.43" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.97 967.85 L 124.76 967.74" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.08 968.06 L 124.87 967.96" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.18 968.27 L 125.00 967.93 L 124.84 967.67 L 124.53 967.35 L 124.03 966.27 L 124.03 966.06" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.50 968.69 L 125.29 968.59" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.61 968.90 L 125.56 968.71 L 125.18 968.27 L 124.93 968.08 L 124.76 967.64 L 124.45 967.01 L 124.24 966.80" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.82 969.22 L 125.77 969.03 L 125.45 968.85 L 125.08 968.27" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.03 969.54 L 125.98 969.35 L 125.54 969.09 L 125.50 968.90" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.34 969.96 L 125.84 969.49 L 125.71 969.22" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 127.29 971.33 L 127.19 971.33 L 127.19 971.22" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 130.13 973.96 L 129.56 973.59 L 128.95 972.93 L 128.40 972.33 L 127.67 971.45 L 127.53 971.30 L 127.10 971.18 L 126.83 970.82 L 126.63 970.61 L 126.41 970.29 L 126.24 969.96" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.39 975.96 L 125.29 975.96 L 125.29 975.86 L 125.61 975.86" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.65 976.91 L 118.44 975.64" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.76 977.12 L 118.55 977.12 L 118.55 976.91" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.86 977.33 L 118.65 977.33 L 118.65 977.12" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.97 977.54 L 118.93 977.35 L 118.65 976.91 L 118.52 976.86 L 118.44 976.38" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.24 977.86 L 124.13 977.65" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.45 977.96 L 124.34 977.75" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 123.50 977.86 L 124.10 977.78 L 124.57 978.03 L 124.88 978.13 L 125.37 978.32 L 125.39 978.38 L 126.24 978.38 L 126.30 978.26 L 126.45 978.07 L 126.45 977.12 L 126.11 976.41 L 125.63 975.83 L 125.61 975.75 L 125.50 975.75 L 125.50 975.86" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 136.98 978.80 L 137.09 978.80 L 137.09 978.70 L 136.90 978.66 L 136.14 978.44 L 134.46 978.33 L 134.15 978.23 L 133.98 977.95 L 133.14 975.45 L 132.66 973.85 L 132.66 973.33 L 132.82 973.19 L 133.08 973.12 L 132.98 972.70 L 132.66 972.70 L 132.64 972.77 L 132.35 973.12 L 132.40 973.97 L 132.62 975.03 L 132.73 975.24 L 133.24 976.68 L 133.35 977.14 L 133.55 977.62 L 133.61 977.65 L 133.61 977.96 L 133.29 977.96 L 133.16 977.78 L 132.69 977.20 L 130.79 974.99 L 130.49 974.46 L 130.28 974.15 L 130.03 973.54" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.55 976.38 L 118.34 976.38 L 118.34 975.64 L 118.48 975.46 L 118.57 975.36 L 118.76 975.12 L 119.18 975.12 L 119.79 975.58 L 119.84 975.62 L 120.17 976.04 L 120.52 976.41 L 120.80 976.78 L 120.89 976.88 L 121.12 977.20 L 121.98 978.82 L 122.07 979.10 L 122.31 979.57 L 122.34 979.65 L 122.66 979.65 L 122.72 979.52 L 123.13 978.37 L 123.23 977.97 L 123.47 977.62 L 123.50 977.54 L 124.03 977.54 L 124.05 977.60 L 125.17 978.01 L 125.18 978.07 L 125.92 978.07 L 125.95 977.99 L 126.03 977.96 L 126.03 977.01 L 125.87 976.71 L 125.54 976.26 L 125.39 975.86" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.76 977.33 L 119.47 978.09 L 120.78 979.29 L 120.95 979.37 L 121.71 979.86 L 121.92 979.86 L 121.92 979.44 L 121.56 978.72 L 120.82 977.25 L 119.89 976.09 L 119.62 975.92 L 119.18 975.54 L 118.65 975.54 L 118.55 975.75" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 136.98 978.70 L 136.86 978.97 L 136.56 979.12 L 136.35 979.12 L 136.30 978.98 L 136.05 978.86 L 134.45 978.70 L 134.45 979.12 L 134.71 979.74 L 135.04 980.51 L 135.25 980.83 L 135.30 981.02 L 135.51 981.02 L 135.67 980.48 L 135.77 980.08 L 136.01 979.94 L 136.17 979.36 L 136.24 979.33" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 118.86 977.54 L 119.33 978.36 L 119.68 978.73 L 120.52 979.46 L 120.95 979.79 L 121.83 980.23 L 122.19 980.51 L 122.28 980.79 L 122.49 981.32 L 122.55 981.33 L 122.55 983.23 L 122.45 983.23 L 122.45 983.44 L 122.61 983.57 L 122.66 983.76 L 122.87 983.76 L 122.97 983.44 L 122.97 981.65 L 122.82 981.13 L 122.66 980.70 L 122.66 980.07 L 122.82 979.94 L 123.00 979.67 L 123.34 978.90 L 123.50 977.86 L 123.39 977.75" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.34 986.81 L 126.18 986.76 L 126.13 986.39" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.03 986.18 L 126.09 986.20 L 126.53 987.26 L 126.55 987.34 L 126.87 987.34 L 127.45 986.06 L 127.77 985.22 L 127.87 984.82 L 129.33 980.51 L 129.35 980.48 L 129.55 979.77 L 129.87 978.60 L 129.92 978.28 L 129.29 978.17 L 129.29 978.28 L 129.08 978.28 L 129.00 978.15 L 128.95 978.09 L 128.87 978.07 L 128.87 977.86 L 128.98 977.80 L 130.12 977.65 L 130.18 977.56 L 130.40 976.71 L 130.45 975.33 L 130.30 975.03 L 130.19 974.71 L 128.84 973.25 L 128.51 972.82 L 128.16 972.46 L 127.86 972.15 L 127.78 971.98 L 127.53 971.72 L 127.33 971.52 L 127.25 971.03 L 127.04 970.71 L 126.62 970.19 L 126.15 969.91 L 125.92 969.54" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.24 987.34 L 126.13 987.34 L 126.13 987.23 L 126.24 987.23" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.24 986.81 L 126.30 987.77 L 126.45 988.29 L 126.76 988.29 L 127.14 987.64 L 127.23 987.35 L 127.45 987.01 L 128.40 984.37 L 129.03 982.27 L 129.44 981.14 L 129.87 979.95 L 130.19 978.89 L 130.35 978.28 L 131.50 978.28 L 133.37 978.62 L 133.55 978.89 L 134.12 979.27 L 134.52 980.09 L 135.13 981.42 L 135.27 981.57 L 135.30 981.65 L 135.51 981.65 L 135.88 980.91 L 135.93 979.96 L 135.95 979.67 L 136.06 979.46 L 136.24 979.33 L 136.24 979.23" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 123.15 992.75 L 122.92 992.67 L 122.84 992.65 L 122.84 992.33 L 123.05 992.33 L 123.05 992.54" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 125.37 997.39 L 125.24 997.22 L 124.72 997.01 L 124.42 996.97 L 124.42 996.65 L 124.67 996.46 L 124.94 995.91 L 124.84 994.65 L 125.05 994.65 L 125.42 995.02 L 125.71 995.26 L 125.76 995.31 L 128.23 997.45 L 128.40 997.54 L 128.53 997.70 L 129.05 997.70 L 129.05 997.39 L 128.75 997.34 L 128.44 997.14 L 128.34 997.05 L 128.02 996.82 L 127.70 996.61 L 127.55 996.47 L 123.20 992.73 L 123.15 992.54 L 122.94 992.65" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 128.84 997.70 L 128.84 997.81 L 128.95 997.81 L 128.95 997.70" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 128.21 998.86 L 128.21 998.76 L 128.32 998.76" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 128.95 999.49 L 129.05 999.28" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 129.26 999.49 L 129.16 999.60 L 128.93 999.54 L 128.76 999.45 L 128.39 999.10 L 128.02 998.82 L 126.66 997.78 L 126.23 997.56 L 125.78 997.33 L 125.26 997.28 L 122.85 996.60 L 120.83 996.17 L 120.20 996.02 L 120.20 995.81 L 120.42 995.70 L 121.05 995.70 L 123.77 996.38 L 123.79 996.44 L 124.10 996.44 L 124.29 996.29 L 124.57 995.82 L 124.63 995.81 L 124.63 995.18 L 124.39 994.36 L 124.24 994.07 L 123.55 993.41 L 123.18 993.04 L 123.05 992.75" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.31 1003.18 L 124.31 1003.29 L 124.42 1003.50 L 124.84 1003.50 L 125.05 1003.29 L 125.05 1002.23 L 124.84 1002.23 L 124.81 1002.31 L 124.68 1002.67 L 124.63 1003.18 L 124.21 1003.18 L 124.21 1003.29 L 124.31 1003.29" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 121.26 1003.50 L 120.97 1003.26 L 120.73 1002.97" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 124.63 1003.50 L 124.63 1003.60 L 124.73 1003.60 L 124.73 1003.50" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 120.63 1002.76 L 121.07 1003.16 L 121.70 1003.56 L 122.19 1003.76 L 122.21 1003.81 L 122.52 1003.71 L 122.52 1002.87 L 122.37 1002.24 L 122.36 1002.22 L 122.21 1001.71 L 122.31 1001.71" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 120.73 1002.87 L 120.76 1003.05 L 121.07 1003.26 L 121.26 1003.50 L 121.66 1003.86 L 122.01 1004.08 L 122.63 1004.24 L 122.76 1004.08 L 122.89 1003.83 L 122.94 1003.81 L 122.94 1002.97 L 122.79 1002.56 L 122.68 1002.12 L 122.63 1001.50 L 122.31 1001.50 L 122.31 1001.81" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 119.15 1004.34 L 119.31 1003.40 L 119.57 1002.55 L 119.57 1001.07 L 119.36 1001.07 L 119.31 1001.19 L 119.10 1002.65 L 118.73 1004.24 L 118.88 1004.42 L 118.91 1004.47 L 118.94 1004.55 L 119.15 1004.55 L 119.26 1004.34 L 119.26 1004.24 L 119.15 1004.24" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 126.74 1008.34 L 126.84 1008.87 L 127.00 1009.34 L 127.47 1009.40 L 127.31 1007.29 L 127.21 1006.14 L 126.90 1004.46 L 126.79 1003.82 L 126.06 1001.09 L 125.95 1000.67 L 125.52 998.96 L 125.42 998.56 L 125.37 997.39 L 125.37 997.28" fill="none" stroke="#000" stroke-width="0.30"/>
+<path d="M 127.58 1011.08 L 127.58 1011.19 L 127.47 1011.19 L 127.47 1011.08 L 127.66 1011.04 L 127.89 1009.50 L 127.74 1007.61 L 127.21 1004.14 L 126.05 999.69 L 125.63 998.03 L 125.58 998.02 L 125.58 997.70 L 126.00 997.70 L 127.08 998.42 L 127.35 998.59 L 127.66 998.89 L 127.87 999.01 L 128.18 999.31 L 128.40 999.43 L 128.76 999.78 L 129.03 999.96 L 133.46 1003.54 L 133.69 1003.81 L 134.00 1003.71 L 134.00 1003.50 L 133.24 1002.79 L 133.08 1002.63 L 131.24 1000.91 L 129.82 999.78 L 129.05 999.39" fill="none" stroke="#000" stroke-width="0.30"/>
+<line x1="96.17" y1="1013.44" x2="95.40" y2="1013.05" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="1011.51" x2="99.53" y2="1013.70" stroke="#000" stroke-width="0.40"/>
+<line x1="102.88" y1="1007.77" x2="102.62" y2="1006.86" stroke="#000" stroke-width="0.40"/>
+<line x1="102.75" y1="990.49" x2="102.62" y2="991.39" stroke="#000" stroke-width="0.40"/>
+<line x1="102.75" y1="992.16" x2="102.49" y2="991.78" stroke="#000" stroke-width="0.40"/>
+<line x1="103.01" y1="988.17" x2="102.11" y2="988.55" stroke="#000" stroke-width="0.40"/>
+<line x1="102.75" y1="990.49" x2="101.98" y2="989.97" stroke="#000" stroke-width="0.40"/>
+<line x1="102.75" y1="973.08" x2="98.75" y2="972.82" stroke="#000" stroke-width="0.40"/>
+<line x1="103.40" y1="979.01" x2="102.49" y2="978.88" stroke="#000" stroke-width="0.40"/>
+<line x1="103.14" y1="972.05" x2="102.49" y2="971.79" stroke="#000" stroke-width="0.40"/>
+<line x1="103.40" y1="977.46" x2="102.24" y2="977.20" stroke="#000" stroke-width="0.40"/>
+<line x1="103.14" y1="970.76" x2="102.24" y2="970.63" stroke="#000" stroke-width="0.40"/>
+<line x1="103.27" y1="1003.12" x2="102.11" y2="1003.12" stroke="#000" stroke-width="0.40"/>
+<line x1="103.40" y1="974.24" x2="100.43" y2="974.24" stroke="#000" stroke-width="0.40"/>
+<line x1="90.63" y1="1010.60" x2="89.86" y2="1010.48" stroke="#000" stroke-width="0.40"/>
+<line x1="90.50" y1="1007.64" x2="89.98" y2="1008.15" stroke="#000" stroke-width="0.40"/>
+<line x1="90.50" y1="1007.64" x2="89.86" y2="1007.38" stroke="#000" stroke-width="0.40"/>
+<line x1="90.50" y1="1009.32" x2="89.73" y2="1008.93" stroke="#000" stroke-width="0.40"/>
+<line x1="90.63" y1="990.74" x2="90.11" y2="990.87" stroke="#000" stroke-width="0.40"/>
+<line x1="90.24" y1="990.87" x2="90.11" y2="990.87" stroke="#000" stroke-width="0.40"/>
+<line x1="92.82" y1="987.78" x2="89.34" y2="988.04" stroke="#000" stroke-width="0.40"/>
+<line x1="92.56" y1="992.03" x2="89.21" y2="992.16" stroke="#000" stroke-width="0.40"/>
+<line x1="91.02" y1="974.62" x2="90.11" y2="974.37" stroke="#000" stroke-width="0.40"/>
+<line x1="91.02" y1="967.14" x2="89.86" y2="966.76" stroke="#000" stroke-width="0.40"/>
+<line x1="91.27" y1="968.56" x2="90.11" y2="968.05" stroke="#000" stroke-width="0.40"/>
+<line x1="91.53" y1="976.82" x2="90.11" y2="977.72" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="971.79" x2="88.18" y2="971.92" stroke="#000" stroke-width="0.40"/>
+<line x1="90.76" y1="979.01" x2="89.86" y2="979.91" stroke="#000" stroke-width="0.40"/>
+<line x1="89.21" y1="967.53" x2="88.44" y2="967.27" stroke="#000" stroke-width="0.40"/>
+<line x1="89.08" y1="966.11" x2="88.18" y2="966.24" stroke="#000" stroke-width="0.40"/>
+<line x1="88.44" y1="967.14" x2="88.44" y2="967.27" stroke="#000" stroke-width="0.40"/>
+<line x1="88.18" y1="966.24" x2="87.92" y2="966.50" stroke="#000" stroke-width="0.40"/>
+<line x1="88.44" y1="967.14" x2="87.92" y2="966.50" stroke="#000" stroke-width="0.40"/>
+<line x1="89.21" y1="967.53" x2="89.21" y2="967.66" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="966.63" x2="89.08" y2="966.24" stroke="#000" stroke-width="0.40"/>
+<line x1="89.08" y1="966.11" x2="89.08" y2="966.24" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="966.63" x2="89.86" y2="966.76" stroke="#000" stroke-width="0.40"/>
+<line x1="90.11" y1="968.05" x2="89.21" y2="967.66" stroke="#000" stroke-width="0.40"/>
+<line x1="89.08" y1="973.59" x2="88.44" y2="973.21" stroke="#000" stroke-width="0.40"/>
+<line x1="88.18" y1="971.92" x2="87.92" y2="972.56" stroke="#000" stroke-width="0.40"/>
+<line x1="88.44" y1="973.21" x2="87.92" y2="972.56" stroke="#000" stroke-width="0.40"/>
+<line x1="90.11" y1="974.37" x2="89.60" y2="973.98" stroke="#000" stroke-width="0.40"/>
+<line x1="89.60" y1="973.98" x2="89.08" y2="973.59" stroke="#000" stroke-width="0.40"/>
+<line x1="88.05" y1="980.69" x2="87.79" y2="981.59" stroke="#000" stroke-width="0.40"/>
+<line x1="88.95" y1="981.46" x2="88.31" y2="982.10" stroke="#000" stroke-width="0.40"/>
+<line x1="89.21" y1="978.75" x2="88.57" y2="979.65" stroke="#000" stroke-width="0.40"/>
+<line x1="88.57" y1="979.65" x2="88.05" y2="980.69" stroke="#000" stroke-width="0.40"/>
+<line x1="90.11" y1="977.72" x2="89.21" y2="978.75" stroke="#000" stroke-width="0.40"/>
+<line x1="89.34" y1="980.69" x2="88.95" y2="981.46" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="979.91" x2="89.34" y2="980.69" stroke="#000" stroke-width="0.40"/>
+<line x1="88.31" y1="982.10" x2="87.79" y2="981.59" stroke="#000" stroke-width="0.40"/>
+<line x1="89.21" y1="992.16" x2="88.31" y2="992.16" stroke="#000" stroke-width="0.40"/>
+<line x1="89.21" y1="990.10" x2="88.57" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="88.57" y1="990.74" x2="87.79" y2="991.26" stroke="#000" stroke-width="0.40"/>
+<line x1="87.79" y1="991.26" x2="87.79" y2="991.39" stroke="#000" stroke-width="0.40"/>
+<line x1="88.31" y1="992.16" x2="87.79" y2="991.39" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="989.58" x2="89.60" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="989.58" x2="89.60" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="89.60" y1="990.10" x2="89.21" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="89.60" y1="989.33" x2="89.08" y2="989.20" stroke="#000" stroke-width="0.40"/>
+<line x1="89.34" y1="988.04" x2="88.82" y2="988.81" stroke="#000" stroke-width="0.40"/>
+<line x1="89.08" y1="988.94" x2="88.82" y2="988.81" stroke="#000" stroke-width="0.40"/>
+<line x1="89.08" y1="988.94" x2="89.08" y2="989.20" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="1007.38" x2="88.57" y2="1007.38" stroke="#000" stroke-width="0.40"/>
+<line x1="88.82" y1="1009.70" x2="87.66" y2="1008.80" stroke="#000" stroke-width="0.40"/>
+<line x1="88.05" y1="1007.77" x2="87.66" y2="1008.28" stroke="#000" stroke-width="0.40"/>
+<line x1="87.66" y1="1008.28" x2="87.66" y2="1008.80" stroke="#000" stroke-width="0.40"/>
+<line x1="88.57" y1="1007.38" x2="88.05" y2="1007.77" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="1010.22" x2="88.82" y2="1009.83" stroke="#000" stroke-width="0.40"/>
+<line x1="89.73" y1="1008.80" x2="89.73" y2="1008.93" stroke="#000" stroke-width="0.40"/>
+<line x1="88.82" y1="1009.70" x2="88.82" y2="1009.83" stroke="#000" stroke-width="0.40"/>
+<line x1="89.34" y1="1008.41" x2="89.34" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="89.73" y1="1008.80" x2="89.34" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="89.98" y1="1008.15" x2="89.34" y2="1008.41" stroke="#000" stroke-width="0.40"/>
+<line x1="89.86" y1="1010.22" x2="89.86" y2="1010.48" stroke="#000" stroke-width="0.40"/>
+<line x1="101.46" y1="988.17" x2="99.53" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="96.56" y1="988.04" x2="95.27" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="96.95" y1="988.04" x2="95.92" y2="987.52" stroke="#000" stroke-width="0.40"/>
+<line x1="93.85" y1="987.91" x2="93.47" y2="987.65" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="987.65" x2="93.85" y2="987.91" stroke="#000" stroke-width="0.40"/>
+<line x1="96.82" y1="986.36" x2="95.66" y2="985.97" stroke="#000" stroke-width="0.40"/>
+<line x1="96.69" y1="975.78" x2="96.30" y2="974.88" stroke="#000" stroke-width="0.40"/>
+<line x1="96.56" y1="968.31" x2="96.43" y2="968.95" stroke="#000" stroke-width="0.40"/>
+<line x1="97.46" y1="972.56" x2="96.30" y2="971.92" stroke="#000" stroke-width="0.40"/>
+<line x1="96.56" y1="966.63" x2="94.88" y2="965.34" stroke="#000" stroke-width="0.40"/>
+<line x1="95.40" y1="975.01" x2="95.27" y2="975.78" stroke="#000" stroke-width="0.40"/>
+<line x1="94.37" y1="974.75" x2="92.82" y2="975.91" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="972.17" x2="92.05" y2="971.92" stroke="#000" stroke-width="0.40"/>
+<line x1="94.37" y1="969.47" x2="92.05" y2="969.08" stroke="#000" stroke-width="0.40"/>
+<line x1="93.85" y1="968.05" x2="91.92" y2="967.66" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="964.69" x2="93.08" y2="964.69" stroke="#000" stroke-width="0.40"/>
+<line x1="93.72" y1="966.11" x2="92.95" y2="965.21" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="973.21" x2="90.63" y2="972.95" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="968.95" x2="91.27" y2="968.69" stroke="#000" stroke-width="0.40"/>
+<line x1="91.92" y1="967.53" x2="91.02" y2="967.27" stroke="#000" stroke-width="0.40"/>
+<line x1="91.27" y1="968.56" x2="91.27" y2="968.69" stroke="#000" stroke-width="0.40"/>
+<line x1="91.02" y1="967.14" x2="91.02" y2="967.27" stroke="#000" stroke-width="0.40"/>
+<line x1="93.08" y1="964.69" x2="92.95" y2="965.21" stroke="#000" stroke-width="0.40"/>
+<line x1="91.92" y1="967.53" x2="91.92" y2="967.66" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="973.98" x2="91.02" y2="974.62" stroke="#000" stroke-width="0.40"/>
+<line x1="90.76" y1="973.59" x2="90.24" y2="973.08" stroke="#000" stroke-width="0.40"/>
+<line x1="90.63" y1="972.95" x2="90.24" y2="973.08" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="973.98" x2="90.76" y2="973.59" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="971.79" x2="92.05" y2="971.92" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="968.95" x2="92.05" y2="969.08" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="968.31" x2="93.85" y2="968.18" stroke="#000" stroke-width="0.40"/>
+<line x1="95.01" y1="967.40" x2="94.50" y2="966.89" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="965.08" x2="94.24" y2="964.69" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="966.89" x2="93.72" y2="966.11" stroke="#000" stroke-width="0.40"/>
+<line x1="93.85" y1="968.05" x2="93.85" y2="968.18" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="965.08" x2="94.88" y2="965.34" stroke="#000" stroke-width="0.40"/>
+<line x1="95.01" y1="967.40" x2="94.88" y2="968.31" stroke="#000" stroke-width="0.40"/>
+<line x1="95.01" y1="974.62" x2="94.37" y2="974.75" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="973.59" x2="94.50" y2="973.33" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="971.53" x2="94.76" y2="972.17" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="971.53" x2="94.63" y2="970.76" stroke="#000" stroke-width="0.40"/>
+<line x1="94.63" y1="970.76" x2="94.37" y2="969.59" stroke="#000" stroke-width="0.40"/>
+<line x1="94.37" y1="969.47" x2="94.37" y2="969.59" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="973.21" x2="94.50" y2="973.33" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="971.66" x2="96.30" y2="971.92" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="970.24" x2="95.92" y2="970.63" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="970.24" x2="95.79" y2="970.24" stroke="#000" stroke-width="0.40"/>
+<line x1="96.43" y1="968.95" x2="96.05" y2="969.34" stroke="#000" stroke-width="0.40"/>
+<line x1="96.05" y1="969.34" x2="95.79" y2="970.24" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="971.66" x2="95.92" y2="970.63" stroke="#000" stroke-width="0.40"/>
+<line x1="95.40" y1="975.01" x2="95.01" y2="974.62" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="974.88" x2="95.66" y2="973.72" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="973.59" x2="95.66" y2="973.72" stroke="#000" stroke-width="0.40"/>
+<line x1="93.47" y1="987.65" x2="92.82" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="93.72" y1="986.23" x2="93.08" y2="985.84" stroke="#000" stroke-width="0.40"/>
+<line x1="93.98" y1="984.94" x2="93.08" y2="984.43" stroke="#000" stroke-width="0.40"/>
+<line x1="93.72" y1="976.82" x2="91.79" y2="977.85" stroke="#000" stroke-width="0.40"/>
+<line x1="92.18" y1="976.17" x2="91.53" y2="976.82" stroke="#000" stroke-width="0.40"/>
+<line x1="91.79" y1="977.85" x2="91.27" y2="978.49" stroke="#000" stroke-width="0.40"/>
+<line x1="91.27" y1="978.49" x2="90.76" y2="979.01" stroke="#000" stroke-width="0.40"/>
+<line x1="92.82" y1="975.91" x2="92.18" y2="976.17" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="983.91" x2="91.53" y2="983.78" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="984.94" x2="91.14" y2="984.55" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="984.43" x2="91.14" y2="984.55" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="984.43" x2="91.02" y2="984.30" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="984.17" x2="91.02" y2="984.30" stroke="#000" stroke-width="0.40"/>
+<line x1="91.53" y1="983.78" x2="91.14" y2="984.17" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="983.91" x2="92.43" y2="984.04" stroke="#000" stroke-width="0.40"/>
+<line x1="93.08" y1="984.43" x2="92.43" y2="984.04" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="985.33" x2="92.43" y2="985.46" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="985.33" x2="92.05" y2="985.07" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="984.94" x2="92.05" y2="985.07" stroke="#000" stroke-width="0.40"/>
+<line x1="93.08" y1="985.84" x2="92.43" y2="985.46" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="975.78" x2="93.72" y2="976.82" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="987.78" x2="94.50" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="985.84" x2="94.50" y2="985.46" stroke="#000" stroke-width="0.40"/>
+<line x1="95.14" y1="987.13" x2="93.72" y2="986.23" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="987.65" x2="94.50" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="985.33" x2="94.50" y2="985.46" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="985.33" x2="93.98" y2="984.94" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="987.65" x2="95.27" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="987.65" x2="94.88" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="985.84" x2="95.66" y2="985.97" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="987.52" x2="95.14" y2="987.13" stroke="#000" stroke-width="0.40"/>
+<line x1="100.69" y1="976.30" x2="99.40" y2="975.14" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="974.11" x2="98.24" y2="974.11" stroke="#000" stroke-width="0.40"/>
+<line x1="99.91" y1="969.72" x2="99.14" y2="969.34" stroke="#000" stroke-width="0.40"/>
+<line x1="100.04" y1="967.14" x2="99.40" y2="966.63" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="968.95" x2="97.72" y2="968.56" stroke="#000" stroke-width="0.40"/>
+<line x1="98.11" y1="967.53" x2="97.59" y2="967.14" stroke="#000" stroke-width="0.40"/>
+<line x1="97.72" y1="968.56" x2="96.56" y2="968.31" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="967.14" x2="96.56" y2="966.63" stroke="#000" stroke-width="0.40"/>
+<line x1="99.40" y1="966.63" x2="98.75" y2="967.14" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="967.79" x2="98.11" y2="967.53" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="967.14" x2="98.62" y2="967.79" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="972.69" x2="97.46" y2="972.56" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="973.98" x2="97.21" y2="974.24" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="973.98" x2="97.21" y2="974.24" stroke="#000" stroke-width="0.40"/>
+<line x1="99.14" y1="969.34" x2="98.24" y2="968.95" stroke="#000" stroke-width="0.40"/>
+<line x1="99.40" y1="975.01" x2="99.01" y2="974.75" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="974.62" x2="99.01" y2="974.75" stroke="#000" stroke-width="0.40"/>
+<line x1="99.40" y1="975.01" x2="99.40" y2="975.14" stroke="#000" stroke-width="0.40"/>
+<line x1="98.50" y1="974.37" x2="98.24" y2="974.11" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="974.62" x2="98.50" y2="974.37" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="972.69" x2="98.75" y2="972.82" stroke="#000" stroke-width="0.40"/>
+<line x1="101.08" y1="969.34" x2="100.43" y2="968.43" stroke="#000" stroke-width="0.40"/>
+<line x1="100.04" y1="967.14" x2="100.04" y2="967.40" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="967.92" x2="100.04" y2="967.40" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="967.92" x2="100.43" y2="968.43" stroke="#000" stroke-width="0.40"/>
+<line x1="102.24" y1="970.63" x2="101.08" y2="969.47" stroke="#000" stroke-width="0.40"/>
+<line x1="101.33" y1="971.27" x2="100.95" y2="970.76" stroke="#000" stroke-width="0.40"/>
+<line x1="101.08" y1="969.34" x2="101.08" y2="969.47" stroke="#000" stroke-width="0.40"/>
+<line x1="99.91" y1="969.72" x2="99.91" y2="969.85" stroke="#000" stroke-width="0.40"/>
+<line x1="100.95" y1="970.76" x2="99.91" y2="969.85" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="974.11" x2="100.43" y2="974.24" stroke="#000" stroke-width="0.40"/>
+<line x1="102.49" y1="971.79" x2="101.33" y2="971.27" stroke="#000" stroke-width="0.40"/>
+<line x1="99.91" y1="976.95" x2="99.01" y2="976.30" stroke="#000" stroke-width="0.40"/>
+<line x1="98.37" y1="977.72" x2="97.46" y2="977.72" stroke="#000" stroke-width="0.40"/>
+<line x1="98.50" y1="976.43" x2="97.98" y2="975.78" stroke="#000" stroke-width="0.40"/>
+<line x1="98.11" y1="975.40" x2="97.98" y2="975.78" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="976.43" x2="96.69" y2="975.78" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="976.43" x2="97.08" y2="976.69" stroke="#000" stroke-width="0.40"/>
+<line x1="97.46" y1="977.72" x2="97.08" y2="976.69" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="976.04" x2="99.01" y2="976.30" stroke="#000" stroke-width="0.40"/>
+<line x1="98.11" y1="975.40" x2="98.11" y2="975.53" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="976.04" x2="98.11" y2="975.53" stroke="#000" stroke-width="0.40"/>
+<line x1="98.50" y1="976.43" x2="98.37" y2="977.72" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="983.91" x2="97.98" y2="983.52" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="984.81" x2="97.34" y2="984.43" stroke="#000" stroke-width="0.40"/>
+<line x1="97.98" y1="983.52" x2="97.34" y2="984.17" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="984.17" x2="97.34" y2="984.43" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="985.33" x2="97.34" y2="985.20" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="985.33" x2="97.46" y2="986.75" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="984.81" x2="97.34" y2="985.20" stroke="#000" stroke-width="0.40"/>
+<line x1="97.46" y1="986.75" x2="96.82" y2="986.36" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="983.91" x2="98.62" y2="984.81" stroke="#000" stroke-width="0.40"/>
+<line x1="99.53" y1="987.65" x2="99.53" y2="987.78" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="985.33" x2="98.75" y2="986.10" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="986.10" x2="98.75" y2="986.10" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="986.10" x2="99.01" y2="987.26" stroke="#000" stroke-width="0.40"/>
+<line x1="99.53" y1="987.65" x2="99.01" y2="987.26" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="985.33" x2="98.62" y2="984.81" stroke="#000" stroke-width="0.40"/>
+<line x1="101.72" y1="978.24" x2="101.08" y2="977.85" stroke="#000" stroke-width="0.40"/>
+<line x1="101.72" y1="976.82" x2="100.69" y2="976.30" stroke="#000" stroke-width="0.40"/>
+<line x1="101.08" y1="977.85" x2="99.91" y2="976.95" stroke="#000" stroke-width="0.40"/>
+<line x1="102.49" y1="978.75" x2="101.72" y2="978.36" stroke="#000" stroke-width="0.40"/>
+<line x1="101.72" y1="978.24" x2="101.72" y2="978.36" stroke="#000" stroke-width="0.40"/>
+<line x1="102.24" y1="977.20" x2="101.72" y2="976.82" stroke="#000" stroke-width="0.40"/>
+<line x1="102.49" y1="978.75" x2="102.49" y2="978.88" stroke="#000" stroke-width="0.40"/>
+<line x1="96.56" y1="1004.03" x2="95.79" y2="1003.64" stroke="#000" stroke-width="0.40"/>
+<line x1="96.56" y1="1004.03" x2="96.17" y2="1004.67" stroke="#000" stroke-width="0.40"/>
+<line x1="97.72" y1="1012.54" x2="96.17" y2="1012.15" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1005.70" x2="95.27" y2="1005.70" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="1009.57" x2="94.88" y2="1009.70" stroke="#000" stroke-width="0.40"/>
+<line x1="96.95" y1="999.90" x2="96.30" y2="1000.29" stroke="#000" stroke-width="0.40"/>
+<line x1="96.95" y1="991.00" x2="96.43" y2="991.91" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="991.39" x2="96.30" y2="992.68" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="993.32" x2="96.30" y2="994.48" stroke="#000" stroke-width="0.40"/>
+<line x1="96.69" y1="1001.45" x2="95.27" y2="1001.84" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="1000.29" x2="94.76" y2="1000.55" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="991.91" x2="92.56" y2="992.03" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="989.33" x2="91.53" y2="988.94" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="990.74" x2="91.53" y2="989.71" stroke="#000" stroke-width="0.40"/>
+<line x1="91.53" y1="989.58" x2="91.53" y2="989.71" stroke="#000" stroke-width="0.40"/>
+<line x1="90.63" y1="990.74" x2="90.24" y2="990.87" stroke="#000" stroke-width="0.40"/>
+<line x1="91.53" y1="989.58" x2="91.14" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="91.53" y1="988.94" x2="91.14" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="989.33" x2="92.31" y2="989.97" stroke="#000" stroke-width="0.40"/>
+<line x1="92.31" y1="989.97" x2="92.05" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="95.01" y1="993.97" x2="94.63" y2="994.61" stroke="#000" stroke-width="0.40"/>
+<line x1="95.53" y1="990.74" x2="94.76" y2="990.62" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="991.91" x2="94.24" y2="992.03" stroke="#000" stroke-width="0.40"/>
+<line x1="95.53" y1="989.07" x2="93.60" y2="989.07" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="990.49" x2="94.76" y2="990.62" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="990.49" x2="93.60" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="989.07" x2="93.47" y2="990.36" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="990.74" x2="93.47" y2="990.36" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="992.03" x2="93.34" y2="992.03" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="991.91" x2="93.34" y2="992.03" stroke="#000" stroke-width="0.40"/>
+<line x1="95.79" y1="990.10" x2="95.53" y2="989.07" stroke="#000" stroke-width="0.40"/>
+<line x1="95.79" y1="990.10" x2="95.53" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="992.68" x2="95.92" y2="993.07" stroke="#000" stroke-width="0.40"/>
+<line x1="96.43" y1="991.91" x2="95.92" y2="992.16" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="992.16" x2="95.27" y2="991.91" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="993.07" x2="95.01" y2="993.97" stroke="#000" stroke-width="0.40"/>
+<line x1="95.01" y1="996.93" x2="94.76" y2="998.22" stroke="#000" stroke-width="0.40"/>
+<line x1="93.72" y1="996.42" x2="93.47" y2="998.10" stroke="#000" stroke-width="0.40"/>
+<line x1="94.63" y1="994.61" x2="94.24" y2="995.52" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="995.52" x2="93.72" y2="996.42" stroke="#000" stroke-width="0.40"/>
+<line x1="93.98" y1="998.87" x2="93.47" y2="998.10" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="998.22" x2="93.98" y2="998.87" stroke="#000" stroke-width="0.40"/>
+<line x1="96.30" y1="994.48" x2="95.79" y2="995.26" stroke="#000" stroke-width="0.40"/>
+<line x1="95.79" y1="995.26" x2="95.53" y2="995.90" stroke="#000" stroke-width="0.40"/>
+<line x1="95.53" y1="995.90" x2="95.01" y2="996.93" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="1011.12" x2="92.95" y2="1010.73" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1012.02" x2="92.82" y2="1011.64" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1007.90" x2="93.08" y2="1008.67" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="1010.09" x2="93.21" y2="1008.80" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="1005.45" x2="92.82" y2="1004.41" stroke="#000" stroke-width="0.40"/>
+<line x1="93.47" y1="1005.83" x2="92.18" y2="1005.83" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1002.22" x2="92.95" y2="1002.48" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1003.12" x2="92.43" y2="1003.25" stroke="#000" stroke-width="0.40"/>
+<line x1="93.72" y1="1007.12" x2="91.27" y2="1007.12" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="1000.93" x2="91.92" y2="1001.45" stroke="#000" stroke-width="0.40"/>
+<line x1="91.27" y1="1007.12" x2="90.89" y2="1006.48" stroke="#000" stroke-width="0.40"/>
+<line x1="92.18" y1="1005.83" x2="91.27" y2="1005.83" stroke="#000" stroke-width="0.40"/>
+<line x1="91.92" y1="1002.74" x2="91.14" y2="1003.12" stroke="#000" stroke-width="0.40"/>
+<line x1="91.92" y1="1001.45" x2="91.02" y2="1001.84" stroke="#000" stroke-width="0.40"/>
+<line x1="91.02" y1="1001.84" x2="90.50" y2="1002.09" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="1003.12" x2="90.50" y2="1002.09" stroke="#000" stroke-width="0.40"/>
+<line x1="91.27" y1="1005.83" x2="90.89" y2="1006.48" stroke="#000" stroke-width="0.40"/>
+<line x1="92.43" y1="1003.25" x2="92.18" y2="1003.64" stroke="#000" stroke-width="0.40"/>
+<line x1="92.95" y1="1002.48" x2="91.92" y2="1002.74" stroke="#000" stroke-width="0.40"/>
+<line x1="92.82" y1="1004.41" x2="92.18" y2="1003.64" stroke="#000" stroke-width="0.40"/>
+<line x1="91.79" y1="1010.09" x2="91.14" y2="1009.70" stroke="#000" stroke-width="0.40"/>
+<line x1="92.05" y1="1011.38" x2="90.63" y2="1010.73" stroke="#000" stroke-width="0.40"/>
+<line x1="91.14" y1="1009.70" x2="90.50" y2="1009.32" stroke="#000" stroke-width="0.40"/>
+<line x1="90.63" y1="1010.60" x2="90.63" y2="1010.73" stroke="#000" stroke-width="0.40"/>
+<line x1="93.21" y1="1008.80" x2="93.08" y2="1008.67" stroke="#000" stroke-width="0.40"/>
+<line x1="92.95" y1="1010.60" x2="92.95" y2="1010.73" stroke="#000" stroke-width="0.40"/>
+<line x1="92.82" y1="1011.64" x2="92.05" y2="1011.38" stroke="#000" stroke-width="0.40"/>
+<line x1="92.95" y1="1010.60" x2="91.79" y2="1010.09" stroke="#000" stroke-width="0.40"/>
+<line x1="95.79" y1="1003.64" x2="94.76" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="1001.84" x2="93.34" y2="1002.22" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="1003.64" x2="93.34" y2="1003.25" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1003.12" x2="93.34" y2="1003.25" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="1000.55" x2="93.60" y2="1000.93" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="1003.77" x2="94.50" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="1003.64" x2="94.50" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="1005.45" x2="93.47" y2="1005.83" stroke="#000" stroke-width="0.40"/>
+<line x1="95.40" y1="1005.06" x2="95.01" y2="1005.19" stroke="#000" stroke-width="0.40"/>
+<line x1="95.27" y1="1005.70" x2="95.01" y2="1005.19" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1004.67" x2="95.40" y2="1005.06" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="1008.15" x2="94.76" y2="1008.15" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="1009.70" x2="94.76" y2="1010.60" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="1011.38" x2="94.24" y2="1011.25" stroke="#000" stroke-width="0.40"/>
+<line x1="94.88" y1="1007.12" x2="94.24" y2="1006.86" stroke="#000" stroke-width="0.40"/>
+<line x1="95.40" y1="1013.05" x2="94.50" y2="1012.54" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="1007.77" x2="93.34" y2="1007.90" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="1008.15" x2="94.24" y2="1007.77" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="1006.86" x2="93.72" y2="1007.12" stroke="#000" stroke-width="0.40"/>
+<line x1="94.76" y1="1010.60" x2="94.37" y2="1010.73" stroke="#000" stroke-width="0.40"/>
+<line x1="93.34" y1="1012.02" x2="93.34" y2="1012.15" stroke="#000" stroke-width="0.40"/>
+<line x1="94.24" y1="1011.12" x2="94.24" y2="1011.25" stroke="#000" stroke-width="0.40"/>
+<line x1="93.60" y1="1010.09" x2="93.60" y2="1010.22" stroke="#000" stroke-width="0.40"/>
+<line x1="94.37" y1="1010.73" x2="93.60" y2="1010.22" stroke="#000" stroke-width="0.40"/>
+<line x1="94.50" y1="1012.54" x2="93.34" y2="1012.15" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1008.28" x2="95.92" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1008.28" x2="95.92" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="95.92" y1="1008.15" x2="94.88" y2="1007.12" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1012.02" x2="96.17" y2="1012.15" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="1011.64" x2="95.66" y2="1011.77" stroke="#000" stroke-width="0.40"/>
+<line x1="95.66" y1="1011.64" x2="94.88" y2="1011.38" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1012.02" x2="95.66" y2="1011.77" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1000.29" x2="98.50" y2="1001.32" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="994.10" x2="99.40" y2="992.68" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="990.36" x2="99.40" y2="989.45" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="989.45" x2="99.40" y2="989.45" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="992.81" x2="97.72" y2="992.94" stroke="#000" stroke-width="0.40"/>
+<line x1="98.50" y1="991.00" x2="97.85" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="989.33" x2="97.98" y2="988.42" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="990.36" x2="96.95" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="989.58" x2="96.95" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="989.58" x2="96.82" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="990.36" x2="96.82" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="96.95" y1="989.33" x2="96.82" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="96.95" y1="990.10" x2="96.82" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="97.98" y1="988.42" x2="96.95" y2="988.04" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="988.42" x2="96.95" y2="989.33" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="988.42" x2="96.56" y2="988.04" stroke="#000" stroke-width="0.40"/>
+<line x1="97.85" y1="991.00" x2="97.34" y2="991.39" stroke="#000" stroke-width="0.40"/>
+<line x1="97.72" y1="992.94" x2="97.34" y2="993.32" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="990.49" x2="98.50" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="989.33" x2="98.24" y2="989.45" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="990.49" x2="98.24" y2="989.45" stroke="#000" stroke-width="0.40"/>
+<line x1="99.40" y1="992.42" x2="99.40" y2="992.68" stroke="#000" stroke-width="0.40"/>
+<line x1="99.40" y1="992.42" x2="98.75" y2="991.91" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="991.91" x2="98.24" y2="992.81" stroke="#000" stroke-width="0.40"/>
+<line x1="98.37" y1="999.90" x2="96.95" y2="999.90" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1000.29" x2="98.37" y2="999.90" stroke="#000" stroke-width="0.40"/>
+<line x1="101.46" y1="991.26" x2="100.69" y2="991.26" stroke="#000" stroke-width="0.40"/>
+<line x1="100.69" y1="991.26" x2="100.30" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="100.17" y1="991.39" x2="99.91" y2="990.62" stroke="#000" stroke-width="0.40"/>
+<line x1="100.30" y1="990.74" x2="99.91" y2="990.62" stroke="#000" stroke-width="0.40"/>
+<line x1="99.91" y1="990.10" x2="99.66" y2="990.36" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="989.45" x2="99.91" y2="990.10" stroke="#000" stroke-width="0.40"/>
+<line x1="100.82" y1="992.81" x2="100.43" y2="992.29" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="992.16" x2="100.43" y2="992.29" stroke="#000" stroke-width="0.40"/>
+<line x1="100.17" y1="991.39" x2="100.17" y2="991.78" stroke="#000" stroke-width="0.40"/>
+<line x1="100.43" y1="992.16" x2="100.17" y2="991.78" stroke="#000" stroke-width="0.40"/>
+<line x1="100.82" y1="992.81" x2="100.69" y2="994.10" stroke="#000" stroke-width="0.40"/>
+<line x1="100.69" y1="994.10" x2="99.66" y2="994.10" stroke="#000" stroke-width="0.40"/>
+<line x1="101.98" y1="989.97" x2="101.72" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="102.11" y1="988.55" x2="101.46" y2="988.17" stroke="#000" stroke-width="0.40"/>
+<line x1="102.62" y1="991.39" x2="102.49" y2="991.78" stroke="#000" stroke-width="0.40"/>
+<line x1="101.72" y1="991.00" x2="101.46" y2="991.26" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="1011.51" x2="99.53" y2="1011.51" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="1010.22" x2="99.53" y2="1011.51" stroke="#000" stroke-width="0.40"/>
+<line x1="99.66" y1="1010.22" x2="99.27" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="101.72" y1="1006.74" x2="99.01" y2="1006.86" stroke="#000" stroke-width="0.40"/>
+<line x1="101.46" y1="1005.70" x2="98.75" y2="1005.58" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="1001.32" x2="97.08" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="1001.32" x2="96.69" y2="1001.45" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="1005.32" x2="97.21" y2="1005.70" stroke="#000" stroke-width="0.40"/>
+<line x1="97.34" y1="1005.32" x2="97.08" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="1001.32" x2="98.50" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="98.62" y1="1001.32" x2="98.50" y2="1001.32" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1005.45" x2="98.75" y2="1005.58" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1004.93" x2="98.62" y2="1005.45" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1005.45" x2="98.62" y2="1005.45" stroke="#000" stroke-width="0.40"/>
+<line x1="98.75" y1="1004.93" x2="98.50" y2="1003.77" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="1009.57" x2="97.85" y2="1008.80" stroke="#000" stroke-width="0.40"/>
+<line x1="98.11" y1="1012.80" x2="97.72" y2="1012.54" stroke="#000" stroke-width="0.40"/>
+<line x1="97.85" y1="1008.80" x2="97.59" y2="1009.57" stroke="#000" stroke-width="0.40"/>
+<line x1="97.98" y1="1008.15" x2="97.59" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="97.98" y1="1008.15" x2="97.85" y2="1008.67" stroke="#000" stroke-width="0.40"/>
+<line x1="97.85" y1="1008.67" x2="97.21" y2="1008.28" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="1006.86" x2="97.21" y2="1006.99" stroke="#000" stroke-width="0.40"/>
+<line x1="97.59" y1="1006.86" x2="97.59" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="97.08" y1="1007.77" x2="96.82" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1007.38" x2="97.08" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1007.38" x2="97.08" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1008.28" x2="97.08" y2="1007.77" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1006.99" x2="96.82" y2="1007.51" stroke="#000" stroke-width="0.40"/>
+<line x1="98.24" y1="1009.57" x2="98.11" y2="1012.80" stroke="#000" stroke-width="0.40"/>
+<line x1="99.01" y1="1006.86" x2="99.01" y2="1006.99" stroke="#000" stroke-width="0.40"/>
+<line x1="99.27" y1="1008.54" x2="99.01" y2="1006.99" stroke="#000" stroke-width="0.40"/>
+<line x1="102.62" y1="1006.86" x2="102.24" y2="1004.80" stroke="#000" stroke-width="0.40"/>
+<line x1="102.24" y1="1003.90" x2="101.98" y2="1003.51" stroke="#000" stroke-width="0.40"/>
+<line x1="102.11" y1="1003.12" x2="101.98" y2="1003.51" stroke="#000" stroke-width="0.40"/>
+<line x1="101.98" y1="1005.96" x2="101.72" y2="1006.74" stroke="#000" stroke-width="0.40"/>
+<line x1="101.98" y1="1005.96" x2="101.46" y2="1005.70" stroke="#000" stroke-width="0.40"/>
+<line x1="102.24" y1="1003.90" x2="102.24" y2="1004.80" stroke="#000" stroke-width="0.40"/>
+<line x1="105.46" y1="968.56" x2="105.07" y2="969.59" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="968.43" x2="103.78" y2="969.72" stroke="#000" stroke-width="0.40"/>
+<line x1="104.30" y1="967.66" x2="103.91" y2="968.43" stroke="#000" stroke-width="0.40"/>
+<line x1="105.46" y1="968.56" x2="105.20" y2="968.18" stroke="#000" stroke-width="0.40"/>
+<line x1="105.20" y1="967.92" x2="104.81" y2="967.53" stroke="#000" stroke-width="0.40"/>
+<line x1="104.81" y1="967.53" x2="104.30" y2="967.66" stroke="#000" stroke-width="0.40"/>
+<line x1="105.20" y1="967.92" x2="105.20" y2="968.18" stroke="#000" stroke-width="0.40"/>
+<line x1="104.69" y1="973.21" x2="104.04" y2="972.69" stroke="#000" stroke-width="0.40"/>
+<line x1="104.43" y1="970.88" x2="103.91" y2="971.79" stroke="#000" stroke-width="0.40"/>
+<line x1="104.69" y1="973.21" x2="103.91" y2="974.11" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="971.79" x2="103.14" y2="972.05" stroke="#000" stroke-width="0.40"/>
+<line x1="103.78" y1="969.72" x2="103.53" y2="970.37" stroke="#000" stroke-width="0.40"/>
+<line x1="103.53" y1="970.37" x2="103.14" y2="970.76" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="974.11" x2="103.40" y2="974.24" stroke="#000" stroke-width="0.40"/>
+<line x1="104.04" y1="972.69" x2="102.75" y2="973.08" stroke="#000" stroke-width="0.40"/>
+<line x1="105.07" y1="969.59" x2="104.81" y2="970.11" stroke="#000" stroke-width="0.40"/>
+<line x1="104.81" y1="970.11" x2="104.43" y2="970.88" stroke="#000" stroke-width="0.40"/>
+<line x1="104.30" y1="978.11" x2="104.04" y2="978.75" stroke="#000" stroke-width="0.40"/>
+<line x1="104.30" y1="978.11" x2="103.40" y2="977.46" stroke="#000" stroke-width="0.40"/>
+<line x1="104.04" y1="978.75" x2="103.40" y2="979.01" stroke="#000" stroke-width="0.40"/>
+<line x1="106.10" y1="991.00" x2="103.91" y2="990.74" stroke="#000" stroke-width="0.40"/>
+<line x1="106.23" y1="989.97" x2="105.33" y2="989.58" stroke="#000" stroke-width="0.40"/>
+<line x1="105.33" y1="989.58" x2="103.91" y2="989.20" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="990.74" x2="103.91" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="988.94" x2="103.91" y2="989.20" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="988.94" x2="103.01" y2="988.17" stroke="#000" stroke-width="0.40"/>
+<line x1="103.78" y1="992.42" x2="103.27" y2="992.55" stroke="#000" stroke-width="0.40"/>
+<line x1="103.27" y1="992.42" x2="103.27" y2="992.55" stroke="#000" stroke-width="0.40"/>
+<line x1="104.17" y1="991.39" x2="103.91" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="104.17" y1="991.39" x2="103.78" y2="992.42" stroke="#000" stroke-width="0.40"/>
+<line x1="103.27" y1="992.42" x2="102.75" y2="992.16" stroke="#000" stroke-width="0.40"/>
+<line x1="106.23" y1="989.97" x2="106.10" y2="991.00" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="1006.74" x2="103.91" y2="1007.25" stroke="#000" stroke-width="0.40"/>
+<line x1="103.53" y1="1005.70" x2="103.27" y2="1003.12" stroke="#000" stroke-width="0.40"/>
+<line x1="103.91" y1="1006.74" x2="103.53" y2="1005.70" stroke="#000" stroke-width="0.40"/>
+<line x1="104.17" y1="1007.64" x2="104.04" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="104.17" y1="1007.64" x2="103.91" y2="1007.25" stroke="#000" stroke-width="0.40"/>
+<line x1="104.04" y1="1008.54" x2="103.14" y2="1008.80" stroke="#000" stroke-width="0.40"/>
+<line x1="102.88" y1="1007.77" x2="102.75" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="103.14" y1="1008.80" x2="102.75" y2="1008.54" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1013.96" x2="96.17" y2="1013.57" stroke="#000" stroke-width="0.40"/>
+<line x1="96.17" y1="1013.44" x2="96.17" y2="1013.57" stroke="#000" stroke-width="0.40"/>
+<line x1="98.37" y1="1014.22" x2="97.21" y2="1014.09" stroke="#000" stroke-width="0.40"/>
+<line x1="97.21" y1="1013.96" x2="97.21" y2="1014.09" stroke="#000" stroke-width="0.40"/>
+<line x1="99.53" y1="1013.70" x2="98.37" y2="1014.22" stroke="#000" stroke-width="0.40"/>
+<text x="91.48" y="1107.55" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="11.66" fill="#000" transform="rotate(-270.00 91.48 1107.55)">Un+ES</text>
+<text x="314.26" y="211.49" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.31" fill="#000" transform="rotate(-0.00 314.26 211.49)">发电机A套保护柜Un+PR1</text>
+<text x="314.26" y="243.95" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.31" fill="#000" transform="rotate(-0.00 314.26 243.95)">发电机B套保护柜Un+PR2</text>
+<text x="313.23" y="184.10" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="8.31" fill="#000" transform="rotate(-0.00 313.23 184.10)">机组本地LCUn+PC2</text>
+<text x="432.20" y="1040.94" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="12.00" fill="#000" transform="rotate(-0.00 432.20 1040.94)">注：</text>
+<text x="439.04" y="1100.43" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="12.00" fill="#000" transform="rotate(-0.00 439.04 1100.43)">2. 图中电缆编号为Un，2~9机电缆替换为U(2~9),-E表示励磁部分电缆。</text>
+<text x="438.85" y="1068.46" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="12.00" fill="#000" transform="rotate(-0.00 438.85 1068.46)">1. 本图根据南瑞励磁厂家图纸设计完成，具体接线参见厂家图纸。</text>
+<text x="440.65" y="1131.67" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="12.00" fill="#000" transform="rotate(-0.00 440.65 1131.67)">3. 参考图：溪洛渡励磁系统生产图；</text>
+<text x="458.00" y="1151.77" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="12.00" fill="#000" transform="rotate(-0.00 458.00 1151.77)">图号：DK 10036</text>
+<text x="77.65" y="241.31" font-family="Heiti SC, STHeiti, Hiragino Sans GB, Songti SC, Hiragino Sans, Arial Unicode MS, sans-serif" font-size="6.30" fill="#000" transform="rotate(-0.00 77.65 241.31)">Un-P/44-008B</text>
+</svg>
